@@ -720,43 +720,64 @@ export function IdeasTab({
             </DialogDescription>
           </DialogHeader>
 
-          {/* AI PDF Parser Feature Box */}
-          <div className="my-2 p-4 bg-red-50/60 border border-red-200/80 rounded-2xl space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#F81B00] flex items-center gap-1.5">
-                <HiOutlineSparkles className="size-4" />
-                Заполнить из научной статьи (PDF)
-              </span>
-              {parsingPdf && (
-                <span className="text-[10px] font-semibold text-[#F81B00] animate-pulse">
-                  ИИ анализирует структуру статьи...
+          {/* AI PDF Parser Feature Box with OpenRouter Shine */}
+          {parsingPdf ? (
+            <div className="my-2 openrouter-shine-card shadow-md animate-in fade-in duration-200">
+              <div className="openrouter-shine-inner p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#111111] openrouter-text-shimmer flex items-center gap-2">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#F81B00] opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#F81B00]"></span>
+                    </span>
+                    ИИ анализирует научную статью (PDF)...
+                  </span>
+                  <span className="text-[10px] font-bold text-[#F81B00] bg-[#F81B00]/10 px-2 py-0.5 rounded-full border border-[#F81B00]/20 flex items-center gap-1">
+                    <span className="size-1.5 rounded-full bg-[#F81B00] animate-pulse" />
+                    OpenRouter Active
+                  </span>
+                </div>
+                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-[#E2E5EB]">
+                  <div className="h-full rounded-full openrouter-shimmer-bar w-full" />
+                </div>
+                <p className="text-[11px] text-[#4B5563]">
+                  Нейросеть извлекает технологические параметры, определяет уровень TRL и автоматически формирует этапы сметы по ГОСТ...
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="my-2 p-4 bg-red-50/60 border border-red-200/80 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-[#F81B00] flex items-center gap-1.5">
+                  <HiOutlineSparkles className="size-4" />
+                  Заполнить из научной статьи (PDF)
                 </span>
-              )}
+              </div>
+              <p className="text-[11px] text-[#4B5563] leading-relaxed">
+                Загрузите препринт или статью в PDF. ИИ автоматически сформирует коммерческое название, выделит отрасль, оценит TRL и разобьёт проект на 3 логических этапа сметы.
+              </p>
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <label className="cursor-pointer inline-flex items-center gap-2 px-3.5 py-1.5 bg-white border border-red-300 hover:bg-red-50 rounded-xl text-xs font-semibold text-[#F81B00] transition-colors">
+                  <HiOutlineDocumentText className="size-4" />
+                  <span>Выбрать файл статьи (PDF)</span>
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    className="hidden"
+                    disabled={parsingPdf}
+                    onChange={handlePdfUpload}
+                  />
+                </label>
+                <a
+                  href="/sample_project_spec.pdf"
+                  download
+                  className="text-[11px] text-[#6B7280] hover:text-[#111111] hover:underline flex items-center gap-1 font-medium"
+                >
+                  📥 Скачать образец спецификации (PDF)
+                </a>
+              </div>
             </div>
-            <p className="text-[11px] text-[#4B5563] leading-relaxed">
-              Загрузите препринт или статью в PDF. ИИ автоматически сформирует коммерческое название, выделит отрасль, оценит TRL и разобьёт проект на 3 логических этапа сметы.
-            </p>
-            <div className="flex flex-wrap items-center gap-3 pt-1">
-              <label className="cursor-pointer inline-flex items-center gap-2 px-3.5 py-1.5 bg-white border border-red-300 hover:bg-red-50 rounded-xl text-xs font-semibold text-[#F81B00] transition-colors">
-                <HiOutlineDocumentText className="size-4" />
-                <span>{parsingPdf ? "Идёт обработка PDF..." : "Выбрать файл статьи (PDF)"}</span>
-                <input
-                  type="file"
-                  accept=".pdf"
-                  className="hidden"
-                  disabled={parsingPdf}
-                  onChange={handlePdfUpload}
-                />
-              </label>
-              <a
-                href="/sample_project_spec.pdf"
-                download
-                className="text-[11px] text-[#6B7280] hover:text-[#111111] hover:underline flex items-center gap-1 font-medium"
-              >
-                📥 Скачать образец спецификации (PDF)
-              </a>
-            </div>
-          </div>
+          )}
 
           <form onSubmit={handlePublishTech} className="space-y-3.5 pt-2">
             <div>
@@ -827,6 +848,27 @@ export function IdeasTab({
                 className="h-9 text-xs rounded-xl"
                 required
               />
+            </div>
+
+            {/* Stages Timeline Chain */}
+            <div className="space-y-2 pt-1">
+              <label className="text-xs font-semibold text-[#111111] block">
+                Календарная цепочка этапов НИОКР ({milestones.length}):
+              </label>
+              <div className="relative pl-7 space-y-2.5 pt-1">
+                <div className="absolute left-[13px] top-3 bottom-3 w-0.5 bg-gradient-to-b from-[#F81B00] to-[#E2E5EB]" />
+                {milestones.map((m, i) => (
+                  <div key={m.step || i} className="relative flex items-center justify-between gap-3 p-2.5 bg-[#F9FAFB] rounded-xl border border-[#E2E5EB] text-xs shadow-2xs">
+                    <div className="absolute -left-7 size-6 rounded-full bg-white border-2 border-[#F81B00] text-[#F81B00] font-bold text-[11px] flex items-center justify-center shadow-xs z-10">
+                      {m.step || i + 1}
+                    </div>
+                    <span className="font-medium text-[#111111] truncate">{m.title}</span>
+                    <span className="font-bold text-[#F81B00] shrink-0 font-mono text-[11px]">
+                      {Number(m.amount).toLocaleString("ru-RU")} ₽
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Authorship Hash Banner */}

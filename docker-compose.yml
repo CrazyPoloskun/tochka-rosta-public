@@ -21,6 +21,8 @@ services:
       dockerfile: Dockerfile
     container_name: tochka_backend
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       POSTGRES_SERVER: db
       POSTGRES_PORT: 5432

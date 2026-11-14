@@ -82,6 +82,14 @@ const QUICK_EXAMPLES = [
   "Твердотельный аккумулятор для электрокаров с зарядкой за 10 минут",
 ]
 
+const GENERATION_STAGES = [
+  { icon: "🔍", label: "Семантический анализ технического запроса...", progress: 20 },
+  { icon: "📐", label: "Сопоставление с патентным классификатором МПК и ГОСТ 15.016...", progress: 45 },
+  { icon: "⚙️", label: "Расчет физико-химических и инженерных допусков...", progress: 68 },
+  { icon: "📊", label: "Календарное планирование этапов и калькуляция сметы...", progress: 85 },
+  { icon: "📜", label: "Формирование разделов РИД и финальная валидация ТЗ...", progress: 96 },
+]
+
 export function AiTaskAssistantModal({
   open,
   onOpenChange,
@@ -99,8 +107,20 @@ export function AiTaskAssistantModal({
   const [userQuery, setUserQuery] = React.useState(initialQuery || "")
   const [selectedIndustry, setSelectedIndustry] = React.useState(initialCategory || "Автоопределение")
   const [loading, setLoading] = React.useState(false)
+  const [currentStageIdx, setCurrentStageIdx] = React.useState(0)
   const [activeTab, setActiveTab] = React.useState<"reqs" | "stages" | "ip">("reqs")
   const [result, setResult] = React.useState<GeneratedTzResult | null>(null)
+
+  React.useEffect(() => {
+    let interval: any
+    if (loading) {
+      setCurrentStageIdx(0)
+      interval = setInterval(() => {
+        setCurrentStageIdx((prev) => (prev < GENERATION_STAGES.length - 1 ? prev + 1 : prev))
+      }, 1900)
+    }
+    return () => clearInterval(interval)
+  }, [loading])
 
   React.useEffect(() => {
     if (open) {
@@ -262,16 +282,59 @@ export function AiTaskAssistantModal({
             )}
           </div>
 
-          {/* Loading Indicator */}
+          {/* OpenRouter-style Shine Card & Dynamic Generation Status */}
           {loading && (
-            <div className="p-8 text-center space-y-3 bg-[#FBFBFC] rounded-xl border border-dashed border-[#E2E5EB]">
-              <div className="size-8 border-2 border-[#F81B00] border-t-transparent rounded-full animate-spin mx-auto" />
-              <p className="text-xs font-semibold text-[#111111]">
-                Нейросетевой инженер формулирует физико-химические допуски и фазы НИОКР...
-              </p>
-              <p className="text-[11px] text-[#6B7280]">
-                Сопоставление с патентным классификатором МПК и стандартами испытаний
-              </p>
+            <div className="openrouter-shine-card shadow-md animate-in fade-in zoom-in-95 duration-200">
+              <div className="openrouter-shine-inner p-5 space-y-4">
+                {/* Header with glowing beacon */}
+                <div className="flex items-center justify-between pb-3 border-b border-[#E2E5EB]/60">
+                  <div className="flex items-center gap-2.5">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#F81B00] opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#F81B00]"></span>
+                    </span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#111111] openrouter-text-shimmer">
+                      Нейросетевая генерация ТЗ по ГОСТ 15.016-2016
+                    </span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F81B00]/10 text-[#F81B00] border border-[#F81B00]/20 flex items-center gap-1.5">
+                    <span className="size-1.5 rounded-full bg-[#F81B00] animate-pulse" />
+                    OpenRouter Neural
+                  </span>
+                </div>
+
+                {/* Animated Generation Status */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-semibold text-[#111111]">
+                    <span className="flex items-center gap-2">
+                      <span className="text-sm">{GENERATION_STAGES[currentStageIdx].icon}</span>
+                      <span className="font-medium text-[#111111]">{GENERATION_STAGES[currentStageIdx].label}</span>
+                    </span>
+                    <span className="text-[#F81B00] font-mono text-[11px] font-bold">
+                      {GENERATION_STAGES[currentStageIdx].progress}%
+                    </span>
+                  </div>
+
+                  {/* Flowing Shimmer Bar */}
+                  <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-[#E2E5EB]">
+                    <div
+                      className="h-full rounded-full openrouter-shimmer-bar transition-all duration-500 ease-out"
+                      style={{ width: `${GENERATION_STAGES[currentStageIdx].progress}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Shimmering Skeleton Mocking Output */}
+                <div className="space-y-2 pt-1">
+                  <div className="h-2.5 w-4/5 rounded-md openrouter-shimmer-bar opacity-60" />
+                  <div className="h-2.5 w-full rounded-md openrouter-shimmer-bar opacity-40" />
+                  <div className="h-2.5 w-3/5 rounded-md openrouter-shimmer-bar opacity-30" />
+                </div>
+
+                <div className="pt-1 text-center text-[10px] text-[#6B7280]">
+                  Используются патентные классификаторы МПК и нормативная база трансфера технологий РФ
+                </div>
+              </div>
             </div>
           )}
 
@@ -379,33 +442,65 @@ export function AiTaskAssistantModal({
                 </div>
               )}
 
-              {/* Tab 2: Stages & Deliverables */}
+              {/* Tab 2: Stages Chain connected with line */}
               {activeTab === "stages" && (
-                <div className="space-y-3 text-xs">
-                  <div className="p-3.5 bg-[#FAFAFB] rounded-xl border border-[#E2E5EB] space-y-2">
-                    <span className="text-[11px] font-bold text-[#111111] flex items-center gap-1.5">
-                      <HiOutlineDocumentCheck className="size-4 text-[#F81B00]" />
-                      <span>Рекомендуемые этапы НИОКР:</span>
-                    </span>
-                    <div className="space-y-1.5">
+                <div className="space-y-4 text-xs">
+                  <div className="p-4 bg-white rounded-2xl border border-[#E2E5EB] shadow-2xs space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-[#E2E5EB]">
+                      <span className="text-xs font-bold text-[#111111] flex items-center gap-1.5">
+                        <HiOutlineDocumentCheck className="size-4 text-[#F81B00]" />
+                        <span>Календарная цепочка этапов НИОКР:</span>
+                      </span>
+                      <span className="text-[10px] font-semibold text-[#6B7280]">
+                        {(result.stages || []).length} этапа с контрольными точками
+                      </span>
+                    </div>
+
+                    {/* Connected Chain Timeline */}
+                    <div className="relative pl-7 space-y-3.5 pt-1">
+                      {/* Continuous vertical connecting line */}
+                      <div className="absolute left-[13px] top-3.5 bottom-3.5 w-0.5 bg-gradient-to-b from-[#F81B00] via-[#F81B00]/60 to-[#E2E5EB]" />
+
                       {(result.stages || []).map((stage, i) => (
-                        <div key={i} className="p-2 bg-white rounded-lg border border-[#E2E5EB] flex items-center justify-between">
-                          <span className="font-medium text-[#111111]">{stage}</span>
+                        <div key={i} className="relative flex items-start gap-3 group">
+                          {/* Connected Step Node */}
+                          <div className="absolute -left-7 size-7 rounded-full bg-white border-2 border-[#F81B00] text-[#F81B00] font-bold text-xs flex items-center justify-center shadow-xs z-10 transition-transform group-hover:scale-110">
+                            {i + 1}
+                          </div>
+
+                          {/* Stage Content Card */}
+                          <div className="flex-1 p-3 bg-[#F9FAFB] rounded-xl border border-[#E2E5EB] transition-all hover:border-[#F81B00]/40 hover:bg-white shadow-2xs">
+                            <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
+                              <span className="font-bold text-[#111111] text-xs flex items-center gap-1.5">
+                                <span className="size-1.5 rounded-full bg-[#F81B00]" />
+                                Этап {i + 1}
+                              </span>
+                              <Badge variant="outline" className="border-[#E2E5EB] bg-white text-[10px] text-[#4B5563] font-medium">
+                                Сдача отчетности
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-[#374151] leading-relaxed">
+                              {stage.replace(/^Этап\s*\d+[:.]?\s*/i, "")}
+                            </p>
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="p-3.5 bg-[#FAFAFB] rounded-xl border border-[#E2E5EB] space-y-2">
-                    <span className="text-[11px] font-bold text-[#111111] flex items-center gap-1.5">
+                  <div className="p-4 bg-white rounded-2xl border border-[#E2E5EB] shadow-2xs space-y-2">
+                    <span className="text-xs font-bold text-[#111111] flex items-center gap-1.5">
                       <HiOutlineCube className="size-4 text-[#F81B00]" />
                       <span>Ожидаемые материальные результаты (Deliverables):</span>
                     </span>
-                    <ul className="space-y-1 text-[#374151] list-disc list-inside">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                       {(result.deliverables || []).map((d, i) => (
-                        <li key={i}>{d}</li>
+                        <div key={i} className="p-2.5 bg-[#F9FAFB] rounded-xl border border-[#E2E5EB] text-xs text-[#374151] flex items-start gap-2">
+                          <span className="size-1.5 rounded-full bg-[#F81B00] mt-1 shrink-0" />
+                          <span>{d}</span>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   </div>
                 </div>
               )}

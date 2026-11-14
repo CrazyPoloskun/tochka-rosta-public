@@ -620,7 +620,10 @@ export function ProjectsTab({
                   </span>
                 </div>
 
-                <div className="space-y-3">
+                <div className="relative pl-8 space-y-4">
+                  {/* Continuous vertical timeline chain line connecting all stages */}
+                  <div className="absolute left-[15px] top-4 bottom-4 w-0.5 bg-gradient-to-b from-[#F81B00] via-[#E2E5EB] to-[#E2E5EB]" />
+
                   {activeProject.milestones.map((m, idx) => {
                     const isPendingFunds = m.status === "pending_funds"
                     const isEscrowFunded = m.status === "escrow_funded"
@@ -629,40 +632,43 @@ export function ProjectsTab({
                     const isDisputed = m.status === "disputed"
 
                     return (
-                      <Card
-                        key={m.id}
-                        className={`rounded-2xl p-4 sm:p-5 transition-all bg-white ${
-                          isInReview
-                            ? "border-blue-300 ring-1 ring-blue-100"
-                            : isEscrowFunded
-                            ? "border-amber-300"
-                            : isApproved
-                            ? "border-emerald-200"
-                            : isDisputed
-                            ? "border-red-300 ring-1 ring-red-100"
-                            : "border-[#E2E5EB]"
-                        }`}
-                      >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                          <div className="flex items-start gap-3">
-                            <div
-                              className={`size-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${
-                                isApproved
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : isInReview
-                                  ? "bg-blue-100 text-blue-800"
-                                  : isEscrowFunded
-                                  ? "bg-amber-100 text-amber-800"
-                                  : isDisputed
-                                  ? "bg-red-100 text-red-800"
-                                  : "bg-slate-100 text-slate-700"
-                              }`}
-                            >
-                              {isApproved ? <HiOutlineCheck className="size-4" /> : m.step_number || idx + 1}
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <h4 className="text-xs font-bold text-[#111111]">{m.title}</h4>
+                      <div key={m.id} className="relative flex items-start gap-3 group">
+                        {/* Connected Step Node on Chain Line */}
+                        <div
+                          className={`absolute -left-8 size-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 z-10 shadow-xs border-2 transition-transform group-hover:scale-110 ${
+                            isApproved
+                              ? "bg-emerald-500 border-white text-white"
+                              : isInReview
+                              ? "bg-blue-500 border-white text-white animate-pulse"
+                              : isEscrowFunded
+                              ? "bg-amber-500 border-white text-white"
+                              : isDisputed
+                              ? "bg-red-500 border-white text-white"
+                              : "bg-white border-[#E2E5EB] text-slate-700"
+                          }`}
+                        >
+                          {isApproved ? <HiOutlineCheck className="size-4" /> : m.step_number || idx + 1}
+                        </div>
+
+                        {/* Milestone Card */}
+                        <Card
+                          className={`flex-1 rounded-2xl p-4 sm:p-5 transition-all bg-white shadow-2xs ${
+                            isInReview
+                              ? "border-blue-300 ring-1 ring-blue-100"
+                              : isEscrowFunded
+                              ? "border-amber-300"
+                              : isApproved
+                              ? "border-emerald-200"
+                              : isDisputed
+                              ? "border-red-300 ring-1 ring-red-100"
+                              : "border-[#E2E5EB]"
+                          }`}
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex items-start gap-3">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="text-xs font-bold text-[#111111]">{m.title}</h4>
                                 <span
                                   className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                     isApproved
@@ -808,9 +814,10 @@ export function ProjectsTab({
                           </div>
                         </div>
                       </Card>
-                    )
-                  })}
-                </div>
+                    </div>
+                  )
+                })}
+              </div>
               </div>
 
               {/* Project Files Manager */}

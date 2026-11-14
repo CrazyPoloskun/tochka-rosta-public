@@ -10,6 +10,13 @@ from app.core.config import settings
 logger = logging.getLogger("ai_service")
 
 
+def _clean_str(val: Any) -> str:
+    """Удаляет пробелы и случайные кавычки вокруг значений из .env."""
+    if not val:
+        return ""
+    return str(val).strip().strip('"').strip("'")
+
+
 def extract_text_from_pdf(pdf_bytes: bytes) -> str:
     """Извлекает сырой текст из PDF с помощью pypdf или аварийного декодера."""
     text_parts = []
@@ -80,76 +87,97 @@ async def call_real_llm(
     1. OpenRouter (если задан OPENROUTER_API_KEY)
     2. OpenAI / DeepSeek / Groq (если задан OPENAI_API_KEY)
     3. Google Gemini (если задан GEMINI_API_KEY)
-    4. Neural Engine (бесплатный открытый шлюз Pollinations/OpenAI без моков)
+    4. Neural Gateway (бесплатный открытый шлюз Pollinations/OpenAI)
 
     Возвращает кортеж: (content, provider_name).
-    При невозможности связаться с нейросетью возбуждает RuntimeError (никаких моковых данных).
+    При невозможности связаться с нейросетью возбуждает RuntimeError.
     """
+    openrouter_key = _clean_str(settings.OPENROUTER_API_KEY)
+    openrouter_model = _clean_str(settings.OPENROUTER_MODEL) or "google/gemini-2.5-flash"
+    openrouter_url = (_clean_str(settings.OPENROUTER_BASE_URL) or "https://openrouter.ai/api/v1").rstrip('/') + "/chat/completions"
+
+    openai_key = _clean_str(settings.OPENAI_API_KEY)
+    openai_model = _clean_str(settings.OPENAI_MODEL) or "gpt-4o-mini"
+    openai_url = (_clean_str(settings.OPENAI_BASE_URL) or "https://api.openai.com/v1").rstrip('/') + "/chat/completions"
+
+    gemini_key = _clean_str(settings.GEMINI_API_KEY)
+    gemini_model = _clean_str(settings.GEMINI_MODEL) or "gemini-2.5-flash"
+
     # 1. Попытка через OpenRouter
-    if settings.OPENROUTER_API_KEY.strip():
+    if openrouter_key:
         try:
-            url = f"{settings.OPENROUTER_BASE_URL.rstrip('/')}/chat/completions"
             headers = {
-                "Authorization": f"Bearer {settings.OPENROUTER_API_KEY.strip()}",
+                "Authorization": f"Bearer {openrouter_key}",
                 "HTTP-Referer": "https://tochkarosta.ru",
                 "X-Title": "Tochka Rosta DeepTech Platform",
                 "Content-Type": "application/json",
             }
             payload: dict[str, Any] = {
-                "model": settings.OPENROUTER_MODEL,
+                "model": openrouter_model,
                 "messages": messages,
                 "temperature": temperature,
             }
             if response_format_json:
                 payload["response_format"] = {"type": "json_object"}
 
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                res = await client.post(url, headers=headers, json=payload)
+            async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=15.0)) as client:
+                res = await client.post(openrouter_url, headers=headers, json=payload)
+
+                # Некоторые модели OpenRouter возвращают 400 при наличии response_format
+                if res.status_code == 400 and response_format_json:
+                    logger.info("OpenRouter model rejected response_format, retrying with raw text mode...")
+                    payload.pop("response_format", None)
+                    res = await client.post(openrouter_url, headers=headers, json=payload)
+
                 if res.status_code == 200:
                     data = res.json()
                     choices = data.get("choices", [])
                     if choices:
                         content = choices[0].get("message", {}).get("content", "").strip()
                         if content:
-                            return content, f"OpenRouter ({settings.OPENROUTER_MODEL})"
-                logger.warning(f"OpenRouter returned status {res.status_code}: {res.text[:200]}")
+                            return content, f"OpenRouter ({openrouter_model})"
+                else:
+                    logger.error(f"OpenRouter API error {res.status_code}: {res.text[:300]}")
         except Exception as e:
-            logger.warning(f"OpenRouter call failed: {e}")
+            logger.error(f"OpenRouter call failed: {e}")
 
     # 2. Попытка через OpenAI / DeepSeek / Compatible API
-    if settings.OPENAI_API_KEY.strip():
+    if openai_key:
         try:
-            url = f"{settings.OPENAI_BASE_URL.rstrip('/')}/chat/completions"
             headers = {
-                "Authorization": f"Bearer {settings.OPENAI_API_KEY.strip()}",
+                "Authorization": f"Bearer {openai_key}",
                 "Content-Type": "application/json",
             }
-            payload: dict[str, Any] = {
-                "model": settings.OPENAI_MODEL,
+            payload = {
+                "model": openai_model,
                 "messages": messages,
                 "temperature": temperature,
             }
             if response_format_json:
                 payload["response_format"] = {"type": "json_object"}
 
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                res = await client.post(url, headers=headers, json=payload)
+            async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=15.0)) as client:
+                res = await client.post(openai_url, headers=headers, json=payload)
+                if res.status_code == 400 and response_format_json:
+                    payload.pop("response_format", None)
+                    res = await client.post(openai_url, headers=headers, json=payload)
+
                 if res.status_code == 200:
                     data = res.json()
                     choices = data.get("choices", [])
                     if choices:
                         content = choices[0].get("message", {}).get("content", "").strip()
                         if content:
-                            return content, f"OpenAI ({settings.OPENAI_MODEL})"
-                logger.warning(f"OpenAI returned status {res.status_code}: {res.text[:200]}")
+                            return content, f"OpenAI ({openai_model})"
+                else:
+                    logger.error(f"OpenAI API error {res.status_code}: {res.text[:300]}")
         except Exception as e:
-            logger.warning(f"OpenAI call failed: {e}")
+            logger.error(f"OpenAI call failed: {e}")
 
     # 3. Попытка через Google Gemini Direct API
-    if settings.GEMINI_API_KEY.strip():
+    if gemini_key:
         try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent?key={settings.GEMINI_API_KEY.strip()}"
-            # Преобразуем формат сообщений для Gemini
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent?key={gemini_key}"
             gemini_contents = []
             for msg in messages:
                 role = "user" if msg["role"] in ("user", "system") else "model"
@@ -166,7 +194,7 @@ async def call_real_llm(
             if response_format_json:
                 payload["generationConfig"]["responseMimeType"] = "application/json"
 
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=15.0)) as client:
                 res = await client.post(url, json=payload)
                 if res.status_code == 200:
                     data = res.json()
@@ -176,10 +204,11 @@ async def call_real_llm(
                         if parts and "text" in parts[0]:
                             content = parts[0]["text"].strip()
                             if content:
-                                return content, f"Google Gemini ({settings.GEMINI_MODEL})"
-                logger.warning(f"Gemini API returned status {res.status_code}: {res.text[:200]}")
+                                return content, f"Google Gemini ({gemini_model})"
+                else:
+                    logger.error(f"Gemini API error {res.status_code}: {res.text[:300]}")
         except Exception as e:
-            logger.warning(f"Gemini API call failed: {e}")
+            logger.error(f"Gemini API call failed: {e}")
 
     # 4. Резервный реальный нейросетевой шлюз (Real Neural Engine)
     try:
@@ -189,7 +218,7 @@ async def call_real_llm(
             "messages": messages,
             "temperature": temperature,
         }
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=15.0)) as client:
             res = await client.post(url, json=payload)
             if res.status_code == 200:
                 data = res.json()
@@ -199,14 +228,15 @@ async def call_real_llm(
                     if content:
                         model_name = data.get("model", settings.FALLBACK_AI_MODEL)
                         return content, f"Neural Gateway ({model_name})"
-            logger.warning(f"Fallback Neural Gateway returned status {res.status_code}: {res.text[:200]}")
+            else:
+                logger.error(f"Fallback Neural Gateway error {res.status_code}: {res.text[:300]}")
     except Exception as e:
         logger.error(f"Fallback Neural Gateway call failed: {e}")
 
-    # Никаких моковых заглушек: выбрасываем исключение
+    # Никаких моковых заглушек: выбрасываем ошибку
     raise RuntimeError(
         "ИИ-сервис временно недоступен: не удалось связаться с нейросетевыми шлюзами. "
-        "Пожалуйста, проверьте подключение к сети или укажите API-ключ в конфигурации (.env)."
+        "Проверьте правильность OPENROUTER_API_KEY или подключение к сети."
     )
 
 
@@ -254,7 +284,6 @@ async def parse_pdf_to_project_data(pdf_text: str) -> dict[str, Any]:
     llm_output, provider = await call_real_llm(messages, response_format_json=True, temperature=0.1)
     parsed = _extract_and_parse_json(llm_output)
 
-    # Валидация ключевых полей
     if not isinstance(parsed, dict) or "title" not in parsed:
         raise ValueError("Нейросеть вернула некорректный формат спецификации проекта.")
 
@@ -400,18 +429,38 @@ async def generate_task_tz_ai(title: str, query: str, industry: Optional[str] = 
 
 def get_ai_status() -> dict[str, Any]:
     """Возвращает информацию о текущей активной конфигурации нейросетевых шлюзов."""
+    openrouter_key = _clean_str(settings.OPENROUTER_API_KEY)
+    openai_key = _clean_str(settings.OPENAI_API_KEY)
+    gemini_key = _clean_str(settings.GEMINI_API_KEY)
+
     configured_providers = []
-    if settings.OPENROUTER_API_KEY.strip():
-        configured_providers.append(f"OpenRouter ({settings.OPENROUTER_MODEL})")
-    if settings.OPENAI_API_KEY.strip():
-        configured_providers.append(f"OpenAI/DeepSeek ({settings.OPENAI_MODEL})")
-    if settings.GEMINI_API_KEY.strip():
-        configured_providers.append(f"Google Gemini ({settings.GEMINI_MODEL})")
+    active = "Neural Gateway"
+
+    if openrouter_key:
+        model = _clean_str(settings.OPENROUTER_MODEL) or "google/gemini-2.5-flash"
+        configured_providers.append(f"OpenRouter ({model})")
+        active = f"OpenRouter ({model})"
+    if openai_key:
+        model = _clean_str(settings.OPENAI_MODEL) or "gpt-4o-mini"
+        configured_providers.append(f"OpenAI/DeepSeek ({model})")
+        if not openrouter_key:
+            active = f"OpenAI ({model})"
+    if gemini_key:
+        model = _clean_str(settings.GEMINI_MODEL) or "gemini-2.5-flash"
+        configured_providers.append(f"Google Gemini ({model})")
+        if not openrouter_key and not openai_key:
+            active = f"Google Gemini ({model})"
+
     configured_providers.append(f"Neural Gateway ({settings.FALLBACK_AI_MODEL})")
 
+    key_preview = "не задан"
+    if openrouter_key:
+        key_preview = f"{openrouter_key[:6]}...{openrouter_key[-4:]}" if len(openrouter_key) > 10 else "задан"
+
     return {
-        "is_configured": True,
-        "active_provider": configured_providers[0],
+        "is_configured": bool(openrouter_key or openai_key or gemini_key),
+        "active_provider": active,
+        "key_preview": key_preview,
         "available_providers": configured_providers,
         "mock_data_enabled": False,
         "status": "online",
