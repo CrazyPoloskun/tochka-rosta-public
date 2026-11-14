@@ -13,12 +13,13 @@ import { Button } from "@/components/ui/button"
 
 interface ConfirmDialogProps {
   open: boolean
-  onOpenChange: (open: boolean) => void
+  onOpenChange: (open: boolean) => void | false
   title: string
   description?: string
   confirmText?: string
   cancelText?: string
   variant?: "default" | "destructive" | "emerald" | "outline"
+  loading?: boolean
   onConfirm: () => void | Promise<void>
 }
 
@@ -30,17 +31,19 @@ export function ConfirmDialog({
   confirmText = "Подтвердить",
   cancelText = "Отмена",
   variant = "default",
+  loading: externalLoading,
   onConfirm,
 }: ConfirmDialogProps) {
-  const [loading, setLoading] = React.useState(false)
+  const [internalLoading, setInternalLoading] = React.useState(false)
+  const loading = externalLoading !== undefined ? externalLoading : internalLoading
 
   const handleConfirm = async () => {
-    setLoading(true)
+    setInternalLoading(true)
     try {
       await onConfirm()
       onOpenChange(false)
     } finally {
-      setLoading(false)
+      setInternalLoading(false)
     }
   }
 

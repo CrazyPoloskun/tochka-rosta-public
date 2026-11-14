@@ -240,11 +240,12 @@ export function TasksTab({
     setTaskDeadline(tzData.deadline)
     setTaskDesc(tzData.description)
     if (tzData.stages && tzData.stages.length > 0) {
+      const stagesList = tzData.stages
       setTaskMilestones(
-        tzData.stages.map((s, i) => ({
+        stagesList.map((s, i) => ({
           step: s.step || i + 1,
           title: s.title || `Этап ${i + 1}`,
-          amount: Number(s.amount) || Math.round(Number(tzData.budget) / tzData.stages.length) || 200000,
+          amount: Number(s.amount) || Math.round(Number(tzData.budget) / stagesList.length) || 200000,
         }))
       )
     }
@@ -1410,7 +1411,9 @@ export function TasksTab({
       {/* Delete Task Confirmation Dialog */}
       <ConfirmDialog
         open={deletingTaskId !== null}
-        onOpenChange={(open) => !open && setDeletingTaskId(null)}
+        onOpenChange={(open) => {
+          if (!open) setDeletingTaskId(null)
+        }}
         title="Удалить R&D-задачу?"
         description="Вы уверены, что хотите удалить эту задачу? Она будет снята с биржи тендеров. Это действие нельзя отменить."
         confirmText="Да, удалить задачу"

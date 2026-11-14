@@ -1559,7 +1559,9 @@ export function IdeasTab({
       {/* Delete Idea Confirmation Dialog */}
       <ConfirmDialog
         open={deletingIdeaId !== null}
-        onOpenChange={(open) => !open && setDeletingIdeaId(null)}
+        onOpenChange={(open) => {
+          if (!open) setDeletingIdeaId(null)
+        }}
         title="Удалить заявку на разработку?"
         description="Вы уверены, что хотите удалить эту разработку? Запись будет удалена из каталога и реестра платформы. Это действие необратимо."
         confirmText="Да, удалить заявку"

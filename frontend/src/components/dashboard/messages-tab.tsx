@@ -500,7 +500,7 @@ export function MessagesTab({
                             type="button"
                             onClick={() => {
                               const targetId = activeChat.other_party_id || (user?.id === activeChat.investor_id ? activeChat.lab_id : activeChat.investor_id)
-                              setCounterpartyModalId(targetId)
+                              setCounterpartyModalId(targetId ?? null)
                             }}
                             className="text-xs font-bold text-[#111111] hover:text-[#F81B00] hover:underline flex items-center gap-1 cursor-pointer transition-colors"
                             title="Посмотреть карточку организации"

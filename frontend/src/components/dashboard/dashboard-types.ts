@@ -136,7 +136,7 @@ export interface TransactionItem {
   to_user_id?: number | null
   project_id?: number | null
   amount: number
-  type: "deposit" | "donation" | "escrow_lock" | "escrow_release" | "payout" | "platform_fee" | "refund"
+  type: "deposit" | "donation" | "escrow_lock" | "escrow_release" | "payout" | "platform_fee" | "refund" | "profit_payout" | string
   status?: "completed" | "pending" | "rejected"
   description: string
   bank_details?: any
