@@ -298,3 +298,144 @@ export function ChainOfThought({
     </div>
   )
 }
+
+/* ==============================================================================
+   4. PLAN (План реализации / дорожная карта ИИ shadcn)
+   ============================================================================== */
+
+export interface PlanProps extends React.HTMLAttributes<HTMLDivElement> {
+  defaultOpen?: boolean
+}
+
+export function Plan({ className, children, ...props }: PlanProps) {
+  return (
+    <div
+      className={cn(
+        "border border-[#E2E5EB] rounded-2xl bg-white overflow-hidden shadow-2xs transition-all",
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </div>
+  )
+}
+
+export function PlanHeader({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={cn(
+        "p-4 border-b border-[#E2E5EB] bg-[#FAFAFA] flex flex-col sm:flex-row sm:items-center justify-between gap-3",
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </div>
+  )
+}
+
+export function PlanTitle({ className, children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
+  return (
+    <h3
+      className={cn("text-sm font-bold text-[#111111] flex items-center gap-2", className)}
+      {...props}
+    >
+      {children}
+    </h3>
+  )
+}
+
+export function PlanDescription({ className, children, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
+  return (
+    <p className={cn("text-xs text-[#6B7280] mt-0.5", className)} {...props}>
+      {children}
+    </p>
+  )
+}
+
+export function PlanContent({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div className={cn("p-4 space-y-4", className)} {...props}>
+      {children}
+    </div>
+  )
+}
+
+export function PlanSteps({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div className={cn("relative pl-7 space-y-3 pt-1", className)} {...props}>
+      <div className="absolute left-2.5 top-3 bottom-3 w-0.5 bg-[#E2E5EB]" />
+      {children}
+    </div>
+  )
+}
+
+export interface PlanStepItemProps extends React.HTMLAttributes<HTMLDivElement> {
+  stepNumber: number | string
+  title: string
+  description?: string
+  budget?: string | number
+  duration?: string
+  deliverables?: string[]
+}
+
+export function PlanStepItem({
+  stepNumber,
+  title,
+  description,
+  budget,
+  duration,
+  deliverables,
+  className,
+  ...props
+}: PlanStepItemProps) {
+  return (
+    <div className={cn("relative flex items-start gap-3 text-xs", className)} {...props}>
+      <div className="absolute -left-7 top-0.5 size-5 rounded-full bg-[#111111] text-white text-[10px] font-bold flex items-center justify-center shrink-0 shadow-xs">
+        {stepNumber}
+      </div>
+      <div className="flex-1 bg-[#F8FAFC] border border-[#E2E5EB] rounded-xl p-3 space-y-1.5 transition-all hover:border-[#111111]">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="font-bold text-[#111111] text-xs">
+            {title}
+          </span>
+          <div className="flex items-center gap-2">
+            {budget !== undefined && (
+              <span className="font-mono text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                {typeof budget === "number" ? `${budget.toLocaleString("ru-RU")} ₽` : budget}
+              </span>
+            )}
+            {duration && (
+              <span className="text-[10px] text-[#6B7280] font-mono bg-white px-2 py-0.5 rounded-md border border-[#E2E5EB]">
+                {duration}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {description && (
+          <p className="text-[11px] text-[#4B5563] leading-relaxed">
+            {description}
+          </p>
+        )}
+
+        {deliverables && deliverables.length > 0 && (
+          <div className="pt-1.5 mt-1 border-t border-[#E2E5EB]/60">
+            <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider block mb-1">
+              Результат этапа:
+            </span>
+            <ul className="space-y-0.5">
+              {deliverables.map((del, dIdx) => (
+                <li key={dIdx} className="text-[11px] text-[#374151] flex items-center gap-1.5">
+                  <span className="size-1 rounded-full bg-[#F81B00] shrink-0" />
+                  <span>{del}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

@@ -302,7 +302,17 @@ export function TasksTab({
         if (data.suggested_budget) setTaskBudget(String(data.suggested_budget))
         if (data.suggested_deadline) setTaskDeadline(data.suggested_deadline)
         if (data.description) setTaskDesc(data.description)
-        success("Техническое задание сформировано нейросетью по ГОСТ 15.016!", "ИИ составил ТЗ")
+        if (data.stages && data.stages.length > 0) {
+          const tot = Number(data.suggested_budget) || 2000000
+          setTaskMilestones(
+            data.stages.map((s: string, i: number) => ({
+              step: i + 1,
+              title: s.replace(/^Этап\s*\d+[:.]?\s*/i, "").trim() || `Этап ${i + 1}`,
+              amount: Math.round(tot / data.stages.length),
+            }))
+          )
+        }
+        success("Техническое задание и календарный план сформированы нейросетью!", "План готов")
       } else {
         error("Не удалось сгенерировать ТЗ", "Ошибка ИИ")
       }
@@ -1235,6 +1245,9 @@ export function TasksTab({
         onOpenChange={setIsAiAssistantOpen}
         onApplyTz={handleApplyAiTz}
         authFetch={authFetch}
+        modalTitle="План реализации НИОКР и генератор ТЗ"
+        modalDescription="Формирование календарного плана, этапов сметы и требований по ГОСТ 15.016-2016"
+        applyButtonText="Применить в тендерную заявку"
       />
 
       {/* Counterparty Dossier Modal */}

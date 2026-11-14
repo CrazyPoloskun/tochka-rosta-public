@@ -133,6 +133,12 @@ export function IdeasTab({
   const [investorIdeaSummary, setInvestorIdeaSummary] = React.useState("")
   const [investorIdeaCategory, setInvestorIdeaCategory] = React.useState("Новые материалы")
   const [investorIdeaBudget, setInvestorIdeaBudget] = React.useState("1500000")
+  const [investorIdeaMilestones, setInvestorIdeaMilestones] = React.useState<MilestoneItemData[]>([
+    { step: 1, title: "Аналитическое исследование и эскизное проектирование", amount: 450000 },
+    { step: 2, title: "Разработка лабораторного образца и стендовые испытания", amount: 600000 },
+    { step: 3, title: "Приёмочные испытания и регистрация РИД", amount: 450000 },
+  ])
+  const [selectedBaseIdeaTitle, setSelectedBaseIdeaTitle] = React.useState<string | null>(null)
   const [publishingIdea, setPublishingIdea] = React.useState(false)
 
   // Investor: Donation Modal
@@ -276,6 +282,7 @@ export function IdeasTab({
     budget: string
     deadline: string
     description: string
+    stages?: { step?: number; title: string; amount?: number }[]
   }) => {
     setInvestorIdeaTitle(data.title)
     if (data.category && CATEGORIES.includes(data.category)) {
@@ -285,8 +292,17 @@ export function IdeasTab({
     if (data.budget) {
       setInvestorIdeaBudget(data.budget)
     }
+    if (data.stages && data.stages.length > 0) {
+      setInvestorIdeaMilestones(
+        data.stages.map((s, i) => ({
+          step: s.step || i + 1,
+          title: s.title || `Этап ${i + 1}`,
+          amount: Number(s.amount) || Math.round(Number(data.budget) / data.stages!.length) || 200000,
+        }))
+      )
+    }
     setIsNewIdeaModalOpen(true)
-    success("ТЗ успешно сформировано нейросетью и перенесено в форму заявки", "ТЗ готово")
+    success("План и ТЗ сформированы нейросетью и перенесены в форму заявки", "План готов")
   }
 
   // PDF Parser for Lab
@@ -390,15 +406,16 @@ export function IdeasTab({
           category: investorIdeaCategory,
           trl_level: 3,
           budget_total: Number(investorIdeaBudget) || 1500000,
-          milestones: [],
+          milestones: investorIdeaMilestones,
         }),
       })
       const data = await res.json()
       if (res.ok) {
-        success("Ваша идея отправлена на проверку! Скоро лаборатории смогут предложить свои решения.", "Идея создана")
+        success("Ваше техническое задание и этапы отправлены на модерацию!", "Заявка создана")
         setIsNewIdeaModalOpen(false)
         setInvestorIdeaTitle("")
         setInvestorIdeaSummary("")
+        setSelectedBaseIdeaTitle(null)
         onRefresh()
       } else {
         error(data.detail || "Ошибка при создании идеи", "Ошибка")
@@ -968,6 +985,7 @@ export function IdeasTab({
                             setAiTzInitialQuery(`Требуется разработка промышленного решения на базе научной разработки «${idea.title}». Исходное описание: ${idea.summary}`)
                             setAiTzInitialCategory(idea.category)
                             setAiTzTarget("new_idea")
+                            setSelectedBaseIdeaTitle(idea.title)
                             setIsAiTzModalOpen(true)
                           }}
                           className="w-full text-[11px] font-semibold border-[#F81B00]/30 hover:border-[#F81B00] bg-[#FFF8F8] hover:bg-[#FFF0F0] text-[#F81B00] rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
@@ -1318,13 +1336,17 @@ export function IdeasTab({
 
       {/* Investor Propose Idea Modal */}
       <Dialog open={isNewIdeaModalOpen} onOpenChange={setIsNewIdeaModalOpen}>
-        <DialogContent className="max-w-md bg-white rounded-2xl p-6">
+        <DialogContent className="max-w-xl bg-white rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-[#111111]">
-              Предложить технологическую задачу для НИИ
+              {selectedBaseIdeaTitle
+                ? `Предложить техническое задание: «${selectedBaseIdeaTitle}»`
+                : "Предложить техническую задачу для НИИ"}
             </DialogTitle>
             <DialogDescription className="text-xs text-[#6B7280]">
-              Опишите производственную задачу или идею. Проверенные НИИ смогут откликнуться и предложить решения.
+              {selectedBaseIdeaTitle
+                ? "Сформируйте требования и этапы разработки на базе выбранной научной идеи."
+                : "Опишите производственную задачу, бюджет и этапы. Проверенные НИИ смогут откликнуться и предложить решения."}
             </DialogDescription>
           </DialogHeader>
 
@@ -1333,7 +1355,7 @@ export function IdeasTab({
             <div className="flex items-center gap-2">
               <HiOutlineSparkles className="size-4 text-[#F81B00] shrink-0" />
               <span className="text-[11px] text-[#4B5563]">
-                Сложно сформулировать? Нейросеть составит ТЗ по ГОСТ
+                Сложно сформулировать? Нейросеть составит ТЗ и этапы по ГОСТ
               </span>
             </div>
             <Button
@@ -1407,11 +1429,23 @@ export function IdeasTab({
               />
             </div>
 
+            {/* Stages Timeline Chain Editor */}
+            <div className="pt-1">
+              <MilestonesChainEditor
+                milestones={investorIdeaMilestones}
+                onChange={setInvestorIdeaMilestones}
+                onSyncBudget={(tot) => setInvestorIdeaBudget(String(tot))}
+              />
+            </div>
+
             <DialogFooter className="gap-3 pt-3">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setIsNewIdeaModalOpen(false)}
+                onClick={() => {
+                  setIsNewIdeaModalOpen(false)
+                  setSelectedBaseIdeaTitle(null)
+                }}
                 className="text-xs border-[#E2E5EB] rounded-xl px-4 cursor-pointer"
               >
                 Отмена
@@ -1421,7 +1455,7 @@ export function IdeasTab({
                 disabled={publishingIdea}
                 className="text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs"
               >
-                {publishingIdea ? "Публикация..." : "Разместить идею"}
+                {publishingIdea ? "Публикация..." : "Опубликовать задачу и этапы"}
               </Button>
             </DialogFooter>
           </form>
@@ -1510,8 +1544,8 @@ export function IdeasTab({
         initialTitle={aiTzInitialTitle}
         initialQuery={aiTzInitialQuery}
         initialCategory={aiTzInitialCategory}
-        modalTitle="ИИ-помощник ТЗ"
-        modalDescription="Генерация нормативного ТЗ по ГОСТ 15.016-2016"
+        modalTitle="План реализации НИОКР и генератор ТЗ"
+        modalDescription="Формирование календарного плана, этапов сметы и требований по ГОСТ 15.016-2016"
         applyButtonText="Применить в заявку разработки"
       />
 

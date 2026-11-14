@@ -34,6 +34,13 @@ import {
   Suggestion,
   ChainOfThought,
   ChainStep,
+  Plan,
+  PlanHeader,
+  PlanTitle,
+  PlanDescription,
+  PlanContent,
+  PlanSteps,
+  PlanStepItem,
 } from "@/components/ui/ai-elements"
 
 interface GeneratedTzResult {
@@ -54,16 +61,19 @@ interface GeneratedTzResult {
   model_used?: string
 }
 
+export interface AppliedTzData {
+  title: string
+  category?: string
+  budget: string
+  deadline: string
+  description: string
+  stages?: { step?: number; title: string; amount?: number }[]
+}
+
 interface AiTaskAssistantModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onApplyTz: (data: {
-    title: string
-    category?: string
-    budget: string
-    deadline: string
-    description: string
-  }) => void
+  onApplyTz: (data: AppliedTzData) => void
   authFetch: (url: string, init?: RequestInit) => Promise<Response>
   initialTitle?: string
   initialQuery?: string
@@ -236,12 +246,28 @@ export function AiTaskAssistantModal({
 
   const handleApply = () => {
     if (!result) return
+    const totalBudget = result.suggested_budget ? Number(result.suggested_budget) : 2000000
+    const rawStages = result.stages || []
+    const parsedStages =
+      rawStages.length > 0
+        ? rawStages.map((s, idx) => ({
+            step: idx + 1,
+            title: s.replace(/^Этап\s*\d+[:.]?\s*/i, "").trim() || `Этап ${idx + 1}`,
+            amount: Math.round(totalBudget / rawStages.length),
+          }))
+        : [
+            { step: 1, title: "Аналитическое исследование и эскизное проектирование", amount: Math.round(totalBudget * 0.3) },
+            { step: 2, title: "Разработка лабораторного образца и стендовые испытания", amount: Math.round(totalBudget * 0.4) },
+            { step: 3, title: "Приёмочные испытания и регистрация РИД", amount: Math.round(totalBudget * 0.3) },
+          ]
+
     onApplyTz({
       title: result.title || "",
       category: result.category || "",
-      budget: result.suggested_budget ? String(result.suggested_budget) : "2000000",
+      budget: String(totalBudget),
       deadline: result.suggested_deadline || "6 месяцев",
       description: result.scientific_summary || result.description || "",
+      stages: parsedStages,
     })
     onOpenChange(false)
   }
@@ -276,10 +302,10 @@ export function AiTaskAssistantModal({
             </span>
             <div>
               <DialogTitle className="text-base sm:text-lg font-bold text-[#111111] tracking-tight">
-                {modalTitle || "ИИ-помощник ТЗ"}
+                {modalTitle || "План реализации НИОКР и генератор ТЗ"}
               </DialogTitle>
               <DialogDescription className="text-xs text-[#6B7280]">
-                {modalDescription || "Генерация календарного плана и сметы по стандарту ГОСТ 15.016-2016"}
+                {modalDescription || "Формирование календарного плана, этапов сметы и требований по ГОСТ 15.016-2016"}
               </DialogDescription>
             </div>
           </div>
@@ -342,12 +368,12 @@ export function AiTaskAssistantModal({
                 ) : (
                   <HiOutlineSparkles className="size-4 text-[#F81B00]" />
                 )}
-                <span>{loading ? "Формирование ТЗ по ГОСТ..." : "Сгенерировать ТЗ"}</span>
+                <span>{loading ? "Формирование плана по ГОСТ..." : "Сформировать план и ТЗ"}</span>
               </Button>
             </div>
           </div>
 
-          {/* shadcn AI: CHAIN OF THOUGHT (вместо разноцветного градиентного блока) */}
+          {/* shadcn AI: CHAIN OF THOUGHT */}
           {loading && (
             <div className="animate-in fade-in duration-200">
               <ChainOfThought
@@ -359,10 +385,10 @@ export function AiTaskAssistantModal({
             </div>
           )}
 
-          {/* Generated Result Preview */}
+          {/* Generated Result: shadcn AI PLAN */}
           {result && !loading && (
             <div className="space-y-4 animate-in fade-in duration-200">
-              {/* Collapsed Chain of Thought (доступен для инспекции хода рассуждений) */}
+              {/* Collapsed Chain of Thought */}
               <ChainOfThought
                 steps={chainSteps}
                 currentStepIndex={chainSteps.length - 1}
@@ -371,251 +397,194 @@ export function AiTaskAssistantModal({
                 title="Цепочка рассуждений модели (Chain of Thought)"
               />
 
-              {/* Header Box */}
-              <div className="p-4 bg-white border border-[#E2E5EB] rounded-2xl space-y-3 shadow-2xs">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="border-[#E2E5EB] bg-[#F5F6F8] text-[10px] text-[#374151] font-semibold">
-                      {result.category}
-                    </Badge>
-                    <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-[10px] text-emerald-800 font-bold">
-                      TRL {result.target_trl_start || 3} → TRL {result.target_trl_end || 6}
-                    </Badge>
+              {/* shadcn AI: PLAN COMPONENT */}
+              <Plan>
+                <PlanHeader>
+                  <div className="min-w-0">
+                    <PlanTitle>
+                      <HiOutlineDocumentCheck className="size-4 text-[#F81B00]" />
+                      <span>План реализации НИОКР (ГОСТ 15.016-2016)</span>
+                    </PlanTitle>
+                    <PlanDescription>
+                      Календарный график, этапы разработки и контрольные нормативы
+                    </PlanDescription>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-[10px] text-emerald-800 font-bold">
+                      TRL {result.target_trl_start || 3} → {result.target_trl_end || 6}
+                    </Badge>
+                    <span className="font-mono text-xs font-bold text-[#111111] bg-white border border-[#E2E5EB] px-2.5 py-1 rounded-xl shadow-2xs">
+                      {(result.suggested_budget || 2000000).toLocaleString("ru-RU")} ₽
+                    </span>
                     <button
                       type="button"
                       onClick={() => setIsEditingResult(!isEditingResult)}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
                         isEditingResult
                           ? "bg-[#111111] text-white border-[#111111]"
                           : "bg-white text-[#111111] border-[#E2E5EB] hover:border-[#111111]"
                       }`}
                     >
                       <HiOutlinePencilSquare className="size-3.5" />
-                      <span>{isEditingResult ? "Просмотр" : "Редактировать"}</span>
+                      <span>{isEditingResult ? "Просмотр" : "Правка"}</span>
                     </button>
                   </div>
-                </div>
+                </PlanHeader>
 
-                {isEditingResult ? (
-                  <div className="space-y-3 pt-1">
-                    <div>
-                      <label className="text-[10px] font-bold uppercase text-[#6B7280] block mb-1">
-                        Тема НИОКР:
-                      </label>
-                      <Input
-                        value={result.title}
-                        onChange={(e) => setResult({ ...result, title: e.target.value })}
-                        className="h-8 text-xs font-bold rounded-xl"
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <PlanContent>
+                  {/* Topic & Scientific Summary */}
+                  {isEditingResult ? (
+                    <div className="space-y-3 p-3.5 bg-[#F8FAFC] border border-[#E2E5EB] rounded-xl">
                       <div>
                         <label className="text-[10px] font-bold uppercase text-[#6B7280] block mb-1">
-                          Ориентировочный бюджет (₽):
+                          Тема НИОКР:
                         </label>
                         <Input
-                          type="number"
-                          value={result.suggested_budget || 2000000}
-                          onChange={(e) =>
-                            setResult({ ...result, suggested_budget: Number(e.target.value) })
-                          }
-                          className="h-8 text-xs rounded-xl"
+                          value={result.title}
+                          onChange={(e) => setResult({ ...result, title: e.target.value })}
+                          className="h-8 text-xs font-bold rounded-xl bg-white"
                         />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[10px] font-bold uppercase text-[#6B7280] block mb-1">
+                            Ориентировочный бюджет (₽):
+                          </label>
+                          <Input
+                            type="number"
+                            value={result.suggested_budget || 2000000}
+                            onChange={(e) =>
+                              setResult({ ...result, suggested_budget: Number(e.target.value) })
+                            }
+                            className="h-8 text-xs rounded-xl bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold uppercase text-[#6B7280] block mb-1">
+                            Срок выполнения:
+                          </label>
+                          <Input
+                            value={result.suggested_deadline || "6 месяцев"}
+                            onChange={(e) =>
+                              setResult({ ...result, suggested_deadline: e.target.value })
+                            }
+                            className="h-8 text-xs rounded-xl bg-white"
+                          />
+                        </div>
                       </div>
                       <div>
                         <label className="text-[10px] font-bold uppercase text-[#6B7280] block mb-1">
-                          Срок выполнения:
+                          Научно-техническое обоснование:
                         </label>
-                        <Input
-                          value={result.suggested_deadline || "6 месяцев"}
+                        <textarea
+                          value={result.scientific_summary || ""}
                           onChange={(e) =>
-                            setResult({ ...result, suggested_deadline: e.target.value })
+                            setResult({ ...result, scientific_summary: e.target.value })
                           }
-                          className="h-8 text-xs rounded-xl"
+                          rows={2}
+                          className="w-full p-2 border border-[#E2E5EB] rounded-xl text-xs bg-white"
                         />
                       </div>
                     </div>
-                  </div>
-                ) : (
-                  <div>
-                    <h3 className="text-sm sm:text-base font-bold text-[#111111] leading-snug">
-                      {result.title}
-                    </h3>
-                    <div className="flex flex-wrap items-center gap-3 pt-2 text-xs text-[#6B7280]">
-                      <span className="flex items-center gap-1 font-mono font-medium text-[#111111]">
-                        <HiOutlineCurrencyDollar className="size-3.5 text-emerald-600" />
-                        {(result.suggested_budget || 2000000).toLocaleString("ru-RU")} ₽
-                      </span>
-                      <span>•</span>
-                      <span className="flex items-center gap-1">
-                        <HiOutlineClock className="size-3.5" />
-                        {result.suggested_deadline || "6 месяцев"}
-                      </span>
-                      <span>•</span>
-                      <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-md font-mono">
-                        ГОСТ 15.016-2016
-                      </span>
+                  ) : (
+                    <div className="space-y-1.5 p-3.5 bg-[#F8FAFC] border border-[#E2E5EB] rounded-xl">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280]">
+                          Предмет и цель разработки
+                        </span>
+                        <span className="text-[10px] text-[#9CA3AF]">•</span>
+                        <span className="text-[10px] text-[#6B7280] font-mono">{result.suggested_deadline || "6 месяцев"}</span>
+                      </div>
+                      <h4 className="text-xs font-bold text-[#111111] leading-snug">
+                        {result.title}
+                      </h4>
+                      {result.scientific_summary && (
+                        <p className="text-xs text-[#4B5563] leading-relaxed pt-1">
+                          {result.scientific_summary}
+                        </p>
+                      )}
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
 
-              {/* Subtabs for Result Sections */}
-              <div className="flex border-b border-[#E2E5EB] gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("reqs")}
-                  className={`text-xs font-bold pb-2 px-1 border-b-2 transition-all cursor-pointer ${
-                    activeTab === "reqs"
-                      ? "border-[#111111] text-[#111111]"
-                      : "border-transparent text-[#6B7280] hover:text-[#111111]"
-                  }`}
-                >
-                  Требования и методология
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("stages")}
-                  className={`text-xs font-bold pb-2 px-1 border-b-2 transition-all cursor-pointer ${
-                    activeTab === "stages"
-                      ? "border-[#111111] text-[#111111]"
-                      : "border-transparent text-[#6B7280] hover:text-[#111111]"
-                  }`}
-                >
-                  Этапы НИОКР ({result.stages?.length || 4})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("ip")}
-                  className={`text-xs font-bold pb-2 px-1 border-b-2 transition-all cursor-pointer ${
-                    activeTab === "ip"
-                      ? "border-[#111111] text-[#111111]"
-                      : "border-transparent text-[#6B7280] hover:text-[#111111]"
-                  }`}
-                >
-                  Права на РИД и патенты
-                </button>
-              </div>
-
-              {/* Tab 1: Requirements & Methodology */}
-              {activeTab === "reqs" && (
-                <div className="space-y-3">
-                  <div className="p-4 bg-white rounded-2xl border border-[#E2E5EB] shadow-2xs space-y-2">
-                    <span className="text-xs font-bold text-[#111111] block">
-                      Научно-техническое обоснование:
-                    </span>
-                    {isEditingResult ? (
-                      <textarea
-                        value={result.scientific_summary || ""}
-                        onChange={(e) =>
-                          setResult({ ...result, scientific_summary: e.target.value })
-                        }
-                        rows={3}
-                        className="w-full p-2 border border-[#E2E5EB] rounded-xl text-xs"
-                      />
-                    ) : (
-                      <p className="text-xs text-[#4B5563] leading-relaxed">
-                        {result.scientific_summary}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="p-4 bg-white rounded-2xl border border-[#E2E5EB] shadow-2xs space-y-2">
-                    <span className="text-xs font-bold text-[#111111] flex items-center gap-1.5">
-                      <HiOutlineDocumentCheck className="size-4 text-[#F81B00]" />
-                      <span>Нормативно-технические требования:</span>
-                    </span>
-                    <ul className="space-y-1.5 text-xs text-[#374151]">
-                      {(result.technical_requirements || []).map((req, i) => (
-                        <li key={i} className="flex items-start gap-2">
-                          <span className="size-1.5 rounded-full bg-[#111111] mt-1.5 shrink-0" />
-                          <span className="leading-relaxed">{req}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="p-4 bg-white rounded-2xl border border-[#E2E5EB] shadow-2xs space-y-2">
-                    <span className="text-xs font-bold text-[#111111] flex items-center gap-1.5">
-                      <HiOutlineBeaker className="size-4 text-emerald-600" />
-                      <span>Методы стендовых испытаний и валидации:</span>
-                    </span>
-                    <ul className="space-y-1.5 text-xs text-[#374151]">
-                      {(result.testing_methodology || []).map((m, i) => (
-                        <li key={i} className="flex items-start gap-2">
-                          <span className="size-1.5 rounded-full bg-emerald-600 mt-1.5 shrink-0" />
-                          <span className="leading-relaxed">{m}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              )}
-
-              {/* Tab 2: Stages Chain connected with line */}
-              {activeTab === "stages" && (
-                <div className="space-y-4">
-                  <div className="p-4 bg-white rounded-2xl border border-[#E2E5EB] shadow-2xs space-y-3">
+                  {/* Plan Steps (Milestones) */}
+                  <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#111111]">
-                        Рекомендуемая дорожная карта НИОКР:
+                      <span className="text-xs font-bold text-[#111111] flex items-center gap-1.5">
+                        <HiOutlineCube className="size-3.5 text-[#F81B00]" />
+                        <span>Календарный план и этапы финансирования:</span>
                       </span>
-                      <span className="text-[10px] text-[#6B7280]">ГОСТ 15.016-2016</span>
+                      <span className="text-[10px] text-[#6B7280]">
+                        Всего этапов: {result.stages?.length || 3}
+                      </span>
                     </div>
 
-                    <div className="relative pl-7 space-y-3.5 pt-1">
-                      <div className="absolute left-2.5 top-2.5 bottom-2.5 w-0.5 bg-[#E2E5EB]" />
+                    <PlanSteps>
+                      {(result.stages || []).map((stage, i) => {
+                        const cleanTitle = stage.replace(/^Этап\s*\d+[:.]?\s*/i, "").trim()
+                        const perStageBudget = Math.round((result.suggested_budget || 2000000) / (result.stages?.length || 1))
+                        const stageDeliverable = result.deliverables && result.deliverables[i] ? [result.deliverables[i]] : undefined
 
-                      {(result.stages || []).map((stage, i) => (
-                        <div key={i} className="relative flex items-start gap-3">
-                          <div className="absolute -left-7 top-0 size-5 rounded-full bg-[#111111] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                            {i + 1}
-                          </div>
-                          <div className="bg-[#F8FAFC] border border-[#E2E5EB] rounded-xl p-3 flex-1 space-y-1">
-                            <span className="text-xs font-bold text-[#111111] block">
-                              Этап {i + 1}
-                            </span>
-                            <p className="text-xs text-[#374151] leading-relaxed">
-                              {stage.replace(/^Этап\s*\d+[:.]?\s*/i, "")}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
+                        return (
+                          <PlanStepItem
+                            key={i}
+                            stepNumber={i + 1}
+                            title={cleanTitle}
+                            budget={perStageBudget}
+                            duration={result.suggested_deadline ? `~${Math.max(1, Math.round(6 / (result.stages?.length || 3)))} мес.` : undefined}
+                            deliverables={stageDeliverable}
+                          />
+                        )
+                      })}
+                    </PlanSteps>
+                  </div>
+
+                  {/* Technical Requirements & Verification Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                    <div className="p-3.5 bg-white border border-[#E2E5EB] rounded-xl space-y-1.5 shadow-2xs">
+                      <span className="text-xs font-bold text-[#111111] flex items-center gap-1.5">
+                        <HiOutlineDocumentCheck className="size-3.5 text-[#F81B00]" />
+                        <span>Ключевые технические требования:</span>
+                      </span>
+                      <ul className="space-y-1 text-[11px] text-[#374151]">
+                        {(result.technical_requirements || []).slice(0, 4).map((req, i) => (
+                          <li key={i} className="flex items-start gap-1.5">
+                            <span className="size-1 rounded-full bg-[#111111] mt-1.5 shrink-0" />
+                            <span className="leading-relaxed">{req}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="p-3.5 bg-white border border-[#E2E5EB] rounded-xl space-y-1.5 shadow-2xs">
+                      <span className="text-xs font-bold text-[#111111] flex items-center gap-1.5">
+                        <HiOutlineBeaker className="size-3.5 text-emerald-600" />
+                        <span>Методы стендовых испытаний:</span>
+                      </span>
+                      <ul className="space-y-1 text-[11px] text-[#374151]">
+                        {(result.testing_methodology || []).slice(0, 4).map((m, i) => (
+                          <li key={i} className="flex items-start gap-1.5">
+                            <span className="size-1 rounded-full bg-emerald-600 mt-1.5 shrink-0" />
+                            <span className="leading-relaxed">{m}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   </div>
 
-                  <div className="p-4 bg-white rounded-2xl border border-[#E2E5EB] shadow-2xs space-y-2">
-                    <span className="text-xs font-bold text-[#111111] flex items-center gap-1.5">
-                      <HiOutlineCube className="size-4 text-[#F81B00]" />
-                      <span>Ожидаемые материальные результаты (Deliverables):</span>
-                    </span>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                      {(result.deliverables || []).map((d, i) => (
-                        <div key={i} className="p-2.5 bg-[#F8FAFC] rounded-xl border border-[#E2E5EB] text-xs text-[#374151] flex items-start gap-2">
-                          <span className="size-1.5 rounded-full bg-[#F81B00] mt-1 shrink-0" />
-                          <span>{d}</span>
-                        </div>
-                      ))}
+                  {/* Intellectual Property Notice */}
+                  {result.ip_ownership_recommendation && (
+                    <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs space-y-1">
+                      <span className="font-bold text-emerald-950 flex items-center gap-1.5">
+                        <HiOutlineShieldCheck className="size-4 text-emerald-700" />
+                        <span>Рекомендация по правам на РИД:</span>
+                      </span>
+                      <p className="text-emerald-900 leading-relaxed text-[11px]">
+                        {result.ip_ownership_recommendation}
+                      </p>
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Tab 3: IP recommendation */}
-              {activeTab === "ip" && (
-                <div className="p-4 bg-emerald-50/60 rounded-xl border border-emerald-200 text-xs space-y-2">
-                  <span className="font-bold text-emerald-950 flex items-center gap-1.5">
-                    <HiOutlineShieldCheck className="size-4 text-emerald-600" />
-                    <span>Рекомендация по защите интеллектуальных прав:</span>
-                  </span>
-                  <p className="text-emerald-900 leading-relaxed">
-                    {result.ip_ownership_recommendation ||
-                      "Исключительные права на изобретение передаются инвестору с оформлением патента в ФИПС. Научная организация получает право на использование технологии в исследовательских целях."}
-                  </p>
-                </div>
-              )}
+                  )}
+                </PlanContent>
+              </Plan>
             </div>
           )}
         </div>
