@@ -20,13 +20,13 @@ class ChatMemberResponse(BaseModel):
     id: int
     chat_id: int
     user_id: int
-    role: str
-    full_name: str
+    role: str = "member"
+    full_name: str | None = None
     organization_name: str | None = None
-    user_role: str  # "investor" | "lab"
+    user_role: str | None = "investor"  # "investor" | "lab"
     invested_amount: Decimal | None = None
     share_percent: Decimal | None = None
-    joined_at: datetime
+    joined_at: datetime | None = None
     is_online: bool = False
 
     class Config:

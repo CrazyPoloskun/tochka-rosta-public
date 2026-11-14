@@ -241,6 +241,9 @@ async def demo_approve_payout(
     return {"message": "Выплата подтверждена (DEMO)", "transaction_id": tx.id}
 
 
+from fastapi.responses import Response
+from app.services.receipt_service import generate_receipt_pdf
+
 @router.get("/transactions/{tx_id}/receipt")
 async def get_transaction_receipt(
     tx_id: int,
@@ -256,11 +259,6 @@ async def get_transaction_receipt(
     # Проверка доступа: только участники или админ
     if not current_user.is_admin and tx.from_user_id != current_user.id and tx.to_user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Доступ к документу перевода запрещён")
-
-    # Вычисляем SHA-256 хеш транзакции для криптографического подтверждения
-    created_iso = tx.created_at.isoformat() if tx.created_at else datetime.utcnow().isoformat()
-    tx_stamp = f"TX:{tx.id}:{tx.amount}:{tx.type}:{created_iso}".encode("utf-8")
-    tx_hash = hashlib.sha256(tx_stamp).hexdigest()
 
     payer_name = "ООО «ТОЧКА РОСТА» (Эскроу-счёт)"
     payer_inn = "7701982345"
@@ -310,10 +308,69 @@ async def get_transaction_receipt(
         },
         "purpose": tx.description or "Исполнение обязательств по соглашению на платформе «Точка Роста»",
         "operator": PLATFORM_REQUISITES,
-        "digital_signature": {
-            "sha256": tx_hash,
-            "signed_by": "АО «Т-Банк» / Система быстрых платежей / Депозитарий платформы",
-            "signed_at": tx.created_at.strftime("%d.%m.%Y %H:%M:%S") if tx.created_at else "",
-            "certificate": "КриптоПро ЭЦП ГОСТ Р 34.10-2012 (Серийный № 7701-2026-F81B)",
-        },
     }
+
+
+@router.get("/transactions/{tx_id}/receipt/pdf")
+async def get_transaction_receipt_pdf(
+    tx_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Формирует и отдает официальный PDF-чек перевода."""
+    res = await db.execute(select(Transaction).where(Transaction.id == tx_id))
+    tx = res.scalar_one_or_none()
+    if not tx:
+        raise HTTPException(status_code=404, detail="Транзакция не найдена")
+
+    if not current_user.is_admin and tx.from_user_id != current_user.id and tx.to_user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Доступ к документу перевода запрещён")
+
+    payer_name = "ООО «ТОЧКА РОСТА» (Эскроу-счёт)"
+    payer_inn = "7701982345"
+    recipient_name = current_user.organization_name or current_user.full_name
+    recipient_inn = current_user.inn or "Не указан"
+
+    if tx.from_user_id:
+        f_res = await db.execute(select(User).where(User.id == tx.from_user_id))
+        from_u = f_res.scalar_one_or_none()
+        if from_u:
+            payer_name = from_u.organization_name or from_u.full_name
+            payer_inn = from_u.inn or "Физлицо"
+
+    if tx.to_user_id:
+        t_res = await db.execute(select(User).where(User.id == tx.to_user_id))
+        to_u = t_res.scalar_one_or_none()
+        if to_u:
+            recipient_name = to_u.organization_name or to_u.full_name
+            recipient_inn = to_u.inn or "Физлицо"
+
+    operation_label = (
+        "Пополнение гарантийного счёта" if tx.type == "deposit"
+        else "Выплата вознаграждения / прибыли" if tx.type == "profit_payout"
+        else "Блокировка средств на эскроу-депозите" if tx.type == "escrow_lock"
+        else "Исполнение и приёмка этапа НИОКР" if tx.type == "escrow_release"
+        else "Вывод средств на расчётный счёт" if tx.type == "payout"
+        else "Финансовый перевод"
+    )
+
+    pdf_bytes = generate_receipt_pdf(
+        tx_id=tx.id,
+        amount=tx.amount,
+        operation_label=operation_label,
+        payer_name=payer_name,
+        payer_inn=payer_inn,
+        recipient_name=recipient_name,
+        recipient_inn=recipient_inn,
+        purpose=tx.description or "Исполнение обязательств по соглашению на платформе «Точка Роста»",
+        created_at=tx.created_at or datetime.utcnow(),
+    )
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="receipt_{tx.id}.pdf"',
+            "Content-Type": "application/pdf",
+        },
+    )

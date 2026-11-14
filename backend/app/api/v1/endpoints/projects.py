@@ -1,9 +1,10 @@
 import os
 import shutil
+from datetime import datetime
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from fastapi.responses import FileResponse
-from sqlalchemy import select, or_, func
+from sqlalchemy import select, or_, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -369,7 +370,7 @@ async def enable_syndication(
     p_res = await db.execute(select(Project).where(Project.id == project_id))
     project = p_res.scalar_one_or_none()
     if not project or (project.investor_id != current_user.id and not current_user.is_admin):
-        raise HTTPException(status_code=403, detail="Только лид-инвестор может перевести сделку в формат синдиката")
+        raise HTTPException(status_code=403, detail="Только инициатор проекта может открыть коллективное соинвестирование")
 
     project.is_syndicated = True
     project.syndication_min_deposit = data.syndication_min_deposit
@@ -410,7 +411,7 @@ async def join_syndicate(
     p_res = await db.execute(select(Project).where(Project.id == project_id))
     project = p_res.scalar_one_or_none()
     if not project or not project.is_syndicated:
-        raise HTTPException(status_code=400, detail="Сделка не переведена в формат синдиката")
+        raise HTTPException(status_code=400, detail="Сделка не переведена в формат коллективного соинвестирования")
 
     if project.syndication_status != "open":
         raise HTTPException(status_code=400, detail="Сбор софинансирования закрыт")
@@ -424,7 +425,7 @@ async def join_syndicate(
     if project.syndication_min_deposit > 0 and data.amount < project.syndication_min_deposit:
         raise HTTPException(
             status_code=400,
-            detail=f"Минимальный взнос в данный синдикат составляет {project.syndication_min_deposit:,.2f} ₽",
+            detail=f"Минимальный взнос в данный проект составляет {project.syndication_min_deposit:,.2f} ₽",
         )
 
     # Проверка баланса инвестора
@@ -445,7 +446,7 @@ async def join_syndicate(
         type="escrow_freeze",
         amount=data.amount,
         status="completed",
-        description=f"Взнос соинвестора в синдикат по проекту #{project.id}: «{project.title}»",
+        description=f"Взнос соинвестора в проект #{project.id}: «{project.title}»",
     )
     db.add(tx)
 
@@ -529,7 +530,7 @@ async def join_syndicate(
     sys_msg = Message(
         chat_id=chat.id,
         sender_id=current_user.id,
-        content=f"👋 {inv_label} присоединился к синдикату проекта со взносом {data.amount:,.2f} ₽ (доля в проекте: {member.share_percent}%).",
+        content=f"👋 {inv_label} вошёл в коллективное соинвестирование проекта со взносом {data.amount:,.2f} ₽ (доля в проекте: {member.share_percent}%).",
         is_read=False,
         is_system=True,
     )
@@ -540,7 +541,7 @@ async def join_syndicate(
         notif = Notification(
             recipient_id=project.investor_id,
             type="syndicate_joined",
-            title="Новый взнос в синдикат",
+            title="Новый взнос в проект",
             body=f"{current_user.organization_name or current_user.full_name} внёс {data.amount:,.2f} ₽ в проект #{project.id}.",
             link_url="/dashboard?tab=projects",
             severity="success",
@@ -649,10 +650,10 @@ async def leave_syndicate(
     p_res = await db.execute(select(Project).where(Project.id == project_id))
     project = p_res.scalar_one_or_none()
     if not project or not project.is_syndicated:
-        raise HTTPException(status_code=400, detail="Сделка не в формате синдиката")
+        raise HTTPException(status_code=400, detail="Сделка не в формате коллективного соинвестирования")
 
     if project.investor_id == current_user.id:
-        raise HTTPException(status_code=400, detail="Лид-инвестор не может выйти из синдиката. Отмените проект или передайте управление.")
+        raise HTTPException(status_code=400, detail="Инициатор проекта не может выйти из проекта. Отмените проект или передайте управление.")
 
     if project.syndication_status != "open":
         raise HTTPException(status_code=400, detail="Нельзя отозвать взнос: Soft Cap уже достигнут, работы запущены.")
@@ -665,7 +666,7 @@ async def leave_syndicate(
     )
     member = mem_res.scalar_one_or_none()
     if not member or member.invested_amount <= 0:
-        raise HTTPException(status_code=404, detail="Вы не являетесь участником этого синдиката")
+        raise HTTPException(status_code=404, detail="Вы не являетесь соинвестором этого проекта")
 
     refund_amount = member.invested_amount
 
@@ -681,7 +682,7 @@ async def leave_syndicate(
             type="escrow_refund",
             amount=refund_amount,
             status="completed",
-            description=f"Возврат эскроу при выходе из синдиката #{project.id}: «{project.title}»",
+            description=f"Возврат средств при выходе из проекта #{project.id}: «{project.title}»",
         )
         db.add(tx)
 
@@ -721,7 +722,7 @@ async def leave_syndicate(
         sys_msg = Message(
             chat_id=chat.id,
             sender_id=current_user.id,
-            content=f"🚪 {inv_label} отозвал взнос и покинул синдикат проекта.",
+            content=f"🚪 {inv_label} отозвал инвестиционный взнос и покинул проект.",
             is_read=False,
             is_system=True,
         )
@@ -971,7 +972,14 @@ async def calculate_profit_preview(
             )
 
     if not rows:
-        raise HTTPException(status_code=400, detail="В проекте нет инвесторов с подтверждённым финансированием")
+        return ProfitCalculatePreviewResponse(
+            project_id=project.id,
+            project_title=project.title,
+            total_profit=data.amount,
+            total_invested=Decimal("0.00"),
+            investors_count=0,
+            items=[],
+        )
 
     total_invested = sum((m.invested_amount for m, _ in rows), Decimal("0.00"))
     if total_invested <= 0:

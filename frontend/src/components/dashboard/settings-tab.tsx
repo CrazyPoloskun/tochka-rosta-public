@@ -55,7 +55,8 @@ export function SettingsTab({ user, onUpdateProfile, onRefresh, authFetch }: Set
   const [websiteUrl, setWebsiteUrl] = React.useState(user?.website_url || "")
   const [externalLinks, setExternalLinks] = React.useState<{ title: string; url: string }[]>(user?.external_links || [])
   const [portfolioFiles, setPortfolioFiles] = React.useState<any[]>(user?.portfolio_files || [])
-  const [saving, setSaving] = React.useState(false)
+  const [savingRequisites, setSavingRequisites] = React.useState(false)
+  const [savingDossier, setSavingDossier] = React.useState(false)
 
   // Portfolio & Links modals
   const [isLinkModalOpen, setIsLinkModalOpen] = React.useState(false)
@@ -148,10 +149,10 @@ export function SettingsTab({ user, onUpdateProfile, onRefresh, authFetch }: Set
     }
   }, [user])
 
-  // Save Settings
-  const handleSaveProfile = async (e: React.FormEvent) => {
+  // Save Requisites only
+  const handleSaveRequisites = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSaving(true)
+    setSavingRequisites(true)
     try {
       const res = await onUpdateProfile({
         fullName: fullName.trim(),
@@ -159,10 +160,6 @@ export function SettingsTab({ user, onUpdateProfile, onRefresh, authFetch }: Set
         representativeName: repName.trim(),
         inn: inn.trim(),
         ogrn: ogrn.trim(),
-        bio: bio.trim(),
-        websiteUrl: websiteUrl.trim(),
-        externalLinks: externalLinks,
-        portfolioFiles: portfolioFiles,
         patentsInfo: patents,
         documents: documents,
         requestReverification: verificationStatus === "rejected",
@@ -171,18 +168,43 @@ export function SettingsTab({ user, onUpdateProfile, onRefresh, authFetch }: Set
       if (res.success) {
         success(
           verificationStatus === "rejected"
-            ? "Документы и реквизиты обновлены! Организация отправлена на повторную модерацию."
-            : "Профиль и реквизиты успешно сохранены!",
-          "Данные обновлены"
+            ? "Реквизиты сохранены и отправлены на повторную проверку!"
+            : "Официальные реквизиты успешно сохранены!",
+          "Реквизиты сохранены"
         )
         onRefresh()
       } else {
-        error(res.error || "Ошибка сохранения профиля", "Ошибка")
+        error(res.error || "Ошибка сохранения реквизитов", "Ошибка")
       }
     } catch {
-      error("Сетевая ошибка", "Ошибка")
+      error("Сетевая ошибка при сохранении реквизитов", "Ошибка")
     } finally {
-      setSaving(false)
+      setSavingRequisites(false)
+    }
+  }
+
+  // Save Public Dossier only
+  const handleSaveDossier = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSavingDossier(true)
+    try {
+      const res = await onUpdateProfile({
+        bio: bio.trim(),
+        websiteUrl: websiteUrl.trim(),
+        externalLinks: externalLinks,
+        portfolioFiles: portfolioFiles,
+      })
+
+      if (res.success) {
+        success("Данные публичного досье и портфолио успешно сохранены!", "Досье обновлено")
+        onRefresh()
+      } else {
+        error(res.error || "Ошибка сохранения досье", "Ошибка")
+      }
+    } catch {
+      error("Сетевая ошибка при сохранении досье", "Ошибка")
+    } finally {
+      setSavingDossier(false)
     }
   }
 
@@ -405,7 +427,7 @@ export function SettingsTab({ user, onUpdateProfile, onRefresh, authFetch }: Set
         </p>
       </div>
 
-      <form onSubmit={handleSaveProfile} className="space-y-6">
+      <form onSubmit={handleSaveRequisites} className="space-y-6">
         {/* Organization / User Profile Form */}
         <Card className="rounded-2xl border-[#E2E5EB] p-5 sm:p-6 bg-white space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#F1F3F5]">
@@ -749,11 +771,34 @@ export function SettingsTab({ user, onUpdateProfile, onRefresh, authFetch }: Set
           </Card>
         )}
 
+        {/* Submit Requisites Button: отдельная кнопка сохранения официальных реквизитов */}
+        <div className="flex items-center justify-end gap-3 pt-1">
+          <Button
+            type="submit"
+            disabled={savingRequisites || !isInnValid || !isOgrnValid}
+            className="text-xs font-bold bg-[#F81B00] hover:bg-[#e01800] disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl shadow-xs px-6 py-2.5 cursor-pointer"
+          >
+            {savingRequisites ? (
+              "Сохранение реквизитов..."
+            ) : verificationStatus === "rejected" ? (
+              <span className="flex items-center gap-1.5">
+                <HiOutlineArrowPath className="size-4" />
+                Сохранить реквизиты и отправить повторно на модерацию
+              </span>
+            ) : (
+              "Сохранить реквизиты"
+            )}
+          </Button>
+        </div>
+      </form>
+
+      {/* Форма 2: Публичное досье — отдельная форма с отдельной кнопкой сохранения для всех ролей */}
+      <form onSubmit={handleSaveDossier} className="space-y-6">
         {/* Extended Profile & Dossier Block */}
         <Card className="rounded-2xl border-[#E2E5EB] p-5 sm:p-6 bg-white space-y-5">
           <div className="pb-3 border-b border-[#F1F3F5]">
             <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111]">
-              Публичное досье и компетенции организации
+              {isLab ? "Публичное досье и компетенции организации" : "Публичное досье и профиль соинвестора"}
             </h3>
             <p className="text-[11px] text-[#6B7280] mt-0.5">
               Информация отображается в публичной карточке контрагента, карточках задач и откликах
@@ -894,23 +939,14 @@ export function SettingsTab({ user, onUpdateProfile, onRefresh, authFetch }: Set
           </div>
         </Card>
 
-        {/* Submit Button */}
-        <div className="flex items-center justify-end gap-3 pt-2">
+        {/* Submit Dossier Button: отдельная кнопка сохранения данных публичного досье */}
+        <div className="flex items-center justify-end gap-3 pt-1">
           <Button
             type="submit"
-            disabled={saving || !isInnValid || !isOgrnValid}
-            className="text-xs font-bold bg-[#F81B00] hover:bg-[#e01800] disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl shadow-xs px-6 py-2.5 cursor-pointer"
+            disabled={savingDossier}
+            className="text-xs font-bold bg-[#111111] hover:bg-black disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl shadow-xs px-6 py-2.5 cursor-pointer"
           >
-            {saving ? (
-              "Сохранение..."
-            ) : verificationStatus === "rejected" ? (
-              <span className="flex items-center gap-1.5">
-                <HiOutlineArrowPath className="size-4" />
-                Сохранить и отправить повторно на модерацию
-              </span>
-            ) : (
-              "Сохранить реквизиты"
-            )}
+            {savingDossier ? "Сохранение досье..." : "Сохранить публичное досье"}
           </Button>
         </div>
       </form>

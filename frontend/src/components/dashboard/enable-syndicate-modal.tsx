@@ -95,8 +95,8 @@ export function EnableSyndicateModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md bg-white rounded-2xl p-6 border-[#E2E5EB] shadow-xl">
         <DialogHeader className="border-b border-[#E2E5EB] pb-3">
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-[#F81B00]/10 text-[#F81B00]">
+          <div className="flex items-center gap-2.5">
+            <span className="p-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 shrink-0">
               <HiOutlineUserGroup className="size-5" />
             </span>
             <div>
@@ -111,7 +111,7 @@ export function EnableSyndicateModal({
         </DialogHeader>
 
         <form onSubmit={handleEnable} className="space-y-4 pt-2 text-xs">
-          <div className="p-3 bg-[#F5F6F8] rounded-xl text-[#374151] leading-relaxed">
+          <div className="p-3 bg-blue-50/70 border border-blue-200/80 rounded-xl text-blue-950 leading-relaxed">
             Вы станете организатором коллективного пула сделки #{project.id}. Другие участники платформы смогут внести средства в пул, пропорционально разделив будущие роялти или права на разработку.
           </div>
 
@@ -153,16 +153,17 @@ export function EnableSyndicateModal({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="text-xs rounded-xl border-[#E2E5EB] px-4"
+              className="text-xs rounded-xl border-[#E2E5EB] px-4 cursor-pointer"
             >
               Отмена
             </Button>
             <Button
               type="submit"
               disabled={submitting}
-              className="text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs cursor-pointer px-4"
+              className="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs cursor-pointer px-4.5 h-9 flex items-center gap-1.5"
             >
-              {submitting ? "Активация..." : "Открыть сбор соинвестиций"}
+              <HiOutlineSparkles className="size-4" />
+              <span>{submitting ? "Активация..." : "Открыть сбор соинвестиций"}</span>
             </Button>
           </DialogFooter>
         </form>

@@ -62,7 +62,6 @@ async def check_user_has_chat_access(chat: Chat, current_user: User, db: AsyncSe
                     and_(
                         ProjectSyndicateMember.project_id == project.id,
                         ProjectSyndicateMember.investor_id == current_user.id,
-                        ProjectSyndicateMember.invested_amount > 0,
                     )
                 )
             )
@@ -72,38 +71,59 @@ async def check_user_has_chat_access(chat: Chat, current_user: User, db: AsyncSe
     return False
 
 
-async def ensure_project_chat_members(chat: Chat, project: Project, db: AsyncSession):
-    """Синхронизирует состав участников группового чата с участниками проекта и синдиката."""
+async def ensure_chat_members(chat: Chat, db: AsyncSession):
+    """Синхронизирует состав участников диалога (как личного, так и проектного группового)."""
     # Получаем существующих участников
     existing_res = await db.execute(select(ChatMember.user_id).where(ChatMember.chat_id == chat.id))
     existing_user_ids = set(existing_res.scalars().all())
 
-    # 1. Лаборатория (исполнитель)
-    if project.lab_id and project.lab_id not in existing_user_ids:
-        db.add(ChatMember(chat_id=chat.id, user_id=project.lab_id, role="lab"))
-        existing_user_ids.add(project.lab_id)
+    # 1. Инвестор / Заказчик чата
+    if chat.investor_id and chat.investor_id not in existing_user_ids:
+        db.add(ChatMember(chat_id=chat.id, user_id=chat.investor_id, role="lead_investor"))
+        existing_user_ids.add(chat.investor_id)
 
-    # 2. Лид-инвестор
-    if project.investor_id and project.investor_id not in existing_user_ids:
-        db.add(ChatMember(chat_id=chat.id, user_id=project.investor_id, role="lead_investor"))
-        existing_user_ids.add(project.investor_id)
+    # 2. Лаборатория / Исполнитель чата
+    if chat.lab_id and chat.lab_id not in existing_user_ids:
+        db.add(ChatMember(chat_id=chat.id, user_id=chat.lab_id, role="lab"))
+        existing_user_ids.add(chat.lab_id)
 
-    # 3. Все соинвесторы синдиката
-    syn_res = await db.execute(
-        select(ProjectSyndicateMember).where(
-            and_(
-                ProjectSyndicateMember.project_id == project.id,
-                ProjectSyndicateMember.invested_amount > 0,
+    # 3. Если чат привязан к проекту — подтягиваем проектных участников
+    if chat.project_id:
+        p_res = await db.execute(select(Project).where(Project.id == chat.project_id))
+        project = p_res.scalar_one_or_none()
+        if project:
+            if project.lab_id and project.lab_id not in existing_user_ids:
+                db.add(ChatMember(chat_id=chat.id, user_id=project.lab_id, role="lab"))
+                existing_user_ids.add(project.lab_id)
+
+            if project.investor_id and project.investor_id not in existing_user_ids:
+                db.add(ChatMember(chat_id=chat.id, user_id=project.investor_id, role="lead_investor"))
+                existing_user_ids.add(project.investor_id)
+
+            syn_res = await db.execute(
+                select(ProjectSyndicateMember).where(ProjectSyndicateMember.project_id == project.id)
             )
-        )
+            for sm in syn_res.scalars().all():
+                if sm.investor_id not in existing_user_ids:
+                    role = "lead_investor" if sm.is_lead else "co_investor"
+                    db.add(ChatMember(chat_id=chat.id, user_id=sm.investor_id, role=role))
+                    existing_user_ids.add(sm.investor_id)
+
+    # 4. Отправители сообщений в этом чате (если кто-то писал)
+    senders_res = await db.execute(
+        select(Message.sender_id).where(Message.chat_id == chat.id).distinct()
     )
-    for sm in syn_res.scalars().all():
-        if sm.investor_id not in existing_user_ids:
-            role = "lead_investor" if sm.is_lead else "co_investor"
-            db.add(ChatMember(chat_id=chat.id, user_id=sm.investor_id, role=role))
-            existing_user_ids.add(sm.investor_id)
+    for sender_id in senders_res.scalars().all():
+        if sender_id and sender_id not in existing_user_ids:
+            db.add(ChatMember(chat_id=chat.id, user_id=sender_id, role="member"))
+            existing_user_ids.add(sender_id)
 
     await db.commit()
+
+
+async def ensure_project_chat_members(chat: Chat, project: Project, db: AsyncSession):
+    """Алиас для обратной совместимости."""
+    await ensure_chat_members(chat, db)
 
 
 @router.get("", response_model=list[ChatResponse])
@@ -155,16 +175,17 @@ async def list_chats(
                     other_party_name = other_user.organization_name or other_user.full_name
                     other_party_role = "НИИ / Лаборатория" if other_user.role == "lab" else "Инвестор"
         else:
-            other_party_name = "Групповой чат проекта"
-            other_party_role = "Проектный синдикат"
+            other_party_name = "Инвестиционный чат проекта"
+            other_party_role = "Коллективное инвестирование"
 
         # Количество участников
         members_cnt_res = await db.execute(
             select(func.count(ChatMember.id)).where(ChatMember.chat_id == chat.id)
         )
         members_count = members_cnt_res.scalar() or 0
-        if members_count == 0 and not is_group:
-            members_count = 2
+        if members_count == 0:
+            known = {uid for uid in [chat.investor_id, chat.lab_id] if uid}
+            members_count = max(len(known), 2)
 
         # Непрочитанные сообщения
         unread_res = await db.execute(
@@ -242,13 +263,24 @@ async def get_or_create_project_chat(
             project_id=project.id,
             investor_id=project.investor_id,
             lab_id=project.lab_id,
-            title=f"Группа: {project.title}",
+            title=f"Проект: {project.title}",
             context_type="project",
             context_id=project.id,
         )
         db.add(chat)
         await db.commit()
         await db.refresh(chat)
+
+        # Первое приветственное системное сообщение
+        first_msg = Message(
+            chat_id=chat.id,
+            sender_id=project.investor_id or current_user.id,
+            content=f"🚀 Открыт инвестиционный чат проекта «{project.title}». Здесь соинвесторы и исполнители НИОКР обсуждают ход разработки, этапы и распределение прибыли.",
+            is_read=False,
+            is_system=True,
+        )
+        db.add(first_msg)
+        await db.commit()
 
     # Синхронизируем участников
     await ensure_project_chat_members(chat, project, db)
@@ -262,7 +294,7 @@ async def get_or_create_project_chat(
     c_dto = ChatResponse.model_validate(chat)
     c_dto.chat_type = "project"
     c_dto.other_party_name = chat.title
-    c_dto.other_party_role = "Группа синдиката проекта"
+    c_dto.other_party_role = "Коллективное инвестирование"
     c_dto.members_count = members_count
     return c_dto
 
@@ -315,12 +347,8 @@ async def list_chat_members(
     if not await check_user_has_chat_access(chat, current_user, db):
         raise HTTPException(status_code=403, detail="Доступ к списку участников чата запрещён")
 
-    # Если проектный чат — убеждаемся, что список синхронизирован
-    if chat.project_id:
-        p_res = await db.execute(select(Project).where(Project.id == chat.project_id))
-        project = p_res.scalar_one_or_none()
-        if project:
-            await ensure_project_chat_members(chat, project, db)
+    # Синхронизируем состав участников
+    await ensure_chat_members(chat, db)
 
     # Загружаем членов чата
     m_res = await db.execute(
@@ -330,28 +358,6 @@ async def list_chat_members(
         .order_by(ChatMember.joined_at.asc())
     )
     rows = m_res.all()
-
-    # Если это P2P чат и chat_members пуст, формируем двух участников
-    if not rows and chat.chat_type == "direct":
-        p_ids = [chat.investor_id, chat.lab_id]
-        p_users_res = await db.execute(select(User).where(User.id.in_([p for p in p_ids if p])))
-        users = p_users_res.scalars().all()
-        return [
-            ChatMemberResponse(
-                id=u.id,
-                chat_id=chat.id,
-                user_id=u.id,
-                role="lead_investor" if u.id == chat.investor_id else "lab",
-                full_name=u.full_name,
-                organization_name=u.organization_name,
-                user_role=u.role,
-                invested_amount=None,
-                share_percent=None,
-                joined_at=chat.created_at,
-                is_online=manager.is_user_online(u.id),
-            )
-            for u in users
-        ]
 
     # Для проектного чата подтягиваем суммы инвестиций и доли из синдиката
     syndicate_shares: dict[int, tuple[Decimal, Decimal]] = {}
@@ -363,23 +369,57 @@ async def list_chat_members(
             syndicate_shares[sm.investor_id] = (sm.invested_amount, sm.share_percent)
 
     response = []
+    seen_user_ids: set[int] = set()
+
     for cm, user in rows:
+        if user.id in seen_user_ids:
+            continue
+        seen_user_ids.add(user.id)
         inv_amt, share_pct = syndicate_shares.get(user.id, (None, None))
+        member_role = cm.role or ("lead_investor" if user.id == chat.investor_id else "lab" if user.id == chat.lab_id else "member")
         response.append(
             ChatMemberResponse(
                 id=cm.id,
                 chat_id=cm.chat_id,
                 user_id=user.id,
-                role=cm.role,
-                full_name=user.full_name,
+                role=member_role,
+                full_name=user.full_name or user.organization_name or f"Пользователь #{user.id}",
                 organization_name=user.organization_name,
-                user_role=user.role,
+                user_role=user.role or "investor",
                 invested_amount=inv_amt,
                 share_percent=share_pct,
-                joined_at=cm.joined_at,
+                joined_at=cm.joined_at or chat.created_at or datetime.utcnow(),
                 is_online=manager.is_user_online(user.id),
             )
         )
+
+    # Если по какой-то причине rows пуст, формируем участников из известных сторон чата
+    if not response:
+        candidate_ids = [u_id for u_id in [chat.investor_id, chat.lab_id, current_user.id] if u_id]
+        if candidate_ids:
+            p_users_res = await db.execute(select(User).where(User.id.in_(candidate_ids)))
+            users = p_users_res.scalars().all()
+            for u in users:
+                if u.id in seen_user_ids:
+                    continue
+                seen_user_ids.add(u.id)
+                inv_amt, share_pct = syndicate_shares.get(u.id, (None, None))
+                response.append(
+                    ChatMemberResponse(
+                        id=u.id,
+                        chat_id=chat.id,
+                        user_id=u.id,
+                        role="lead_investor" if u.id == chat.investor_id else "lab" if u.id == chat.lab_id else "member",
+                        full_name=u.full_name or u.organization_name or f"Пользователь #{u.id}",
+                        organization_name=u.organization_name,
+                        user_role=u.role or "investor",
+                        invested_amount=inv_amt,
+                        share_percent=share_pct,
+                        joined_at=chat.created_at or datetime.utcnow(),
+                        is_online=manager.is_user_online(u.id),
+                    )
+                )
+
     return response
 
 
@@ -479,7 +519,7 @@ async def list_messages(
 
     # Получаем сообщения с eager loading вложений
     m_res = await db.execute(
-        select(Message, User.full_name, User.role)
+        select(Message, User.full_name, User.organization_name, User.role)
         .join(User, Message.sender_id == User.id)
         .options(selectinload(Message.attachments))
         .where(Message.chat_id == chat_id)
@@ -488,13 +528,13 @@ async def list_messages(
     rows = m_res.all()
 
     # Отмечаем прочитанными
-    for msg, _, _ in rows:
+    for msg, _, _, _ in rows:
         if msg.sender_id != current_user.id and not msg.is_read:
             msg.is_read = True
     await db.commit()
 
     response = []
-    for msg, sender_name, sender_role in rows:
+    for msg, sender_name, sender_org, sender_role in rows:
         att_dtos = [
             AttachmentResponse(
                 id=att.id,
@@ -507,6 +547,7 @@ async def list_messages(
             )
             for att in (msg.attachments or [])
         ]
+        display_sender_name = sender_name or sender_org or "Пользователь"
         response.append(
             MessageResponse(
                 id=msg.id,
@@ -516,7 +557,7 @@ async def list_messages(
                 is_read=msg.is_read,
                 is_system=msg.is_system,
                 created_at=msg.created_at,
-                sender_name=sender_name,
+                sender_name=display_sender_name,
                 sender_role=sender_role,
                 attachments=att_dtos,
             )

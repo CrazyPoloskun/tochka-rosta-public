@@ -85,11 +85,12 @@ const INDUSTRY_OPTIONS = [
 ]
 
 const QUICK_SUGGESTIONS = [
-  "Морозостойкий полимер для корпусов, не боящийся перепадов от -60°C до +95°C",
-  "Беспилотный манипулятор для сортировки руды в шахте при экстремальных вибрациях",
-  "Биоразлагаемый шовный материал с напылением наносеребра для хирургии",
-  "Твердотельный аккумулятор для электрокаров с зарядкой за 10 минут",
-  "Сверхлегкий композитный профиль крыла для тяжелых БПЛА",
+  "Полимер для Арктики",
+  "Манипулятор для шахт",
+  "Биоматериал с серебром",
+  "Твердотельный аккумулятор",
+  "Композит для БПЛА",
+  "Датчик вибрации",
 ]
 
 const INITIAL_CHAIN_STEPS: ChainStep[] = [
@@ -275,10 +276,10 @@ export function AiTaskAssistantModal({
             </span>
             <div>
               <DialogTitle className="text-base sm:text-lg font-bold text-[#111111] tracking-tight">
-                {modalTitle || "ИИ-помощник формирования ТЗ"}
+                {modalTitle || "ИИ-помощник ТЗ"}
               </DialogTitle>
               <DialogDescription className="text-xs text-[#6B7280]">
-                {modalDescription || "Генерация ГОСТ-ТЗ, календарного плана и сметы по стандарту ГОСТ 15.016-2016"}
+                {modalDescription || "Генерация календарного плана и сметы по стандарту ГОСТ 15.016-2016"}
               </DialogDescription>
             </div>
           </div>
@@ -288,7 +289,7 @@ export function AiTaskAssistantModal({
           {/* Input Form with Suggestion Chips */}
           <div className="space-y-3 bg-[#F8FAFC] p-4 sm:p-5 rounded-2xl border border-[#E2E5EB]">
             {/* shadcn AI Suggestion Chips */}
-            <Suggestions label="Подсказки запроса (Suggestion):">
+            <Suggestions label="Подсказки:">
               {QUICK_SUGGESTIONS.map((ex, idx) => (
                 <Suggestion
                   key={idx}
@@ -619,40 +620,29 @@ export function AiTaskAssistantModal({
           )}
         </div>
 
-        {/* Modal Footer: четкие кнопки с отступами, никогда не слипаются */}
-        <DialogFooter className="gap-3 pt-4 border-t border-[#E2E5EB] mt-4 flex flex-col-reverse sm:flex-row sm:justify-end items-stretch sm:items-center">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            className="text-xs font-semibold rounded-xl border-[#E2E5EB] px-4 cursor-pointer hover:bg-[#F5F6F8]"
-          >
-            Закрыть
-          </Button>
+        {/* Modal Footer: только целевые действия */}
+        {result && (
+          <DialogFooter className="gap-2.5 pt-4 border-t border-[#E2E5EB] mt-4 flex flex-col sm:flex-row sm:justify-end items-stretch sm:items-center">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCopyTz}
+              className="gap-1.5 text-xs font-semibold rounded-xl border-[#E2E5EB] hover:bg-[#F5F6F8] px-3.5 h-9"
+            >
+              <HiOutlineClipboardDocumentCheck className="size-4 text-[#4B5563]" />
+              <span>Скопировать ТЗ</span>
+            </Button>
 
-          {result && (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCopyTz}
-                className="gap-1.5 text-xs font-semibold rounded-xl border-[#E2E5EB] hover:bg-[#F5F6F8] px-3.5"
-              >
-                <HiOutlineClipboardDocumentCheck className="size-4 text-[#4B5563]" />
-                <span>Скопировать ТЗ</span>
-              </Button>
-
-              <Button
-                type="button"
-                onClick={handleApply}
-                className="gap-2 text-xs font-bold bg-[#F81B00] hover:bg-[#d01700] text-white rounded-xl shadow-xs cursor-pointer px-4.5 h-10"
-              >
-                <HiOutlineCheck className="size-4" />
-                <span>{applyButtonText || "Применить в заявку"}</span>
-              </Button>
-            </>
-          )}
-        </DialogFooter>
+            <Button
+              type="button"
+              onClick={handleApply}
+              className="gap-2 text-xs font-bold bg-[#F81B00] hover:bg-[#d01700] text-white rounded-xl shadow-xs cursor-pointer px-4.5 h-9"
+            >
+              <HiOutlineCheck className="size-4" />
+              <span>{applyButtonText || "Применить в заявку"}</span>
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   )

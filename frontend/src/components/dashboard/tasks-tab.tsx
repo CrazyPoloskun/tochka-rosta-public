@@ -1062,7 +1062,7 @@ export function TasksTab({
                   className="flex items-center gap-1.5 text-[11px] font-bold text-[#F81B00] hover:text-[#d01700] transition-colors cursor-pointer"
                 >
                   <HiOutlineSparkles className="size-3.5" />
-                  <span>ИИ-помощник ТЗ (ГОСТ 15.016)</span>
+                  <span>ИИ-помощник ТЗ</span>
                 </button>
               </div>
               <textarea

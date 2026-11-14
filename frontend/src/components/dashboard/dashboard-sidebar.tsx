@@ -46,7 +46,7 @@ export function DashboardSidebar({
   const navItems = [
     {
       id: "projects" as TabType,
-      label: "Мои проекты",
+      label: "Мои проекты и сделки",
       icon: HiOutlineFolderOpen,
       badge: projectsCount > 0 ? projectsCount : undefined,
     },

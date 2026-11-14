@@ -99,83 +99,112 @@ def render_pdf_certificate(
     c = canvas.Canvas(output_path, pagesize=A4)
     width, height = A4  # 595.27 x 841.89
 
-    # Шрифт
     font_reg = "CustomArial" if "CustomArial" in pdfmetrics.getRegisteredFontNames() else "Helvetica"
     font_bold = "CustomArialBold" if "CustomArialBold" in pdfmetrics.getRegisteredFontNames() else "Helvetica-Bold"
 
-    # Декоративная рамка (Двойной строгий контур)
-    margin = 36  # ~0.5 inch
-    c.setStrokeColor(colors.HexColor("#111111"))
-    c.setLineWidth(2)
+    # Классическая благородная рамка официального свидетельства
+    margin = 32
+    c.setStrokeColor(colors.HexColor("#1E293B"))
+    c.setLineWidth(1.4)
     c.rect(margin, margin, width - 2 * margin, height - 2 * margin)
 
-    c.setStrokeColor(colors.HexColor("#F81B00"))
-    c.setLineWidth(0.8)
-    c.rect(margin + 5, margin + 5, width - 2 * margin - 10, height - 2 * margin - 10)
+    c.setStrokeColor(colors.HexColor("#CBD5E1"))
+    c.setLineWidth(0.6)
+    c.rect(margin + 4.5, margin + 4.5, width - 2 * margin - 9, height - 2 * margin - 9)
 
-    # Угловые маркеры
-    corner_size = 14
-    for cx, cy in [
-        (margin + 5, margin + 5),
-        (width - margin - 5, margin + 5),
-        (margin + 5, height - margin - 5),
-        (width - margin - 5, height - margin - 5),
-    ]:
-        c.setFillColor(colors.HexColor("#F81B00"))
-        c.circle(cx, cy, 3, stroke=0, fill=1)
-
-    # Верхний заголовок / Шапка
-    y = height - margin - 35
-    c.setFont(font_bold, 11)
-    c.setFillColor(colors.HexColor("#737373"))
-    c.drawCentredString(width / 2, y, "ЕДИНЫЙ РАСПРЕДЕЛЕННЫЙ ДЕПОЗИТАРИЙ РИД")
-
-    y -= 14
-    c.setFont(font_bold, 13)
-    c.setFillColor(colors.HexColor("#111111"))
-    c.drawCentredString(width / 2, y, "ЦИФРОВАЯ ПЛАТФОРМА ТРАНСФЕРА ТЕХНОЛОГИЙ «ТОЧКА РОСТА»")
-
-    # Горизонтальная линия
-    y -= 18
-    c.setStrokeColor(colors.HexColor("#E2E5EB"))
+    # Декоративные угловые маркеры (аккуратные строгие штрихи вместо кружков)
+    tick_len = 10
+    c.setStrokeColor(colors.HexColor("#991B1B"))
     c.setLineWidth(1)
-    c.line(margin + 30, y, width - margin - 30, y)
+    for cx, cy, dx, dy in [
+        (margin + 4.5, margin + 4.5, tick_len, tick_len),
+        (width - margin - 4.5, margin + 4.5, -tick_len, tick_len),
+        (margin + 4.5, height - margin - 4.5, tick_len, -tick_len),
+        (width - margin - 4.5, height - margin - 4.5, -tick_len, -tick_len),
+    ]:
+        c.line(cx, cy, cx + dx, cy)
+        c.line(cx, cy, cx, cy + dy)
 
-    # Название документа
-    y -= 40
-    c.setFont(font_bold, 20)
-    c.setFillColor(colors.HexColor("#111111"))
-    c.drawCentredString(width / 2, y, "СВИДЕТЕЛЬСТВО О ДЕПОНИРОВАНИИ")
+    # 1. Шапка: Официальный логотип платформы
+    logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "logo.png")
+    if os.path.exists(logo_path):
+        try:
+            logo_h = 28
+            logo_w = logo_h * (1287.0 / 356.0)
+            c.drawImage(logo_path, (width - logo_w) / 2, height - margin - 42, width=logo_w, height=logo_h, mask="auto")
+            y = height - margin - 54
+        except Exception:
+            y = height - margin - 35
+    else:
+        y = height - margin - 35
 
-    y -= 22
-    c.setFont(font_bold, 15)
-    c.setFillColor(colors.HexColor("#F81B00"))
-    c.drawCentredString(width / 2, y, "И АВТОРСКОМ ПРИОРИТЕТЕ ОБЪЕКТА РИД")
+    c.setFont(font_bold, 8.5)
+    c.setFillColor(colors.HexColor("#64748B"))
+    c.drawCentredString(width / 2, y, "ЕДИНЫЙ ДЕПОЗИТАРИЙ ИНТЕЛЛЕКТУАЛЬНОЙ СОБСТВЕННОСТИ И РИД")
 
-    # Номер свидетельства
-    y -= 30
+    y -= 12
+    c.setFont(font_bold, 10.5)
+    c.setFillColor(colors.HexColor("#0F172A"))
+    c.drawCentredString(width / 2, y, "СИСТЕМА ТРАНСФЕРА ТЕХНОЛОГИЙ И НАУЧНЫХ РАЗРАБОТОК «ТОЧКА РОСТА»")
+
+    # Тонкий разделитель с акцентным ромбом в центре
+    y -= 14
+    c.setStrokeColor(colors.HexColor("#E2E8F0"))
+    c.setLineWidth(0.8)
+    c.line(margin + 35, y, width - margin - 35, y)
+
+    c.setFillColor(colors.HexColor("#B91C1C"))
+    diamond = c.beginPath()
+    diamond.moveTo(width / 2, y + 2.5)
+    diamond.lineTo(width / 2 + 3, y)
+    diamond.lineTo(width / 2, y - 2.5)
+    diamond.lineTo(width / 2 - 3, y)
+    diamond.close()
+    c.drawPath(diamond, fill=1, stroke=0)
+
+    # 2. Название документа
+    y -= 34
+    c.setFont(font_bold, 22)
+    c.setFillColor(colors.HexColor("#0F172A"))
+    c.drawCentredString(width / 2, y, "СВИДЕТЕЛЬСТВО")
+
+    y -= 18
     c.setFont(font_bold, 12)
-    c.setFillColor(colors.HexColor("#111111"))
-    c.drawCentredString(width / 2, y, f"Регистрационный номер: {cert_number}")
+    c.setFillColor(colors.HexColor("#B91C1C"))
+    c.drawCentredString(width / 2, y, "О ДЕПОНИРОВАНИИ И АВТОРСКОМ ПРИОРИТЕТЕ ОБЪЕКТА РИД")
 
-    # Вводная преамбула
-    y -= 30
-    c.setFont(font_reg, 10.5)
-    c.setFillColor(colors.HexColor("#333333"))
+    # Номер свидетельства в стильном бейдже
+    y -= 26
+    badge_w = 330
+    badge_h = 20
+    badge_x = (width - badge_w) / 2
+    c.setFillColor(colors.HexColor("#F8FAFC"))
+    c.setStrokeColor(colors.HexColor("#E2E8F0"))
+    c.setLineWidth(0.8)
+    c.roundRect(badge_x, y - 4, badge_w, badge_h, 4, stroke=1, fill=1)
+
+    c.setFont(font_bold, 9.5)
+    c.setFillColor(colors.HexColor("#0F172A"))
+    c.drawCentredString(width / 2, y + 2, f"Регистрационный номер в реестре: {cert_number}")
+
+    # 3. Вводная преамбула
+    y -= 24
+    c.setFont(font_reg, 9)
+    c.setFillColor(colors.HexColor("#334155"))
     preamble = (
-        "Настоящим удостоверяется, что нижеуказанный объект интеллектуальной собственности "
-        "был внесен в распределенный реестр платформы «Точка Роста» с точной фиксацией "
-        "цифрового отпечатка (Prior Art / Proof of Existence) и даты приоритета."
+        "Настоящим удостоверяется, что представленный объект интеллектуальной собственности "
+        "внесён в распределённый депозитарий платформы «Точка Роста» с точной фиксацией "
+        "цифрового отпечатка (Prior Art / Proof of Existence) и даты авторского приоритета "
+        "в соответствии со ст. 1257 и 1259 Гражданского кодекса Российской Федерации."
     )
-    # Многострочный вывод преамбулы
-    text_obj = c.beginText(margin + 35, y)
-    text_obj.setFont(font_reg, 10)
-    text_obj.setLeading(14)
-    # Разбивка на строки
+    p_w = width - 2 * margin - 60
+    text_obj = c.beginText(margin + 30, y)
+    text_obj.setFont(font_reg, 9)
+    text_obj.setLeading(12.5)
     words = preamble.split()
     line = ""
     for w in words:
-        if c.stringWidth(line + " " + w, font_reg, 10) < (width - 2 * margin - 70):
+        if c.stringWidth(line + " " + w, font_reg, 9) < p_w:
             line = line + (" " if line else "") + w
         else:
             text_obj.textLine(line)
@@ -184,91 +213,95 @@ def render_pdf_certificate(
         text_obj.textLine(line)
     c.drawText(text_obj)
 
-    # Досье объекта
-    y -= 55
-    card_x = margin + 25
-    card_w = width - 2 * margin - 50
-    card_h = 160
-    c.setFillColor(colors.HexColor("#F9FAFB"))
-    c.setStrokeColor(colors.HexColor("#E2E5EB"))
+    # 4. Досье объекта (структурированная элегантная спецификация)
+    y -= 52
+    card_x = margin + 20
+    card_w = width - 2 * margin - 40
+    card_h = 162
+    c.setFillColor(colors.HexColor("#FFFFFF"))
+    c.setStrokeColor(colors.HexColor("#E2E8F0"))
     c.setLineWidth(1)
     c.roundRect(card_x, y - card_h, card_w, card_h, 6, stroke=1, fill=1)
 
-    dy = y - 22
     fields = [
         ("Наименование объекта:", object_title),
-        ("Тип объекта РИД:", entity_type_label),
+        ("Вид объекта РИД:", entity_type_label),
         ("Правообладатель / Автор:", author_name),
         ("Организация:", org_name if org_name else "Индивидуальный разработчик"),
         ("Реквизиты (ИНН / ОГРН):", f"ИНН {inn or 'не указан'}" + (f" | ОГРН {ogrn}" if ogrn else "")),
         ("Дата и время фиксации:", deposited_dt.strftime("%d.%m.%Y в %H:%M:%S MSK (UTC+3)")),
+        ("Срок действия приоритета:", "Бессрочно (с момента фиксации даты приоритета)"),
     ]
 
-    val_max_w = card_w - 185 - 15  # Безопасная граница внутри карточки
+    val_max_w = card_w - 180 - 20
+    dy = y - 18
+    for idx, (label, val) in enumerate(fields):
+        # Чередующаяся тонкая полоска фона
+        if idx % 2 == 1:
+            c.setFillColor(colors.HexColor("#F8FAFC"))
+            c.rect(card_x + 1, dy - 6, card_w - 2, 22, stroke=0, fill=1)
 
-    for label, val in fields:
-        c.setFont(font_bold, 9.5)
-        c.setFillColor(colors.HexColor("#555555"))
-        c.drawString(card_x + 18, dy, label)
+        c.setFont(font_bold, 8.5)
+        c.setFillColor(colors.HexColor("#475569"))
+        c.drawString(card_x + 16, dy, label)
 
-        draw_fitted_string(c, val, card_x + 185, dy, val_max_w, font_reg, 9.5, colors.HexColor("#111111"))
-        dy -= 23
+        draw_fitted_string(c, val, card_x + 180, dy, val_max_w, font_reg, 9, colors.HexColor("#0F172A"))
+        dy -= 22
 
-    # Блок криптографического отпечатка SHA-256
-    y = y - card_h - 25
-    c.setFont(font_bold, 10)
-    c.setFillColor(colors.HexColor("#111111"))
-    c.drawString(margin + 25, y, "ЦИФРОВОЙ КРИПТОГРАФИЧЕСКИЙ ОТПЕЧАТОК (SHA-256 CHECKSUM):")
+    # 5. Блок криптографического отпечатка SHA-256 (светлый аккуратный бокс)
+    y = y - card_h - 18
+    hash_box_x = margin + 20
+    hash_box_w = width - 2 * margin - 40
+    hash_box_h = 36
+    c.setFillColor(colors.HexColor("#F8FAFC"))
+    c.setStrokeColor(colors.HexColor("#CBD5E1"))
+    c.setLineWidth(0.8)
+    c.roundRect(hash_box_x, y - hash_box_h, hash_box_w, hash_box_h, 4, stroke=1, fill=1)
 
-    y -= 32
-    hash_box_x = margin + 25
-    hash_box_w = width - 2 * margin - 50
-    hash_box_h = 26
-    c.setFillColor(colors.HexColor("#111111"))
-    c.roundRect(hash_box_x, y, hash_box_w, hash_box_h, 4, stroke=0, fill=1)
+    c.setFont(font_bold, 7.5)
+    c.setFillColor(colors.HexColor("#64748B"))
+    c.drawCentredString(width / 2, y - 12, "КОНТРОЛЬНЫЙ КРИПТОГРАФИЧЕСКИЙ ОТПЕЧАТОК (SHA-256 CHECKSUM):")
 
-    c.setFont("Courier-Bold" if "Courier-Bold" in pdfmetrics.getRegisteredFontNames() else "Helvetica-Bold", 9)
-    c.setFillColor(colors.HexColor("#FFFFFF"))
-    c.drawCentredString(width / 2, y + 8, sha256_hash)
+    c.setFont("Courier-Bold" if "Courier-Bold" in pdfmetrics.getRegisteredFontNames() else font_bold, 9)
+    c.setFillColor(colors.HexColor("#0F172A"))
+    c.drawCentredString(width / 2, y - 26, sha256_hash)
 
-    # Нижний блок: QR-код, Электронная печать, Юридическая сноска
-    y -= 25
-
-    # Генерация QR кода
+    # 6. Нижний блок: Печать депозитария, Юридическая сноска, QR-код
     qr_buf = generate_qr_buffer(verify_url)
     from reportlab.lib.utils import ImageReader
     qr_reader = ImageReader(qr_buf)
 
-    qr_size = 90
-    qr_x = width - margin - 25 - qr_size
-    qr_y = margin + 50
+    qr_size = 80
+    qr_x = width - margin - 20 - qr_size
+    qr_y = margin + 46
     c.drawImage(qr_reader, qr_x, qr_y, width=qr_size, height=qr_size)
 
-    c.setFont(font_reg, 8)
-    c.setFillColor(colors.HexColor("#737373"))
-    c.drawCentredString(qr_x + qr_size / 2, qr_y - 10, "Сканируйте для проверки")
+    c.setFont(font_reg, 7)
+    c.setFillColor(colors.HexColor("#64748B"))
+    c.drawCentredString(qr_x + qr_size / 2, qr_y - 8, "Сканируйте для проверки")
 
-    # Круглая печать реестра (слева)
-    stamp_x = margin + 85
+    # Круглая официальная печать реестра (слева) БЕЗ ЭЦП
+    stamp_x = margin + 75
     stamp_y = qr_y + qr_size / 2
-    c.setStrokeColor(colors.HexColor("#0284C7"))
-    c.setLineWidth(1.8)
-    c.circle(stamp_x, stamp_y, 40, stroke=1, fill=0)
+    c.setStrokeColor(colors.HexColor("#1E3A8A"))
+    c.setLineWidth(1.6)
+    c.circle(stamp_x, stamp_y, 38, stroke=1, fill=0)
     c.setLineWidth(0.6)
-    c.circle(stamp_x, stamp_y, 36, stroke=1, fill=0)
+    c.circle(stamp_x, stamp_y, 34, stroke=1, fill=0)
 
     c.setFont(font_bold, 6.5)
-    c.setFillColor(colors.HexColor("#0284C7"))
-    c.drawCentredString(stamp_x, stamp_y + 20, "ЕДИНЫЙ РЕЕСТР")
-    c.drawCentredString(stamp_x, stamp_y + 10, "ТОЧКА РОСТА")
-    c.setFont(font_bold, 9)
-    c.drawCentredString(stamp_x, stamp_y - 2, "ВЕРИФИЦИРОВАНО")
-    c.setFont(font_reg, 6.5)
-    c.drawCentredString(stamp_x, stamp_y - 14, "ЭЦП ДЕПОЗИТАРИЯ")
-    c.drawCentredString(stamp_x, stamp_y - 23, deposited_dt.strftime("%d.%m.%Y"))
+    c.setFillColor(colors.HexColor("#1E3A8A"))
+    c.drawCentredString(stamp_x, stamp_y + 19, "ЕДИНЫЙ РЕЕСТР РИД")
+    c.drawCentredString(stamp_x, stamp_y + 9, "ДЕПОЗИТАРИЙ")
+    c.setFont(font_bold, 8)
+    c.drawCentredString(stamp_x, stamp_y - 2, "«ТОЧКА РОСТА»")
+    c.setFont(font_bold, 6.5)
+    c.drawCentredString(stamp_x, stamp_y - 13, "ПРИОРИТЕТ ЗАФИКСИРОВАН")
+    c.setFont(font_reg, 6)
+    c.drawCentredString(stamp_x, stamp_y - 22, deposited_dt.strftime("%d.%m.%Y"))
 
-    # Текст по центру между печатью и QR
-    center_text_x = margin + 145
+    # Юридический текст по центру между печатью и QR
+    center_text_x = margin + 130
     center_text_w = qr_x - center_text_x - 15
     legal_text = (
         "Свидетельство выдано на основании ст. 1257 и 1259 Гражданского кодекса РФ "
@@ -276,10 +309,10 @@ def render_pdf_certificate(
         "Является надлежащим доказательством первенства и существования научно-технического решения "
         "в судебных и арбитражных спорах."
     )
-    l_obj = c.beginText(center_text_x, qr_y + qr_size - 10)
+    l_obj = c.beginText(center_text_x, qr_y + qr_size - 6)
     l_obj.setFont(font_reg, 7.5)
-    l_obj.setFillColor(colors.HexColor("#666666"))
-    l_obj.setLeading(11)
+    l_obj.setFillColor(colors.HexColor("#475569"))
+    l_obj.setLeading(10.5)
     words = legal_text.split()
     line = ""
     for w in words:
@@ -292,20 +325,20 @@ def render_pdf_certificate(
         l_obj.textLine(line)
     c.drawText(l_obj)
 
-    # Подвал
-    c.setFont(font_reg, 7.5)
-    c.setFillColor(colors.HexColor("#555555"))
+    # 7. Подвал документа
+    c.setFont(font_reg, 7)
+    c.setFillColor(colors.HexColor("#64748B"))
     c.drawCentredString(
         width / 2,
-        margin + 20,
+        margin + 18,
         f"Публичный реестр верификации: {verify_url}",
     )
-    c.setFont(font_reg, 6.8)
-    c.setFillColor(colors.HexColor("#888888"))
+    c.setFont(font_reg, 6.5)
+    c.setFillColor(colors.HexColor("#94A3B8"))
     c.drawCentredString(
         width / 2,
-        margin + 10,
-        "Официальный электронный документ • Цифровая платформа трансфера технологий «Точка Роста»",
+        margin + 9,
+        "Официальный электронный документ • Федеральная платформа трансфера технологий «Точка Роста»",
     )
 
     c.showPage()

@@ -133,6 +133,8 @@ export function MessagesTab({
         if (res.ok) {
           const data: ChatMemberItem[] = await res.json()
           setChatMembers(data)
+        } else {
+          console.error("fetchChatMembers failed with status:", res.status)
         }
       } catch (err) {
         console.error("fetchChatMembers error:", err)
@@ -147,6 +149,7 @@ export function MessagesTab({
   React.useEffect(() => {
     if (!activeChatId) return
 
+    setChatMembers([])
     fetchMessages(activeChatId)
     fetchChatMembers(activeChatId)
 
@@ -159,7 +162,7 @@ export function MessagesTab({
       try {
         const wsProto = window.location.protocol === "https:" ? "wss:" : "ws:"
         const host = window.location.host
-        const wsUrl = `${wsProto}//${host}/api/v1/realtime/chat/${activeChatId}?token=${encodeURIComponent(token || "")}`
+        const wsUrl = `${wsProto}//${host}/api/v1/ws/chats/${activeChatId}?token=${encodeURIComponent(token || "")}`
 
         ws = new WebSocket(wsUrl)
         wsRef.current = ws
@@ -360,6 +363,42 @@ export function MessagesTab({
   const activeChat = chats.find((c) => c.id === activeChatId) || chats[0]
   const isGroupChat = activeChat?.chat_type === "project"
 
+  const displayMembers = React.useMemo(() => {
+    if (chatMembers.length > 0) return chatMembers
+    if (!activeChat) return []
+
+    // Фоллбэк: если список участников ещё не загрузился или БД вернула пустой список,
+    // формируем участников из известных данных активного диалога
+    const list: ChatMemberItem[] = []
+    if (user) {
+      list.push({
+        id: user.id,
+        chat_id: activeChat.id,
+        user_id: user.id,
+        role: user.id === activeChat.investor_id ? "lead_investor" : "member",
+        full_name: user.full_name || "Вы",
+        organization_name: user.organization_name,
+        user_role: user.role || "investor",
+        joined_at: new Date().toISOString(),
+        is_online: true,
+      })
+    }
+    if (activeChat.other_party_name && activeChat.other_party_id !== user?.id) {
+      list.push({
+        id: activeChat.other_party_id || 999999,
+        chat_id: activeChat.id,
+        user_id: activeChat.other_party_id || 999999,
+        role: activeChat.other_party_role?.includes("Лаборатория") ? "lab" : "lead_investor",
+        full_name: activeChat.other_party_name,
+        organization_name: activeChat.other_party_name,
+        user_role: activeChat.other_party_role?.includes("Лаборатория") ? "lab" : "investor",
+        joined_at: new Date().toISOString(),
+        is_online: false,
+      })
+    }
+    return list
+  }, [chatMembers, activeChat, user])
+
   const filteredChats = chats.filter((c) => {
     if (!searchQuery.trim()) return true
     const q = searchQuery.toLowerCase()
@@ -375,7 +414,7 @@ export function MessagesTab({
       <div className="flex items-center justify-between pb-3 border-b border-[#E2E5EB]">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#111111]">
-            Сообщения и синдикаты
+            Сообщения и инвестиционные чаты
           </h1>
           <p className="text-xs text-[#6B7280] mt-0.5">
             Групповые чаты соинвесторов, обмен файлами и арбитражный аудит соглашений
@@ -392,7 +431,7 @@ export function MessagesTab({
           </div>
           <h3 className="text-sm font-bold text-[#111111]">Нет активных диалогов</h3>
           <p className="text-xs text-[#6B7280] max-w-sm mx-auto">
-            Групповой чат проекта создаётся автоматически при открытии инвестиционного синдиката или отклике на задачу.
+            Групповой чат проекта создаётся автоматически при коллективном соинвестировании или отклике на задачу.
           </p>
         </Card>
       ) : (
@@ -406,7 +445,7 @@ export function MessagesTab({
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Поиск диалогов и синдикатов..."
+                  placeholder="Поиск диалогов и проектных чатов..."
                   className="pl-8 h-8 text-xs rounded-xl bg-[#F8FAFC] border-[#E2E5EB]"
                 />
               </div>
@@ -431,6 +470,10 @@ export function MessagesTab({
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                        <span className="text-xs font-bold text-[#111111] truncate">
+                          {isChatGroup ? chat.title : (chat.other_party_name || "Собеседник")}
+                        </span>
+
                         {isChatGroup ? (
                           <span className="flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 bg-amber-50 text-amber-900 border border-amber-200 rounded-md">
                             <HiOutlineUserGroup className="size-3" />
@@ -441,10 +484,6 @@ export function MessagesTab({
                             {chat.other_party_role || "Участник"}
                           </span>
                         )}
-
-                        <span className="text-xs font-bold text-[#111111] truncate">
-                          {isChatGroup ? chat.title : (chat.other_party_name || "Собеседник")}
-                        </span>
                       </div>
 
                       <p className="text-[11px] font-medium text-[#4B5563] truncate">
@@ -511,7 +550,7 @@ export function MessagesTab({
                         )}
 
                         <span className="text-[10px] text-[#6B7280]">
-                          • {isGroupChat ? "Синдикат проекта" : activeChat.other_party_role}
+                          • {isGroupChat ? "Коллективное инвестирование" : activeChat.other_party_role}
                         </span>
                       </div>
 
@@ -531,10 +570,15 @@ export function MessagesTab({
                         fetchChatMembers(activeChat.id)
                         setMembersModalOpen(true)
                       }}
-                      className="h-8 text-xs font-semibold border-[#E2E5EB] rounded-xl flex items-center gap-1.5 bg-white hover:bg-[#F5F6F8]"
+                      className="h-8 text-xs font-semibold border-[#E2E5EB] rounded-xl flex items-center gap-1.5 bg-white hover:bg-[#F5F6F8] shadow-2xs"
+                      title="Посмотреть участников диалога"
                     >
                       <HiOutlineUserGroup className="size-3.5 text-[#6B7280]" />
-                      <span>{chatMembers.length || activeChat.members_count || 2} уч.</span>
+                      <span>
+                        {displayMembers.length > 0
+                          ? `${displayMembers.length} уч.`
+                          : `${activeChat.members_count || 2} уч.`}
+                      </span>
                     </Button>
 
                     {activeChat.project_id && (
@@ -601,57 +645,6 @@ export function MessagesTab({
                         >
                           {msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>}
 
-                          {/* Вложения сообщений (картинки, файлы) */}
-                          {msg.attachments && msg.attachments.length > 0 && (
-                            <div className="mt-2 space-y-1.5 pt-1 border-t border-white/10">
-                              {msg.attachments.map((att) => {
-                                const isImage = att.mime_type.startsWith("image/")
-                                return (
-                                  <div key={att.id} className="rounded-xl overflow-hidden">
-                                    {isImage ? (
-                                      <a
-                                        href={att.file_path}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="block rounded-lg overflow-hidden border border-white/20 hover:opacity-90 transition-opacity"
-                                      >
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img
-                                          src={att.file_path}
-                                          alt={att.file_name}
-                                          className="max-h-48 w-auto rounded-lg object-contain bg-black/5"
-                                        />
-                                        <div className="text-[10px] mt-1 opacity-80 flex items-center justify-between">
-                                          <span className="truncate max-w-[150px]">{att.file_name}</span>
-                                          <span>{formatBytes(att.file_size)}</span>
-                                        </div>
-                                      </a>
-                                    ) : (
-                                      <a
-                                        href={att.file_path}
-                                        download={att.file_name}
-                                        className={`flex items-center justify-between gap-3 p-2 rounded-xl text-xs font-medium transition-colors ${
-                                          isMine
-                                            ? "bg-white/10 hover:bg-white/20 text-white"
-                                            : "bg-[#F5F6F8] hover:bg-[#ECEEF2] text-[#111111]"
-                                        }`}
-                                      >
-                                        <div className="flex items-center gap-2 min-w-0">
-                                          <HiOutlineDocumentText className="size-4 shrink-0 text-[#F81B00]" />
-                                          <div className="min-w-0">
-                                            <p className="truncate font-semibold text-[11px]">{att.file_name}</p>
-                                            <p className="text-[9px] opacity-70">{formatBytes(att.file_size)}</p>
-                                          </div>
-                                        </div>
-                                        <HiOutlineArrowDownTray className="size-4 shrink-0 opacity-80" />
-                                      </a>
-                                    )}
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          )}
-
                           <div
                             className={`flex items-center justify-end gap-1 mt-1 text-[9px] ${
                               isMine ? "text-white/70" : "text-[#9CA3AF]"
@@ -671,6 +664,48 @@ export function MessagesTab({
                             )}
                           </div>
                         </div>
+
+                        {/* Вложения сообщений: аккуратные компактные карточки под сообщением */}
+                        {msg.attachments && msg.attachments.length > 0 && (
+                          <div className={`mt-1.5 flex flex-wrap gap-1.5 max-w-[85%] ${isMine ? "justify-end" : "justify-start"}`}>
+                            {msg.attachments.map((att) => {
+                              const isImage = att.mime_type.startsWith("image/")
+                              return (
+                                <a
+                                  key={att.id}
+                                  href={att.file_path}
+                                  download={!isImage ? att.file_name : undefined}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs transition-colors border shadow-2xs ${
+                                    isMine
+                                      ? "bg-[#1F2937] text-white border-[#374151] hover:bg-[#111827]"
+                                      : "bg-white text-[#111111] border-[#E2E5EB] hover:bg-[#F5F6F8]"
+                                  }`}
+                                  title={`${att.file_name} (${formatBytes(att.file_size)})`}
+                                >
+                                  {isImage ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={att.file_path}
+                                      alt=""
+                                      className="size-4.5 rounded object-cover shrink-0"
+                                    />
+                                  ) : (
+                                    <HiOutlineDocumentText className="size-3.5 shrink-0 text-[#F81B00]" />
+                                  )}
+                                  <span className="font-semibold text-[11px] truncate max-w-[130px]">
+                                    {att.file_name}
+                                  </span>
+                                  <span className="text-[9px] opacity-60 font-mono">
+                                    {formatBytes(att.file_size)}
+                                  </span>
+                                  <HiOutlineArrowDownTray className="size-3 shrink-0 opacity-70 ml-0.5" />
+                                </a>
+                              )
+                            })}
+                          </div>
+                        )}
                       </div>
                     )
                   })
@@ -751,28 +786,31 @@ export function MessagesTab({
         </div>
       )}
 
-      {/* Modal: Список участников группового чата */}
+      {/* Modal: Список участников чата */}
       <Dialog open={membersModalOpen} onOpenChange={setMembersModalOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl p-6 bg-white border-[#E2E5EB]">
           <DialogHeader className="pb-3 border-b border-[#E2E5EB]">
             <DialogTitle className="text-base font-bold text-[#111111] flex items-center gap-2">
               <HiOutlineUserGroup className="size-5 text-[#F81B00]" />
-              <span>Участники проектного чата</span>
+              <span>{isGroupChat ? "Участники проектного чата" : "Участники диалога"}</span>
             </DialogTitle>
             <p className="text-xs text-[#6B7280] mt-1">
-              Реестр инвесторов синдиката и представителей исследовательской лаборатории
+              {isGroupChat
+                ? "Реестр соинвесторов и представителей исследовательской лаборатории"
+                : "Собеседники и стороны соглашения по сделке"}
             </p>
           </DialogHeader>
 
           <div className="py-3 divide-y divide-[#F1F3F5] max-h-80 overflow-y-auto">
-            {loadingMembers ? (
+            {loadingMembers && displayMembers.length === 0 ? (
               <div className="p-6 text-center text-xs text-[#6B7280]">Загрузка участников...</div>
-            ) : chatMembers.length === 0 ? (
+            ) : displayMembers.length === 0 ? (
               <div className="p-6 text-center text-xs text-[#9CA3AF]">Список участников пуст</div>
             ) : (
-              chatMembers.map((member) => {
+              displayMembers.map((member) => {
                 const isLab = member.role === "lab" || member.user_role === "lab"
                 const isLead = member.role === "lead_investor"
+                const isMe = member.user_id === user?.id
 
                 return (
                   <div key={member.id} className="py-3 flex items-center justify-between gap-3">
@@ -792,6 +830,12 @@ export function MessagesTab({
                             {member.organization_name || member.full_name}
                           </span>
 
+                          {isMe && (
+                            <Badge variant="outline" className="text-[9px] bg-neutral-100 text-neutral-700 border-neutral-300">
+                              Вы
+                            </Badge>
+                          )}
+
                           {isLab ? (
                             <Badge variant="outline" className="text-[9px] bg-emerald-50 text-emerald-800 border-emerald-200">
                               НИИ / Лаборатория
@@ -807,32 +851,34 @@ export function MessagesTab({
                           )}
                         </div>
 
-                        {member.organization_name && member.full_name && (
+                        {member.organization_name && member.full_name && member.organization_name !== member.full_name && (
                           <p className="text-[11px] text-[#6B7280] truncate">{member.full_name}</p>
                         )}
 
                         {member.share_percent !== null && member.share_percent !== undefined && (
                           <p className="text-[10px] text-amber-800 font-medium mt-0.5">
                             Доля: <span className="font-bold">{member.share_percent}%</span>
-                            {member.invested_amount ? ` • Вложено: ${member.invested_amount.toLocaleString("ru-RU")} ₽` : ""}
+                            {member.invested_amount ? ` • Вложено: ${Number(member.invested_amount).toLocaleString("ru-RU")} ₽` : ""}
                           </p>
                         )}
                       </div>
                     </div>
 
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setMembersModalOpen(false)
-                        setCounterpartyModalId(member.user_id)
-                      }}
-                      className="text-xs h-7 px-2 text-[#6B7280] hover:text-[#111111] shrink-0"
-                    >
-                      <HiOutlineEye className="size-3.5 mr-1" />
-                      Досье
-                    </Button>
+                    {!isMe && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setMembersModalOpen(false)
+                          setCounterpartyModalId(member.user_id)
+                        }}
+                        className="text-xs h-7 px-2 text-[#6B7280] hover:text-[#111111] shrink-0"
+                      >
+                        <HiOutlineEye className="size-3.5 mr-1" />
+                        Досье
+                      </Button>
+                    )}
                   </div>
                 )
               })

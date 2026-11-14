@@ -294,7 +294,7 @@ function DashboardContent() {
               </span>
               <span className="text-xs text-[#CBD5E1]">/</span>
               <span className="text-xs font-bold text-[#111111]">
-                {activeTab === "projects" && "Мои проекты"}
+                {activeTab === "projects" && "Мои проекты и сделки"}
                 {activeTab === "ideas" && "Каталог разработок и идей"}
                 {activeTab === "tasks" && "Биржа R&D-задач"}
                 {activeTab === "finances" && "Баланс и Финансы"}

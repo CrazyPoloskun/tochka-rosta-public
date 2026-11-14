@@ -3,12 +3,12 @@ import json
 from typing import Dict, Set
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select
+from sqlalchemy import select, and_
 
 from app.core.security import decode_token
 from app.core.database import AsyncSessionLocal
 from app.models.user import User
-from app.models.chat import Chat, Message
+from app.models.chat import Chat, Message, ChatMember
 from app.models.support import SupportTicket, TicketMessage
 
 router = APIRouter()
@@ -86,20 +86,16 @@ async def get_user_from_token(token: str) -> User | None:
         return user
 
 
-@router.get("/ws/chats/{chat_id}")
-async def chat_websocket_info(chat_id: int):
-    return {"status": "ok", "service": "chat_websocket", "chat_id": chat_id}
-
-
-@router.websocket("/ws/chats/{chat_id}")
-async def chat_websocket_endpoint(
+async def _handle_chat_ws(
     websocket: WebSocket,
     chat_id: int,
     token: str = Query(...),
 ):
+    await websocket.accept()
+
     user = await get_user_from_token(token)
     if not user:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Unauthorized")
         return
 
     # Check permission
@@ -107,13 +103,26 @@ async def chat_websocket_endpoint(
         res = await session.execute(select(Chat).where(Chat.id == chat_id))
         chat = res.scalar_one_or_none()
         if not chat:
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-            return
-        if not user.is_admin and user.id not in [chat.investor_id, chat.lab_id]:
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Chat not found")
             return
 
-    await manager.connect_chat(chat_id, websocket)
+        is_allowed = user.is_admin or user.id in [chat.investor_id, chat.lab_id]
+        if not is_allowed:
+            cm_res = await session.execute(
+                select(ChatMember).where(
+                    and_(ChatMember.chat_id == chat.id, ChatMember.user_id == user.id)
+                )
+            )
+            if cm_res.scalar_one_or_none():
+                is_allowed = True
+
+        if not is_allowed:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Forbidden")
+            return
+
+    if chat_id not in manager.chat_rooms:
+        manager.chat_rooms[chat_id] = set()
+    manager.chat_rooms[chat_id].add(websocket)
 
     try:
         while True:
@@ -166,33 +175,55 @@ async def chat_websocket_endpoint(
         manager.disconnect_chat(chat_id, websocket)
 
 
-@router.get("/ws/tickets/{ticket_id}")
-async def ticket_websocket_info(ticket_id: int):
-    return {"status": "ok", "service": "ticket_websocket", "ticket_id": ticket_id}
+@router.get("/ws/chats/{chat_id}")
+@router.get("/realtime/chat/{chat_id}")
+async def chat_websocket_info(chat_id: int):
+    return {"status": "ok", "service": "chat_websocket", "chat_id": chat_id}
 
 
-@router.websocket("/ws/tickets/{ticket_id}")
-async def ticket_websocket_endpoint(
+@router.websocket("/ws/chats/{chat_id}")
+async def chat_ws_endpoint(
+    websocket: WebSocket,
+    chat_id: int,
+    token: str = Query(...),
+):
+    await _handle_chat_ws(websocket, chat_id, token)
+
+
+@router.websocket("/realtime/chat/{chat_id}")
+async def chat_realtime_endpoint(
+    websocket: WebSocket,
+    chat_id: int,
+    token: str = Query(...),
+):
+    await _handle_chat_ws(websocket, chat_id, token)
+
+
+async def _handle_ticket_ws(
     websocket: WebSocket,
     ticket_id: int,
     token: str = Query(...),
 ):
+    await websocket.accept()
+
     user = await get_user_from_token(token)
     if not user:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Unauthorized")
         return
 
     async with AsyncSessionLocal() as session:
         res = await session.execute(select(SupportTicket).where(SupportTicket.id == ticket_id))
         ticket = res.scalar_one_or_none()
         if not ticket:
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Ticket not found")
             return
         if not user.is_admin and user.id != ticket.user_id:
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Forbidden")
             return
 
-    await manager.connect_ticket(ticket_id, websocket)
+    if ticket_id not in manager.ticket_rooms:
+        manager.ticket_rooms[ticket_id] = set()
+    manager.ticket_rooms[ticket_id].add(websocket)
 
     try:
         while True:
@@ -216,7 +247,6 @@ async def ticket_websocket_endpoint(
                         content=content,
                     )
                     session.add(t_msg)
-                    # If admin replied, mark ticket in_progress
                     if user.is_admin and ticket.status == "open":
                         t_obj = await session.get(SupportTicket, ticket_id)
                         if t_obj:
@@ -247,6 +277,30 @@ async def ticket_websocket_endpoint(
         manager.disconnect_ticket(ticket_id, websocket)
     except Exception:
         manager.disconnect_ticket(ticket_id, websocket)
+
+
+@router.get("/ws/tickets/{ticket_id}")
+@router.get("/realtime/ticket/{ticket_id}")
+async def ticket_websocket_info(ticket_id: int):
+    return {"status": "ok", "service": "ticket_websocket", "ticket_id": ticket_id}
+
+
+@router.websocket("/ws/tickets/{ticket_id}")
+async def ticket_ws_endpoint(
+    websocket: WebSocket,
+    ticket_id: int,
+    token: str = Query(...),
+):
+    await _handle_ticket_ws(websocket, ticket_id, token)
+
+
+@router.websocket("/realtime/ticket/{ticket_id}")
+async def ticket_realtime_endpoint(
+    websocket: WebSocket,
+    ticket_id: int,
+    token: str = Query(...),
+):
+    await _handle_ticket_ws(websocket, ticket_id, token)
 
 
 @router.get("/events/stream")

@@ -138,7 +138,7 @@ export function SyndicateModal({
   }
 
   const handleLeave = async () => {
-    if (!confirm("Вы уверены, что хотите выйти из синдиката? Замороженные средства вернутся на ваш доступный баланс.")) {
+    if (!confirm("Вы уверены, что хотите отозвать соинвестирование? Замороженные средства вернутся на ваш доступный баланс.")) {
       return
     }
 
@@ -151,14 +151,14 @@ export function SyndicateModal({
       if (res.ok) {
         const data = await res.json()
         success(
-          `Вы успешно вышли из синдиката. Средства (${Number(data.refunded_amount).toLocaleString("ru-RU")} ₽) возвращены на баланс.`,
+          `Вы успешно вышли из сделки коллективного инвестирования. Средства (${Number(data.refunded_amount).toLocaleString("ru-RU")} ₽) возвращены на баланс.`,
           "Депозит возвращен"
         )
         fetchCapTable()
         onSuccess()
       } else {
         const errData = await res.json().catch(() => ({}))
-        error(errData.detail || "Не удалось выйти из синдиката", "Ошибка")
+        error(errData.detail || "Не удалось отозвать инвестицию", "Ошибка")
       }
     } catch {
       error("Сетевая ошибка", "Ошибка")
@@ -506,17 +506,6 @@ export function SyndicateModal({
             </div>
           )}
         </div>
-
-        <DialogFooter className="gap-3 pt-3 border-t border-[#E2E5EB]">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            className="text-xs font-semibold rounded-xl border-[#E2E5EB] px-4 cursor-pointer hover:bg-[#F5F6F8]"
-          >
-            Закрыть
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

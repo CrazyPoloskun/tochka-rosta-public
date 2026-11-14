@@ -322,11 +322,6 @@ export function ProjectsTab({
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#111111]">
             Мои проекты и сделки
           </h1>
-          <p className="text-xs text-[#6B7280] mt-1">
-            {isLab
-              ? "Управление этапами разработки, сдача научной отчётности и приёмка выплат"
-              : "Контроль выполнения НИОКР, резервирование средств на эскроу и приёмка результатов"}
-          </p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="text-xs font-semibold px-3 py-1 bg-white border-[#E2E5EB]">
@@ -472,22 +467,9 @@ export function ProjectsTab({
                           <HiOutlineUserGroup className="size-5 text-[#F81B00]" />
                         </span>
                         <div>
-                          <div className="flex items-center gap-2.5">
-                            <span className="text-sm font-bold text-[#111111]">
-                              Коллективное соинвестирование
-                            </span>
-                            {activeProject.syndication_status === "funded" ? (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-xs">
-                                <span className="size-2 rounded-full bg-emerald-500" />
-                                Цель достигнута
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-black tracking-wide uppercase bg-emerald-600 text-white shadow-md ring-2 ring-emerald-300/80 animate-pulse">
-                                <span className="size-2 rounded-full bg-white" />
-                                Сбор открыт
-                              </span>
-                            )}
-                          </div>
+                          <span className="text-sm font-bold text-[#111111] block">
+                            Коллективное соинвестирование
+                          </span>
                           <span className="text-xs text-[#6B7280]">
                             Участников соинвестирования: <strong>{activeProject.syndicate_members_count || 1}</strong>
                           </span>
@@ -591,20 +573,19 @@ export function ProjectsTab({
                   </div>
                 ) : (
                   activeProject.investor_id === user?.id && activeProject.status === "active" && (
-                    <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                    <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                       <div className="flex items-center gap-2">
-                        <HiOutlineUserGroup className="size-4 text-amber-700 shrink-0" />
-                        <span className="text-amber-950">
+                        <HiOutlineUserGroup className="size-4 text-blue-700 shrink-0" />
+                        <span className="text-blue-950 font-medium">
                           Хотите привлечь партнёров-соинвесторов для разделения сметы и рисков НИОКР?
                         </span>
                       </div>
                       <Button
                         size="sm"
-                        variant="outline"
                         onClick={() => setEnableSyndicateProject(activeProject)}
-                        className="text-xs font-bold border-amber-300 bg-white hover:bg-amber-100 text-amber-900 rounded-xl shrink-0 h-8 gap-1.5 cursor-pointer shadow-2xs"
+                        className="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shrink-0 h-8 gap-1.5 cursor-pointer shadow-xs border-0 px-3.5"
                       >
-                        <HiOutlineSparkles className="size-3.5 text-amber-600" />
+                        <HiOutlineSparkles className="size-3.5 text-blue-100" />
                         <span>Открыть соинвестирование</span>
                       </Button>
                     </div>

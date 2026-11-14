@@ -134,8 +134,12 @@ export default function VerifyPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <Link href="/" className="flex items-center space-x-2">
-              <span className="w-3 h-3 bg-[#F81B00]" />
-              <span className="text-sm font-bold tracking-tight uppercase">Точка Роста</span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo.png"
+                alt="Точка Роста"
+                className="h-7 sm:h-8 w-auto object-contain"
+              />
             </Link>
             <span className="text-neutral-300">/</span>
             <span className="text-xs font-mono uppercase tracking-wider text-neutral-500">

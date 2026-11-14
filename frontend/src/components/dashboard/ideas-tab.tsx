@@ -973,7 +973,7 @@ export function IdeasTab({
                           className="w-full text-[11px] font-semibold border-[#F81B00]/30 hover:border-[#F81B00] bg-[#FFF8F8] hover:bg-[#FFF0F0] text-[#F81B00] rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                         >
                           <HiOutlineSparkles className="size-3.5 text-[#F81B00]" />
-                          <span>Составить ТЗ по разработке (ИИ)</span>
+                          <span>Составить ТЗ по разработке</span>
                         </Button>
                       </div>
                     )

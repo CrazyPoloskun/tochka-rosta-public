@@ -137,6 +137,18 @@ def build_gost_docx(
     normal_style.font.size = Pt(14)
     normal_style.font.color.rgb = RGBColor(0, 0, 0)
 
+    # Официальный графический логотип платформы
+    logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "logo.png")
+    if os.path.exists(logo_path):
+        try:
+            p_logo = doc.add_paragraph()
+            p_logo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_logo.paragraph_format.space_after = Pt(10)
+            run_logo = p_logo.add_run()
+            run_logo.add_picture(logo_path, width=Inches(2.2))
+        except Exception:
+            pass
+
     def add_p(text="", align=WD_ALIGN_PARAGRAPH.JUSTIFY, bold=False, italic=False, space_after=6, line_spacing=1.5, indent=True):
         p = doc.add_paragraph()
         p.alignment = align
@@ -288,6 +300,16 @@ def build_gost_pdf(
     margin_left = 85  # ~30mm
     margin_right = 42 # ~15mm
     content_width = width - margin_left - margin_right
+
+    # Официальный графический логотип платформы в шапке отчета
+    logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "logo.png")
+    if os.path.exists(logo_path):
+        try:
+            logo_h = 18
+            logo_w = logo_h * (1287.0 / 356.0)
+            c.drawImage(logo_path, (width - logo_w) / 2, height - 42, width=logo_w, height=logo_h, mask="auto")
+        except Exception:
+            pass
 
     y = height - 57 # ~20mm
     c.setFont(font_bold, 10)

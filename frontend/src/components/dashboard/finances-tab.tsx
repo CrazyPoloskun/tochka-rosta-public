@@ -13,6 +13,7 @@ import {
   HiOutlineDocumentText,
   HiOutlinePrinter,
   HiOutlineCheckBadge,
+  HiOutlineArrowDownTray,
 } from "react-icons/hi2"
 
 import { Button } from "@/components/ui/button"
@@ -119,6 +120,29 @@ export function FinancesTab({
       error("Ошибка соединения при получении квитанции", "Ошибка")
     } finally {
       setLoadingReceipt(false)
+    }
+  }
+
+  // Прямое скачивание официального PDF-чека
+  const handleDownloadPdfReceipt = async (txId: number) => {
+    try {
+      const res = await authFetch(`/api/v1/finances/transactions/${txId}/receipt/pdf`)
+      if (!res.ok) {
+        error("Не удалось сформировать PDF чек", "Ошибка")
+        return
+      }
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `receipt_${txId}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+      success("Чек успешно сохранён в формате PDF", "Чек скачан")
+    } catch {
+      error("Ошибка соединения при скачивании чека", "Ошибка")
     }
   }
 
@@ -425,7 +449,7 @@ export function FinancesTab({
                             {tx.type === "deposit"
                               ? "Пополнение"
                               : tx.type === "profit_payout"
-                              ? "Прибыль синдиката"
+                              ? "Инвестиционная прибыль"
                               : tx.type === "escrow_lock"
                               ? "Блокировка на эскроу"
                               : tx.type === "escrow_release"
@@ -476,12 +500,12 @@ export function FinancesTab({
                         )}
                         <button
                           type="button"
-                          onClick={() => handleOpenReceipt(tx.id)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-[#F5F6F8] border border-[#E2E5EB] hover:border-[#111111] text-[11px] font-semibold text-[#111111] rounded-lg transition-colors cursor-pointer shadow-2xs"
-                          title="Официальная справка / квитанция о подтверждении перевода"
+                          onClick={() => handleDownloadPdfReceipt(tx.id)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white hover:bg-[#F5F6F8] border border-[#E2E5EB] hover:border-[#111111] text-[11px] font-bold text-[#111111] rounded-lg transition-colors cursor-pointer shadow-2xs"
+                          title="Скачать официальный платёжный чек (PDF)"
                         >
-                          <HiOutlineDocumentText className="size-3.5 text-[#F81B00]" />
-                          <span>Квитанция</span>
+                          <HiOutlineArrowDownTray className="size-3.5 text-[#F81B00]" />
+                          <span>Чек (PDF)</span>
                         </button>
                       </td>
                     </tr>
@@ -844,25 +868,19 @@ export function FinancesTab({
                 </div>
               </div>
 
-              {/* Digital Signature & Bank Stamp */}
-              <div className="p-4 bg-emerald-50/60 border border-emerald-200 rounded-xl space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
-                    <HiOutlineShieldCheck className="size-4 text-emerald-600" />
-                    <span>Электронная цифровая подпись (ЭЦП ГОСТ Р 34.10-2012):</span>
+              {/* Bank Execution Note */}
+              <div className="p-3.5 bg-[#F8FAFC] border border-[#E2E5EB] rounded-xl flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-[#111111] block">
+                    Операция проведена через платёжный контур «Точка Роста»
                   </span>
-                  <span className="text-[10px] font-mono text-emerald-800">
-                    ПРОВЕРЕНО
+                  <span className="text-[11px] text-[#6B7280]">
+                    Банк-эквайер: АО «Т-Банк» • Система быстрых платежей
                   </span>
                 </div>
-                <div className="p-2.5 bg-white rounded-lg border border-emerald-200 font-mono text-[10px] text-emerald-900 break-all space-y-0.5">
-                  <p><strong>SHA-256 хеш операции:</strong> {receiptData.digital_signature?.sha256}</p>
-                  <p><strong>Удостоверяющий центр:</strong> {receiptData.digital_signature?.signed_by}</p>
-                  <p><strong>Сертификат:</strong> {receiptData.digital_signature?.certificate}</p>
-                </div>
-                <p className="text-[10px] text-emerald-800 italic">
-                  Настоящий электронный документ имеет юридическую силу платёжного поручения в соответствии со ст. 6 Федерального закона № 63-ФЗ «Об электронной подписи».
-                </p>
+                <Badge variant="outline" className="text-[10px] font-bold bg-emerald-50 text-emerald-800 border-emerald-200">
+                  Исполнено
+                </Badge>
               </div>
             </div>
           )}
@@ -879,12 +897,14 @@ export function FinancesTab({
             <Button
               type="button"
               onClick={() => {
-                if (typeof window !== "undefined") window.print()
+                if (receiptData?.transaction_id) {
+                  handleDownloadPdfReceipt(receiptData.transaction_id)
+                }
               }}
-              className="text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
+              className="text-xs font-bold bg-[#F81B00] hover:bg-[#d01700] text-white rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 px-4"
             >
-              <HiOutlinePrinter className="size-4" />
-              <span>Печать квитанции</span>
+              <HiOutlineArrowDownTray className="size-4" />
+              <span>Скачать чек (PDF)</span>
             </Button>
           </DialogFooter>
         </DialogContent>
