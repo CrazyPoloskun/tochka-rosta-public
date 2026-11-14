@@ -1,142 +1,126 @@
-# Tochka Rosta
+<div align="center">
 
-Проект с раздельной архитектурой фронтенда и бэкенда:
-- **Frontend**: [Next.js](https://nextjs.org/) (App Router, TypeScript) + [Tailwind CSS](https://tailwindcss.com/) + [Shadcn/ui](https://ui.shadcn.com/)
-- **Backend**: [FastAPI](https://fastapi.tiangolo.com/) + [SQLAlchemy](https://www.sqlalchemy.org/) (Async) + [asyncpg](https://github.com/MagicStack/asyncpg) + [Alembic](https://alembic.sqlalchemy.org/)
-- **Database**: [PostgreSQL](https://www.postgresql.org/)
+# Точка Роста
+
+**Цифровая платформа трансфера технологий, депонирования РИД и R&D-контрактации**
+
+[![Next.js](https://img.shields.io/badge/Next.js-14_App_Router-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![OpenRouter](https://img.shields.io/badge/OpenRouter-AI_LLM-6366F1?style=for-the-badge)](https://openrouter.ai/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+
+</div>
 
 ---
 
-## Структура проекта
+## Возможности платформы
+
+- **Каталог разработок и депонирование РИД**: публикация научных решений с фиксацией авторского приоритета (SHA-256), генерацией официальных PDF-свидетельств с QR-кодом и публичной верификацией в реестре (`/verify`).
+- **Биржа R&D-задач и тендеров**: размещение корпоративных запросов, интерактивное управление этапами сметы (добавление, перемещение, удаление) и сбор предложений от аккредитованных лабораторий.
+- **Интегрированный ИИ (OpenRouter)**:
+  - Генерация ТЗ по ГОСТ 15.016-2016 с календарным планом и методиками испытаний.
+  - Извлечение данных из научных PDF-статей с автоопределением отраслей и уровня TRL (1–9).
+  - Интеллектуальный подбор исполнителей (AI Matchmaking).
+- **Эскроу-сделки и проектное управление**: поэтапное финансирование с заморозкой средств, сдача отчетности и взаимный арбитраж.
+- **Генерация отчётов по ГОСТ 7.32-2017**: автоматическое формирование итоговой научной документации в форматах PDF и DOCX со сквозной многостраничной пагинацией.
+- **Верификация и досье контрагентов**: аудит ИНН/ОГРН, проверка патентов через реестры ФИПС, модерация заявок и разграничение прав (НИИ, Инвестор, Администратор).
+
+---
+
+## Архитектура проекта
 
 ```text
-TochkaRosta/
-├── backend/                  # Серверная часть (FastAPI + PostgreSQL)
-│   ├── alembic/              # Миграции базы данных (Async Alembic)
+tochka-rosta/
+├── backend/
 │   ├── app/
-│   │   ├── api/
-│   │   │   └── v1/
-│   │   │       ├── endpoints/
-│   │   │       │   └── health.py # Проверка здоровья API и БД
-│   │   │       └── api.py    # Сборный роутер v1
-│   │   ├── core/
-│   │   │   ├── config.py     # Pydantic Settings конфигурация
-│   │   │   └── database.py   # Async Engine, AsyncSession, get_db
-│   │   ├── models/           # SQLAlchemy модели
-│   │   ├── schemas/          # Pydantic схемы валидации
-│   │   └── main.py           # Точка входа FastAPI с CORS и роутами
-│   ├── venv/                 # Виртуальное окружение Python
-│   ├── .env                  # Локальные переменные окружения
-│   ├── .env.example          # Пример переменных окружения
-│   ├── alembic.ini           # Конфигурация Alembic
-│   └── requirements.txt      # Python зависимости
+│   │   ├── api/v1/endpoints/   # REST API (ideas, tasks, projects, certs, ai, finances)
+│   │   ├── core/               # Конфигурация, безопасность, база данных
+│   │   ├── models/             # SQLAlchemy модели
+│   │   ├── schemas/            # Схемы валидации Pydantic
+│   │   └── services/           # Сервисы (ИИ, ГОСТ-отчёты, свидетельства, эскроу)
+│   ├── alembic/                # Миграции базы данных
+│   ├── requirements.txt
+│   └── Dockerfile
 │
-├── frontend/                 # Клиентская часть (Next.js + Shadcn/ui)
+├── frontend/
 │   ├── src/
-│   │   ├── app/              # Next.js App Router (страницы и layouts)
-│   │   ├── components/
-│   │   │   └── ui/           # Shadcn/ui компоненты (Button, Card, Badge)
-│   │   └── lib/              # Вспомогательные утилиты (cn и др.)
-│   ├── components.json       # Конфигурация Shadcn/ui
-│   └── package.json          # Node.js зависимости и скрипты
+│   │   ├── app/                # Next.js App Router (каталог, дашборд, верификация, админка)
+│   │   ├── components/         # UI-компоненты (Shadcn/ui, цепочка этапов, диалоги)
+│   │   └── lib/                # Контекст авторизации, утилиты
+│   ├── package.json
+│   └── Dockerfile
 │
-├── docker-compose.yml        # Контейнер PostgreSQL для локальной разработки
-├── .gitignore                # Игнорируемые файлы для Python и Node.js
-└── README.md
+├── nginx/                      # Nginx reverse proxy
+├── docker-compose.yml          # Локальная и тестовая среда
+├── docker-compose.prod.yml     # Продакшн-развертывание
+└── .env.example                # Шаблон переменных окружения
 ```
 
 ---
 
-## Запуск проекта одной командой
+## Быстрый запуск
 
-В корневой папке проекта выполните:
+### Вариант 1. Docker Compose (рекомендуемый)
 
+1. Склонируйте репозиторий и создайте файл окружения:
+   ```bash
+   cp .env.example .env
+   ```
+   *(Укажите `OPENROUTER_API_KEY` для работы реального ИИ)*
+
+2. Запустите стек:
+   ```bash
+   docker compose up -d --build
+   ```
+
+3. Сервисы будут доступны по адресам:
+   - **Frontend**: [http://localhost:3000](http://localhost:3000)
+   - **Backend API**: [http://localhost:8000](http://localhost:8000)
+   - **Интерактивная документация (Swagger UI)**: [http://localhost:8000/docs](http://localhost:8000/docs)
+   - **Публичный реестр верификации**: [http://localhost:3000/verify](http://localhost:3000/verify)
+
+---
+
+### Вариант 2. Локальный запуск без Docker
+
+#### 1. База данных PostgreSQL
+Запустите PostgreSQL локально или через легковесный контейнер:
 ```bash
-npm run dev
+docker run -d --name tochka_db -p 5432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=tochka_rosta postgres:16-alpine
 ```
-*(или просто `npm start`)*
 
-На Windows также можно запустить через двойной клик по **`start.bat`** или команду `.\start.bat`.
-
-Команда параллельно запускает:
-- **Backend API**: [http://localhost:8000](http://localhost:8000) (Swagger: `/docs`)
-- **Frontend App**: [http://localhost:3000](http://localhost:3000)
-
-Логи обоих сервисов выводятся в единую консоль с цветовым разделением префиксов `[backend]` и `[frontend]`, а нажатие `Ctrl+C` корректно останавливает оба процесса.
-
----
-
-## Раздельный запуск (ручной режим)
-
-### 1. База данных (PostgreSQL)
-
-Если установлен Docker, запустите базу одной командой:
-```bash
-docker compose up -d
-```
-Или используйте локально установленный PostgreSQL с параметрами из `backend/.env`.
-
----
-
-### 2. Запуск Backend (FastAPI)
-
-Перейдите в каталог `backend`:
+#### 2. Бэкенд (FastAPI)
 ```bash
 cd backend
-```
+python -m venv venv
 
-Активируйте виртуальное окружение:
-- **Windows (PowerShell)**:
-  ```powershell
-  .\venv\Scripts\Activate.ps1
-  ```
-- **Linux/macOS**:
-  ```bash
-  source venv/bin/activate
-  ```
+# Windows
+.\venv\Scripts\activate
+# Linux/macOS
+source venv/bin/activate
 
-(Опционально) Установка зависимостей, если окружение создается заново:
-```bash
 pip install -r requirements.txt
-```
-
-Запуск сервера разработки:
-```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-- **API документация (Swagger UI)**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **API документация (ReDoc)**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
-- **Health Check**: [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
-
-#### Миграции базы данных (Alembic)
+#### 3. Фронтенд (Next.js)
 ```bash
-# Создание новой миграции
-alembic revision --autogenerate -m "create initial tables"
-
-# Применение миграций
-alembic upgrade head
+cd frontend
+npm install
+npm run dev
 ```
 
 ---
 
-### 3. Запуск Frontend (Next.js + Tailwind + Shadcn/ui)
+## Переменные окружения (.env)
 
-Перейдите в каталог `frontend`:
-```bash
-cd frontend
-```
-
-Запуск dev-сервера:
-```bash
-npm run dev
-```
-
-Приложение откроется по адресу: [http://localhost:3000](http://localhost:3000)
-
-#### Добавление новых компонентов Shadcn/ui
-```bash
-cd frontend
-npx shadcn@latest add <component-name>
-# Например: npx shadcn@latest add dialog input dropdown-menu
-```
+| Переменная | Описание | Значение по умолчанию |
+| :--- | :--- | :--- |
+| `POSTGRES_USER` | Пользователь базы данных | `postgres` |
+| `POSTGRES_PASSWORD` | Пароль базы данных | `postgres` |
+| `POSTGRES_DB` | Имя базы данных | `tochka_rosta` |
+| `SECRET_KEY` | Секретный ключ JWT-токенов | `tochka-rosta-secret-key` |
+| `OPENROUTER_API_KEY` | API-ключ OpenRouter для нейросети | *опционально* |
+| `OPENROUTER_MODEL` | Модель ИИ (русскоязычная генерация) | `google/gemini-2.5-flash` |
+| `FRONTEND_URL` | Публичный адрес клиентского приложения | `http://localhost:3000` |
