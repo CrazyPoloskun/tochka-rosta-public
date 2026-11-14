@@ -2,12 +2,70 @@ import io
 import json
 import logging
 import re
+import asyncio
+import urllib.request
+import urllib.error
 from typing import Any, Optional
-import httpx
+
+try:
+    import httpx
+except ImportError:
+    httpx = None
 
 from app.core.config import settings
 
 logger = logging.getLogger("ai_service")
+
+
+class _SafeHttpResponse:
+    def __init__(self, status_code: int, text: str):
+        self.status_code = status_code
+        self.text = text
+
+    def json(self) -> Any:
+        try:
+            return json.loads(self.text) if self.text else {}
+        except Exception:
+            return {}
+
+
+def _sync_urllib_post(url: str, headers: dict, payload: dict, timeout: float = 60.0) -> _SafeHttpResponse:
+    data_bytes = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=data_bytes, headers=headers or {}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = resp.read().decode("utf-8", errors="ignore")
+            return _SafeHttpResponse(status_code=resp.status, text=body)
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="ignore")
+        return _SafeHttpResponse(status_code=e.code, text=body)
+    except Exception as e:
+        logger.error(f"urllib request failed: {e}")
+        return _SafeHttpResponse(status_code=500, text=str(e))
+
+
+async def _safe_http_post(
+    url: str,
+    headers: dict | None = None,
+    payload: dict | None = None,
+    proxy: str | None = None,
+    timeout: float = 60.0,
+) -> _SafeHttpResponse:
+    if httpx is not None:
+        try:
+            client_kwargs = {"timeout": httpx.Timeout(timeout, connect=15.0)}
+            if proxy:
+                client_kwargs["proxy"] = proxy
+            async with httpx.AsyncClient(**client_kwargs) as client:
+                res = await client.post(url, headers=headers or {}, json=payload)
+                return _SafeHttpResponse(status_code=res.status_code, text=res.text)
+        except Exception as e:
+            logger.warning(f"httpx call failed ({e}), attempting fallback...")
+
+    hdrs = dict(headers or {})
+    if "Content-Type" not in hdrs:
+        hdrs["Content-Type"] = "application/json"
+    return await asyncio.to_thread(_sync_urllib_post, url, hdrs, payload or {}, timeout)
 
 
 def _clean_str(val: Any) -> str:
@@ -121,24 +179,23 @@ async def call_real_llm(
                 payload["response_format"] = {"type": "json_object"}
 
             ai_proxy = _clean_str(settings.OPENROUTER_PROXY or settings.AI_PROXY) or None
-            async with httpx.AsyncClient(proxy=ai_proxy, timeout=httpx.Timeout(60.0, connect=15.0)) as client:
-                res = await client.post(openrouter_url, headers=headers, json=payload)
+            res = await _safe_http_post(openrouter_url, headers=headers, payload=payload, proxy=ai_proxy)
 
-                # Некоторые модели OpenRouter возвращают 400 при наличии response_format
-                if res.status_code == 400 and response_format_json:
-                    logger.info("OpenRouter model rejected response_format, retrying with raw text mode...")
-                    payload.pop("response_format", None)
-                    res = await client.post(openrouter_url, headers=headers, json=payload)
+            # Некоторые модели OpenRouter возвращают 400 при наличии response_format
+            if res.status_code == 400 and response_format_json:
+                logger.info("OpenRouter model rejected response_format, retrying with raw text mode...")
+                payload.pop("response_format", None)
+                res = await _safe_http_post(openrouter_url, headers=headers, payload=payload, proxy=ai_proxy)
 
-                if res.status_code == 200:
-                    data = res.json()
-                    choices = data.get("choices", [])
-                    if choices:
-                        content = choices[0].get("message", {}).get("content", "").strip()
-                        if content:
-                            return content, f"OpenRouter ({openrouter_model})"
-                else:
-                    logger.error(f"OpenRouter API error {res.status_code}: {res.text[:300]}")
+            if res.status_code == 200:
+                data = res.json()
+                choices = data.get("choices", [])
+                if choices:
+                    content = choices[0].get("message", {}).get("content", "").strip()
+                    if content:
+                        return content, f"OpenRouter ({openrouter_model})"
+            else:
+                logger.error(f"OpenRouter API error {res.status_code}: {res.text[:300]}")
         except Exception as e:
             logger.error(f"OpenRouter call failed: {e}")
 
@@ -158,21 +215,20 @@ async def call_real_llm(
                 payload["response_format"] = {"type": "json_object"}
 
             ai_proxy = _clean_str(settings.AI_PROXY or settings.OPENROUTER_PROXY) or None
-            async with httpx.AsyncClient(proxy=ai_proxy, timeout=httpx.Timeout(60.0, connect=15.0)) as client:
-                res = await client.post(openai_url, headers=headers, json=payload)
-                if res.status_code == 400 and response_format_json:
-                    payload.pop("response_format", None)
-                    res = await client.post(openai_url, headers=headers, json=payload)
+            res = await _safe_http_post(openai_url, headers=headers, payload=payload, proxy=ai_proxy)
+            if res.status_code == 400 and response_format_json:
+                payload.pop("response_format", None)
+                res = await _safe_http_post(openai_url, headers=headers, payload=payload, proxy=ai_proxy)
 
-                if res.status_code == 200:
-                    data = res.json()
-                    choices = data.get("choices", [])
-                    if choices:
-                        content = choices[0].get("message", {}).get("content", "").strip()
-                        if content:
-                            return content, f"OpenAI ({openai_model})"
-                else:
-                    logger.error(f"OpenAI API error {res.status_code}: {res.text[:300]}")
+            if res.status_code == 200:
+                data = res.json()
+                choices = data.get("choices", [])
+                if choices:
+                    content = choices[0].get("message", {}).get("content", "").strip()
+                    if content:
+                        return content, f"OpenAI ({openai_model})"
+            else:
+                logger.error(f"OpenAI API error {res.status_code}: {res.text[:300]}")
         except Exception as e:
             logger.error(f"OpenAI call failed: {e}")
 
@@ -197,19 +253,18 @@ async def call_real_llm(
                 payload["generationConfig"]["responseMimeType"] = "application/json"
 
             ai_proxy = _clean_str(settings.AI_PROXY or settings.OPENROUTER_PROXY) or None
-            async with httpx.AsyncClient(proxy=ai_proxy, timeout=httpx.Timeout(60.0, connect=15.0)) as client:
-                res = await client.post(url, json=payload)
-                if res.status_code == 200:
-                    data = res.json()
-                    candidates = data.get("candidates", [])
-                    if candidates:
-                        parts = candidates[0].get("content", {}).get("parts", [])
-                        if parts and "text" in parts[0]:
-                            content = parts[0]["text"].strip()
-                            if content:
-                                return content, f"Google Gemini ({gemini_model})"
-                else:
-                    logger.error(f"Gemini API error {res.status_code}: {res.text[:300]}")
+            res = await _safe_http_post(url, payload=payload, proxy=ai_proxy)
+            if res.status_code == 200:
+                data = res.json()
+                candidates = data.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    if parts and "text" in parts[0]:
+                        content = parts[0]["text"].strip()
+                        if content:
+                            return content, f"Google Gemini ({gemini_model})"
+            else:
+                logger.error(f"Gemini API error {res.status_code}: {res.text[:300]}")
         except Exception as e:
             logger.error(f"Gemini API call failed: {e}")
 
@@ -221,18 +276,17 @@ async def call_real_llm(
             "messages": messages,
             "temperature": temperature,
         }
-        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=15.0)) as client:
-            res = await client.post(url, json=payload)
-            if res.status_code == 200:
-                data = res.json()
-                choices = data.get("choices", [])
-                if choices:
-                    content = choices[0].get("message", {}).get("content", "").strip()
-                    if content:
-                        model_name = data.get("model", settings.FALLBACK_AI_MODEL)
-                        return content, f"Neural Gateway ({model_name})"
-            else:
-                logger.error(f"Fallback Neural Gateway error {res.status_code}: {res.text[:300]}")
+        res = await _safe_http_post(url, payload=payload)
+        if res.status_code == 200:
+            data = res.json()
+            choices = data.get("choices", [])
+            if choices:
+                content = choices[0].get("message", {}).get("content", "").strip()
+                if content:
+                    model_name = data.get("model", settings.FALLBACK_AI_MODEL)
+                    return content, f"Neural Gateway ({model_name})"
+        else:
+            logger.error(f"Fallback Neural Gateway error {res.status_code}: {res.text[:300]}")
     except Exception as e:
         logger.error(f"Fallback Neural Gateway call failed: {e}")
 
