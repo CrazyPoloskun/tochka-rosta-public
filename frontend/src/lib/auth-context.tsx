@@ -47,6 +47,7 @@ interface AuthContextType {
     password: string
   }) => Promise<{ success: boolean; error?: string }>
   refreshToken: () => Promise<string | null>
+  refreshUser: () => Promise<void>
   authFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
   updateProfile: (data: {
     fullName?: string
@@ -231,6 +232,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     [clearStorage, refreshToken]
   )
+
+  const refreshUser = React.useCallback(async () => {
+    const currentToken =
+      token ||
+      (typeof window !== "undefined"
+        ? localStorage.getItem(ACCESS_TOKEN_KEY) || localStorage.getItem("tochka_auth_token")
+        : null)
+    if (currentToken) {
+      await fetchCurrentUser(currentToken)
+    }
+  }, [token, fetchCurrentUser])
 
   // Initialize on mount
   React.useEffect(() => {
@@ -454,6 +466,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         registerInvestor,
         registerLab,
         refreshToken,
+        refreshUser,
         authFetch,
         updateProfile,
         logout,

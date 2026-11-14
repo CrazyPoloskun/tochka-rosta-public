@@ -37,7 +37,7 @@ import {
 } from "@/components/dashboard/dashboard-types"
 
 function DashboardContent() {
-  const { user, token, authFetch, updateProfile, logout } = useAuth()
+  const { user, token, authFetch, updateProfile, logout, refreshUser } = useAuth()
   const { success, error, info } = useToast()
   const pathname = usePathname()
   const searchParams = useSearchParams()

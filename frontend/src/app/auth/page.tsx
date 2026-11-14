@@ -476,7 +476,6 @@ function AuthForm() {
                     currentRole="investor"
                     onSelect={(ex) => {
                       setFullName(ex.name)
-                      setErrors((prev) => ({ ...prev, fullName: undefined }))
                       toastSuccess(`Данные «${ex.name}» подставлены в форму!`, "Пример применён")
                     }}
                   />
@@ -645,13 +644,6 @@ function AuthForm() {
                       setInn(ex.inn)
                       setOgrn(ex.ogrn)
                       setRepName(ex.representative)
-                      setErrors((prev) => ({
-                        ...prev,
-                        orgName: undefined,
-                        inn: undefined,
-                        ogrn: undefined,
-                        repName: undefined,
-                      }))
                       toastSuccess(`Реквизиты «${ex.name}» подставлены в форму!`, "Пример применён")
                     }}
                   />
