@@ -20,6 +20,7 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     conn = op.get_bind()
     conn.execute(sa.text("ALTER TABLE chats ADD COLUMN IF NOT EXISTS chat_type VARCHAR(50) NOT NULL DEFAULT 'direct';"))
+    conn.execute(sa.text("ALTER TABLE chats ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();"))
     conn.execute(sa.text("ALTER TABLE chats ALTER COLUMN investor_id DROP NOT NULL;"))
     conn.execute(sa.text("ALTER TABLE chats ALTER COLUMN lab_id DROP NOT NULL;"))
     conn.execute(sa.text("ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_system BOOLEAN NOT NULL DEFAULT FALSE;"))

@@ -53,6 +53,7 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE chats ADD COLUMN IF NOT EXISTS context_type VARCHAR(50)",
             "ALTER TABLE chats ADD COLUMN IF NOT EXISTS context_id INTEGER",
             "ALTER TABLE chats ADD COLUMN IF NOT EXISTS chat_type VARCHAR(50) NOT NULL DEFAULT 'direct'",
+            "ALTER TABLE chats ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
             "ALTER TABLE chats ALTER COLUMN investor_id DROP NOT NULL",
             "ALTER TABLE chats ALTER COLUMN lab_id DROP NOT NULL",
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_system BOOLEAN NOT NULL DEFAULT FALSE",

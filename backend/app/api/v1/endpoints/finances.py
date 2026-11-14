@@ -59,6 +59,28 @@ async def get_ledger(
     )
 
 
+@router.get("/account")
+async def get_account(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Возвращает баланс и данные гарантийного счета текущего пользователя."""
+    acc_res = await db.execute(select(Account).where(Account.user_id == current_user.id))
+    account = acc_res.scalar_one_or_none()
+    if not account:
+        account = Account(user_id=current_user.id, available_balance=Decimal("0.00"), frozen_balance=Decimal("0.00"))
+        db.add(account)
+        await db.commit()
+        await db.refresh(account)
+
+    return {
+        "id": account.id,
+        "user_id": account.user_id,
+        "available_balance": float(account.available_balance),
+        "frozen_balance": float(account.frozen_balance),
+    }
+
+
 @router.get("/invoice-preview")
 async def get_invoice_preview(
     amount: Decimal = Query(..., gt=0),
