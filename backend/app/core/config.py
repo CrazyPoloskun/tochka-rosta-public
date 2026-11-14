@@ -24,10 +24,20 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # AI & OpenRouter Integration
+    # AI Integrations (Multi-provider support: OpenRouter, OpenAI, Gemini, Neural Engine)
     OPENROUTER_API_KEY: str = ""
     OPENROUTER_MODEL: str = "google/gemini-2.5-flash"
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    OPENAI_BASE_URL: str = "https://api.openai.com/v1"
+
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+
+    FALLBACK_AI_URL: str = "https://text.pollinations.ai/openai/chat/completions"
+    FALLBACK_AI_MODEL: str = "openai"
 
     # External Integrations (Optional)
     DADATA_API_KEY: str = ""

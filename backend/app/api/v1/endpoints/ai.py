@@ -49,8 +49,13 @@ async def parse_pdf_endpoint(
 
     # Извлечение текста
     extracted_text = extract_text_from_pdf(file_bytes)
-    # ИИ структурирование через OpenRouter LLM или offline fallback
-    project_data = await parse_pdf_to_project_data(extracted_text)
+    try:
+        project_data = await parse_pdf_to_project_data(extracted_text)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Ошибка нейросетевого анализа документа: {str(e)}",
+        )
 
     return {
         "success": True,
@@ -66,14 +71,20 @@ async def generate_tz_endpoint(
     data: GenerateTzRequest,
     current_user: User = Depends(get_current_user),
 ):
-    """Генерирует структурированное техническое задание по краткой идее инвестора."""
+    """Генерирует академическое ТЗ по ГОСТ 15.016-2016 через реальную нейросеть."""
     if not data.query or len(data.query.strip()) < 3:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Пожалуйста, опишите задачу хотя бы несколькими словами.",
         )
-    result = await generate_task_tz_ai(data.title or "", data.query, data.industry)
-    return result
+    try:
+        result = await generate_task_tz_ai(data.title or "", data.query, data.industry)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Не удалось сгенерировать ТЗ через ИИ: {str(e)}",
+        )
 
 
 @router.post("/summarize-report", status_code=status.HTTP_200_OK)
@@ -81,11 +92,17 @@ async def summarize_report_endpoint(
     data: SummarizeReportRequest,
     current_user: User = Depends(get_current_user),
 ):
-    """Формирует выжимку из научно-технического отчета этапа проекта."""
+    """Формирует выжимку из научно-технического отчета этапа проекта через нейросеть."""
     if not data.raw_report or len(data.raw_report.strip()) < 10:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Отчет слишком короткий для формирования аналитического саммари.",
         )
-    summary = await generate_report_ai_summary(data.raw_report, data.milestone_title)
-    return {"summary": summary}
+    try:
+        summary = await generate_report_ai_summary(data.raw_report, data.milestone_title)
+        return {"summary": summary}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Ошибка генерации саммари отчета: {str(e)}",
+        )

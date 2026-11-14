@@ -12,6 +12,7 @@ import {
   HiOutlineCube,
   HiOutlineClock,
   HiOutlineCurrencyDollar,
+  HiOutlineClipboardDocumentCheck,
 } from "react-icons/hi2"
 
 import {
@@ -41,6 +42,7 @@ interface GeneratedTzResult {
   ip_ownership_recommendation?: string
   description?: string
   source?: string
+  model_used?: string
 }
 
 interface AiTaskAssistantModalProps {
@@ -54,6 +56,12 @@ interface AiTaskAssistantModalProps {
     description: string
   }) => void
   authFetch: (url: string, init?: RequestInit) => Promise<Response>
+  initialTitle?: string
+  initialQuery?: string
+  initialCategory?: string
+  modalTitle?: string
+  modalDescription?: string
+  applyButtonText?: string
 }
 
 const INDUSTRY_OPTIONS = [
@@ -79,18 +87,33 @@ export function AiTaskAssistantModal({
   onOpenChange,
   onApplyTz,
   authFetch,
+  initialTitle,
+  initialQuery,
+  initialCategory,
+  modalTitle,
+  modalDescription,
+  applyButtonText,
 }: AiTaskAssistantModalProps) {
-  const { error, success } = useToast()
+  const { error, success, info } = useToast()
 
-  const [userQuery, setUserQuery] = React.useState("")
-  const [selectedIndustry, setSelectedIndustry] = React.useState("Автоопределение")
+  const [userQuery, setUserQuery] = React.useState(initialQuery || "")
+  const [selectedIndustry, setSelectedIndustry] = React.useState(initialCategory || "Автоопределение")
   const [loading, setLoading] = React.useState(false)
   const [activeTab, setActiveTab] = React.useState<"reqs" | "stages" | "ip">("reqs")
   const [result, setResult] = React.useState<GeneratedTzResult | null>(null)
 
+  React.useEffect(() => {
+    if (open) {
+      if (initialQuery !== undefined) setUserQuery(initialQuery)
+      if (initialCategory && INDUSTRY_OPTIONS.includes(initialCategory)) {
+        setSelectedIndustry(initialCategory)
+      }
+    }
+  }, [open, initialQuery, initialCategory])
+
   const handleGenerate = async (queryText?: string) => {
     const textToUse = (queryText || userQuery).trim()
-    if (!textToUse || textToUse.length < 5) {
+    if (!textToUse || textToUse.length < 3) {
       error("Опишите задачу хотя бы несколькими словами", "Слишком короткий запрос")
       return
     }
@@ -101,6 +124,7 @@ export function AiTaskAssistantModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          title: initialTitle || "",
           query: textToUse,
           industry: selectedIndustry === "Автоопределение" ? null : selectedIndustry,
         }),
@@ -133,6 +157,25 @@ export function AiTaskAssistantModal({
     onOpenChange(false)
   }
 
+  const handleCopyTz = () => {
+    if (!result) return
+    const formatted = `ТЕХНИЧЕСКОЕ ЗАДАНИЕ НА НИОКР\n` +
+      `Тема: ${result.title}\n` +
+      `Отрасль: ${result.category}\n` +
+      `Целевой уровень TRL: ${result.target_trl_start || 3} → ${result.target_trl_end || 6}\n` +
+      `Ориентировочный бюджет: ${(result.suggested_budget || 2000000).toLocaleString("ru-RU")} ₽\n` +
+      `Срок: ${result.suggested_deadline || "6 месяцев"}\n\n` +
+      `1. Научное обоснование и цель:\n${result.scientific_summary || ""}\n\n` +
+      `2. Нормативно-технические требования:\n${(result.technical_requirements || []).map((r) => `  • ${r}`).join("\n")}\n\n` +
+      `3. Методы стендовых испытаний:\n${(result.testing_methodology || []).map((m) => `  • ${m}`).join("\n")}\n\n` +
+      `4. Рекомендуемые этапы НИОКР:\n${(result.stages || []).map((s) => `  • ${s}`).join("\n")}\n\n` +
+      `5. Ожидаемые материальные результаты (Deliverables):\n${(result.deliverables || []).map((d) => `  • ${d}`).join("\n")}\n\n` +
+      `6. Права на РИД и патенты:\n${result.ip_ownership_recommendation || ""}`
+
+    navigator.clipboard.writeText(formatted)
+    info("Полный текст ТЗ скопирован в буфер обмена", "Скопировано")
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl p-6 border-[#E2E5EB] shadow-xl">
@@ -143,10 +186,10 @@ export function AiTaskAssistantModal({
             </span>
             <div>
               <DialogTitle className="text-lg font-bold text-[#111111]">
-                ИИ-помощник в составлении ТЗ на НИОКР
+                {modalTitle || "ИИ-помощник в составлении ТЗ на НИОКР"}
               </DialogTitle>
               <DialogDescription className="text-xs text-[#6B7280]">
-                Трансформация бизнес-потребности в строгое академическое ТЗ по стандартам ГОСТ 15.016-2016
+                {modalDescription || "Трансформация бизнес-потребности в строгое академическое ТЗ по стандартам ГОСТ 15.016-2016"}
               </DialogDescription>
             </div>
           </div>
@@ -382,23 +425,42 @@ export function AiTaskAssistantModal({
               )}
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#E2E5EB]">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                  className="text-xs rounded-xl border-[#E2E5EB]"
-                >
-                  Закрыть
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handleApply}
-                  className="gap-2 text-xs font-bold bg-[#F81B00] hover:bg-[#d01700] text-white rounded-xl shadow-xs cursor-pointer px-4"
-                >
-                  <HiOutlineCheck className="size-4" />
-                  <span>Применить в заявку тендера</span>
-                </Button>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-[#E2E5EB]">
+                <div className="flex items-center gap-2">
+                  {result.model_used && (
+                    <span className="text-[10px] text-[#6B7280] bg-[#F5F6F8] px-2 py-1 rounded-md border border-[#E2E5EB]">
+                      ИИ: {result.model_used}
+                    </span>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCopyTz}
+                    className="gap-1.5 text-xs rounded-xl border-[#E2E5EB] hover:bg-[#F5F6F8]"
+                  >
+                    <HiOutlineClipboardDocumentCheck className="size-4 text-[#4B5563]" />
+                    <span>Скопировать ТЗ</span>
+                  </Button>
+                </div>
+
+                <div className="flex items-center justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                    className="text-xs rounded-xl border-[#E2E5EB]"
+                  >
+                    Закрыть
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleApply}
+                    className="gap-2 text-xs font-bold bg-[#F81B00] hover:bg-[#d01700] text-white rounded-xl shadow-xs cursor-pointer px-4"
+                  >
+                    <HiOutlineCheck className="size-4" />
+                    <span>{applyButtonText || "Применить в заявку тендера"}</span>
+                  </Button>
+                </div>
               </div>
             </div>
           )}

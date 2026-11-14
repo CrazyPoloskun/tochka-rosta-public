@@ -1145,8 +1145,16 @@ async def ai_summarize_ticket(
     messages = msg_res.scalars().all()
     conversation_text = "\n".join([f"{'Админ' if m.is_admin_reply else 'Пользователь'}: {m.message}" for m in messages])
 
-    # ИИ анализ сути обращения (OpenRouter LLM + fallback)
-    ai_result = await summarize_ticket_ai(ticket.subject, ticket.description, conversation_text)
+    # ИИ анализ сути обращения через реальную нейросеть
+    try:
+        ai_result = await summarize_ticket_ai(ticket.subject, ticket.description, conversation_text)
+    except Exception as e:
+        ai_result = {
+            "ai_summary": f"Анализ тикета «{ticket.subject}» (сбой нейросети: {str(e)})",
+            "ai_sentiment": "требует ручной проверки",
+            "ai_suggested_action": "Ознакомьтесь с текстом обращения и ответьте пользователю.",
+            "priority": "medium",
+        }
 
     ticket.ai_summary = ai_result.get("ai_summary", "")
     ticket.ai_sentiment = ai_result.get("ai_sentiment", "нейтральная")

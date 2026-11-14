@@ -37,6 +37,7 @@ import { CardGridSkeleton } from "@/components/ui/skeleton-loader"
 import { User } from "@/lib/auth-context"
 import { IdeaItem } from "./dashboard-types"
 import { CounterpartyModal } from "@/components/profile/counterparty-modal"
+import { AiTaskAssistantModal } from "@/components/dashboard/ai-task-assistant-modal"
 
 interface IdeasTabProps {
   user: User | null
@@ -112,6 +113,32 @@ export function IdeasTab({
   const [donationModal, setDonationModal] = React.useState<IdeaItem | null>(null)
   const [donationAmount, setDonationAmount] = React.useState("100000")
   const [submittingDonation, setSubmittingDonation] = React.useState(false)
+
+  // AI TZ Assistant Modal (Каталог разработок)
+  const [isAiTzModalOpen, setIsAiTzModalOpen] = React.useState(false)
+  const [aiTzInitialTitle, setAiTzInitialTitle] = React.useState("")
+  const [aiTzInitialQuery, setAiTzInitialQuery] = React.useState("")
+  const [aiTzInitialCategory, setAiTzInitialCategory] = React.useState("Автоопределение")
+  const [aiTzTarget, setAiTzTarget] = React.useState<"new_idea" | "standalone">("standalone")
+
+  const handleApplyAiTz = (data: {
+    title: string
+    category?: string
+    budget: string
+    deadline: string
+    description: string
+  }) => {
+    setInvestorIdeaTitle(data.title)
+    if (data.category && CATEGORIES.includes(data.category)) {
+      setInvestorIdeaCategory(data.category)
+    }
+    setInvestorIdeaSummary(data.description)
+    if (data.budget) {
+      setInvestorIdeaBudget(data.budget)
+    }
+    setIsNewIdeaModalOpen(true)
+    success("ТЗ успешно сформировано нейросетью и перенесено в форму заявки", "ТЗ готово")
+  }
 
   // PDF Parser for Lab
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -338,8 +365,24 @@ export function IdeasTab({
           </p>
         </div>
 
-        {/* Action Button */}
-        <div>
+        {/* Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Button
+            type="button"
+            onClick={() => {
+              setAiTzInitialTitle("")
+              setAiTzInitialQuery("")
+              setAiTzInitialCategory("Автоопределение")
+              setAiTzTarget("standalone")
+              setIsAiTzModalOpen(true)
+            }}
+            variant="outline"
+            className="text-xs font-bold border-[#F81B00]/30 hover:border-[#F81B00] bg-[#FFF5F5] hover:bg-[#FFEBEB] text-[#F81B00] rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
+          >
+            <HiOutlineSparkles className="size-4 text-[#F81B00]" />
+            <span>ИИ-помощник: составить ТЗ</span>
+          </Button>
+
           {isLab ? (
             <Button
               onClick={() => setIsPublishModalOpen(true)}
@@ -617,25 +660,43 @@ export function IdeasTab({
                   ) : (
                     // Investor View
                     !isAuthor && (
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setDonationModal(idea)
+                              setDonationAmount("100000")
+                            }}
+                            className="text-[11px] font-semibold border-[#E2E5EB] text-[#111111] hover:bg-[#F5F6F8] rounded-xl"
+                          >
+                            <HiOutlineHeart className="size-3.5 mr-1 text-[#F81B00]" />
+                            Пожертвовать
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => handleOrderIdea(idea.id, false)}
+                            className="text-[11px] font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs"
+                          >
+                            Заказать R&D
+                          </Button>
+                        </div>
                         <Button
                           size="sm"
+                          type="button"
                           variant="outline"
                           onClick={() => {
-                            setDonationModal(idea)
-                            setDonationAmount("100000")
+                            setAiTzInitialTitle(idea.title)
+                            setAiTzInitialQuery(`Требуется разработка промышленного решения на базе научной разработки «${idea.title}». Исходное описание: ${idea.summary}`)
+                            setAiTzInitialCategory(idea.category)
+                            setAiTzTarget("new_idea")
+                            setIsAiTzModalOpen(true)
                           }}
-                          className="text-[11px] font-semibold border-[#E2E5EB] text-[#111111] hover:bg-[#F5F6F8] rounded-xl"
+                          className="w-full text-[11px] font-semibold border-[#F81B00]/30 hover:border-[#F81B00] bg-[#FFF8F8] hover:bg-[#FFF0F0] text-[#F81B00] rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                         >
-                          <HiOutlineHeart className="size-3.5 mr-1 text-[#F81B00]" />
-                          Пожертвовать
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => handleOrderIdea(idea.id, false)}
-                          className="text-[11px] font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs"
-                        >
-                          Заказать R&D
+                          <HiOutlineSparkles className="size-3.5 text-[#F81B00]" />
+                          <span>Составить ТЗ по разработке (ИИ)</span>
                         </Button>
                       </div>
                     )
@@ -883,6 +944,30 @@ export function IdeasTab({
             </DialogDescription>
           </DialogHeader>
 
+          {/* AI Assistance in Draft Modal */}
+          <div className="mt-2 p-3 bg-[#FFF5F5] rounded-xl border border-[#F81B00]/20 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <HiOutlineSparkles className="size-4 text-[#F81B00] shrink-0" />
+              <span className="text-[11px] text-[#4B5563]">
+                Сложно сформулировать? Нейросеть составит ТЗ по ГОСТ
+              </span>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                setAiTzInitialTitle(investorIdeaTitle)
+                setAiTzInitialQuery(investorIdeaSummary || investorIdeaTitle)
+                setAiTzInitialCategory(investorIdeaCategory)
+                setAiTzTarget("new_idea")
+                setIsAiTzModalOpen(true)
+              }}
+              className="text-[11px] font-bold bg-[#F81B00] hover:bg-[#d01700] text-white rounded-lg h-7 px-2.5 shrink-0 shadow-xs cursor-pointer"
+            >
+              Составить ТЗ
+            </Button>
+          </div>
+
           <form onSubmit={handlePublishInvestorIdea} className="space-y-3.5 py-2">
             <div>
               <label className="text-xs font-semibold text-[#111111] block mb-1">
@@ -1030,6 +1115,20 @@ export function IdeasTab({
         onOpenChat={() => {
           onNavigateToMessages()
         }}
+      />
+
+      {/* AI TZ Assistant Modal (Каталог разработок) */}
+      <AiTaskAssistantModal
+        open={isAiTzModalOpen}
+        onOpenChange={setIsAiTzModalOpen}
+        onApplyTz={handleApplyAiTz}
+        authFetch={authFetch}
+        initialTitle={aiTzInitialTitle}
+        initialQuery={aiTzInitialQuery}
+        initialCategory={aiTzInitialCategory}
+        modalTitle="ИИ-помощник: составление ТЗ на разработку"
+        modalDescription="Формирование нормативного академического ТЗ по стандартам ГОСТ 15.016-2016 для каталога разработок"
+        applyButtonText="Применить в заявку разработки"
       />
     </div>
   )
