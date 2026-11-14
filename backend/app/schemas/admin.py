@@ -21,7 +21,7 @@ class AuditLogResponse(BaseModel):
     action: str
     target_type: str
     target_id: int | None = None
-    details: str | None = None
+    details: Any | None = None
     created_at: datetime
 
     class Config:

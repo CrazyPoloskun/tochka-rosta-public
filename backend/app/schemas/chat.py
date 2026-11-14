@@ -62,7 +62,7 @@ class ChatResponse(BaseModel):
     project_id: int | None = None
     context_type: str | None = None
     context_id: int | None = None
-    title: str
+    title: str | None = None
     updated_at: datetime
     other_party_id: int | None = None
     other_party_name: str | None = None
@@ -70,7 +70,6 @@ class ChatResponse(BaseModel):
     unread_count: int = 0
     last_message: str | None = None
     members_count: int = 2
-    members: list[ChatMemberResponse] = Field(default_factory=list)
 
     class Config:
         from_attributes = True
