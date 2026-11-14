@@ -2,7 +2,7 @@ import os
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Query
 from fastapi.responses import FileResponse
 from sqlalchemy import select, or_, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
