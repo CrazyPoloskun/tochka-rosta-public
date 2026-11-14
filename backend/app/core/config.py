@@ -47,13 +47,26 @@ class Settings(BaseSettings):
 
     @field_validator("DATABASE_URL", mode="before")
     def assemble_db_connection(cls, v: str | None, info) -> str:
-        if isinstance(v, str) and v:
-            return v
-        data = info.data
-        return (
-            f"postgresql+asyncpg://{data.get('POSTGRES_USER')}:{data.get('POSTGRES_PASSWORD')}@"
-            f"{data.get('POSTGRES_SERVER')}:{data.get('POSTGRES_PORT')}/{data.get('POSTGRES_DB')}"
-        )
+        data = info.data if info and hasattr(info, "data") and info.data else {}
+        server = data.get("POSTGRES_SERVER") or "localhost"
+        user = data.get("POSTGRES_USER") or "postgres"
+        password = data.get("POSTGRES_PASSWORD") or "root"
+        port = data.get("POSTGRES_PORT") or 5432
+        db = data.get("POSTGRES_DB") or "tochka_rosta"
+
+        if isinstance(v, str) and v.strip():
+            url = v.strip()
+            # If server is explicitly set to a container host (e.g. 'db') but DATABASE_URL in .env has localhost/127.0.0.1
+            if server not in ("localhost", "127.0.0.1"):
+                url = url.replace("@localhost:", f"@{server}:").replace("@127.0.0.1:", f"@{server}:")
+                url = url.replace("@localhost/", f"@{server}/").replace("@127.0.0.1/", f"@{server}/")
+            if url.startswith("postgresql://"):
+                url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            elif url.startswith("postgres://"):
+                url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+            return url
+
+        return f"postgresql+asyncpg://{user}:{password}@{server}:{port}/{db}"
 
     model_config = SettingsConfigDict(
         env_file=".env",
