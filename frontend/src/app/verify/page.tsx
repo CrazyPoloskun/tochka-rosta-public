@@ -154,10 +154,10 @@ export default function VerifyPage() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-10 space-y-8">
+      <main className="flex-1 max-w-4xl w-full mx-auto px-3.5 sm:px-6 py-6 sm:py-10 space-y-6 sm:space-y-8 min-w-0">
         {/* Title & Description */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white border border-[#E2E5EB] shadow-xs text-xs font-mono uppercase tracking-wider text-[#111111] mb-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white border border-[#E2E5EB] rounded-full shadow-2xs text-[11px] font-mono uppercase tracking-wider text-[#111111] mb-2">
             <HiOutlineShieldCheck className="w-4 h-4 text-[#F81B00]" />
             Публичный аудит авторского приоритета (Prior Art / Proof of Existence)
           </div>
@@ -171,7 +171,7 @@ export default function VerifyPage() {
         </div>
 
         {/* Search & Verification Input */}
-        <div className="bg-white border border-[#E2E5EB] shadow-sm p-5 sm:p-6 space-y-4">
+        <div className="bg-white border border-[#E2E5EB] rounded-2xl shadow-sm p-4 sm:p-6 space-y-4">
           <form
             onSubmit={(e) => {
               e.preventDefault()
@@ -186,13 +186,13 @@ export default function VerifyPage() {
                 value={searchKey}
                 onChange={(e) => setSearchKey(e.target.value)}
                 placeholder="Вставьте SHA-256 отпечаток или номер свидетельства (e.g. TR-2026-A1B2C3)..."
-                className="w-full pl-10 pr-4 py-2.5 bg-[#F9FAFB] border border-[#E2E5EB] focus:border-[#111111] focus:bg-white text-xs sm:text-sm font-mono text-[#111111] placeholder:text-neutral-400 focus:outline-none transition-colors"
+                className="w-full pl-10 pr-4 py-2.5 bg-[#F9FAFB] border border-[#E2E5EB] rounded-xl focus:border-[#111111] focus:bg-white text-xs sm:text-sm font-mono text-[#111111] placeholder:text-neutral-400 focus:outline-none transition-colors"
               />
             </div>
             <button
               type="submit"
               disabled={loading || !searchKey.trim()}
-              className="px-6 py-2.5 bg-[#111111] hover:bg-[#F81B00] disabled:bg-neutral-300 disabled:cursor-not-allowed text-white text-xs font-bold uppercase tracking-wider transition-colors shrink-0 flex items-center justify-center gap-2"
+              className="px-6 py-2.5 bg-[#111111] hover:bg-[#F81B00] disabled:bg-neutral-300 disabled:cursor-not-allowed text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-colors shrink-0 flex items-center justify-center gap-2 cursor-pointer shadow-xs"
             >
               {loading ? (
                 <>
@@ -211,7 +211,7 @@ export default function VerifyPage() {
               <HiOutlineDocumentCheck className="w-4 h-4 text-[#F81B00]" />
               Или загрузите файл документа для автоматического расчета SHA-256:
             </span>
-            <label className="px-3 py-1.5 bg-[#F5F6F8] border border-[#E2E5EB] hover:border-[#111111] text-xs font-mono text-[#111111] cursor-pointer transition-colors shrink-0">
+            <label className="px-3.5 py-1.5 bg-[#F5F6F8] border border-[#E2E5EB] hover:border-[#111111] rounded-xl text-xs font-mono text-[#111111] cursor-pointer transition-colors shrink-0 shadow-2xs">
               {checkingFile ? "Вычисление хеша..." : "Выбрать файл..."}
               <input type="file" className="hidden" onChange={handleFileUpload} disabled={checkingFile} />
             </label>
@@ -222,38 +222,38 @@ export default function VerifyPage() {
         {hasSearched && !loading && (
           <div className="space-y-6 animate-in fade-in duration-300">
             {result?.valid ? (
-              <div className="bg-white border-2 border-emerald-600 shadow-xl overflow-hidden">
+              <div className="bg-white border-2 border-emerald-600 rounded-2xl shadow-xl overflow-hidden">
                 {/* Emerald Verification Banner */}
-                <div className="bg-emerald-600 px-6 py-4 text-white flex items-center justify-between flex-wrap gap-3">
+                <div className="bg-emerald-600 px-4 sm:px-6 py-4 text-white flex items-center justify-between flex-wrap gap-3">
                   <div className="flex items-center space-x-3">
                     <HiOutlineCheckBadge className="w-7 h-7 text-white shrink-0" />
                     <div>
-                      <div className="text-xs font-mono uppercase tracking-wider text-emerald-100">
+                      <div className="text-[10px] font-mono uppercase tracking-wider text-emerald-100">
                         Официальный статус
                       </div>
-                      <div className="text-base sm:text-lg font-bold">
+                      <div className="text-sm sm:text-base font-bold">
                         ЗАПИСЬ ДЕПОНИРОВАНА И ВЕРИФИЦИРОВАНА В РАСПРЕДЕЛЕННОМ РЕЕСТРЕ
                       </div>
                     </div>
                   </div>
                   {result.certificate_number && (
-                    <span className="px-3 py-1 bg-white text-[#111111] font-mono text-xs font-bold tracking-wider">
+                    <span className="px-3 py-1 bg-white text-[#111111] font-mono text-xs font-bold tracking-wider rounded-lg shadow-xs">
                       {result.certificate_number}
                     </span>
                   )}
                 </div>
 
                 {/* Dossier Information */}
-                <div className="p-6 sm:p-8 space-y-6">
+                <div className="p-4 sm:p-8 space-y-6">
                   {/* Title */}
                   <div className="space-y-1">
                     <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-400">
                       Объект интеллектуальной собственности:
                     </span>
-                    <h2 className="text-xl sm:text-2xl font-extrabold text-[#111111] leading-snug">
+                    <h2 className="text-lg sm:text-2xl font-extrabold text-[#111111] leading-snug">
                       {result.object_title}
                     </h2>
-                    <span className="inline-block mt-1 px-2 py-0.5 text-xs font-mono bg-neutral-100 text-neutral-700 border border-neutral-200">
+                    <span className="inline-block mt-1 px-2.5 py-0.5 text-xs font-mono bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-md">
                       {result.entity_type_label || "Научно-техническая разработка"}
                     </span>
                   </div>
@@ -312,13 +312,13 @@ export default function VerifyPage() {
                         <CopyButton text={result.sha256_hash} label="Скопировать хэш" />
                       )}
                     </div>
-                    <div className="p-3 bg-[#111111] text-white text-xs font-mono break-all selection:bg-[#F81B00]">
+                    <div className="p-3 bg-[#111111] text-white text-[11px] sm:text-xs font-mono break-all rounded-xl selection:bg-[#F81B00]">
                       {result.sha256_hash}
                     </div>
                   </div>
 
                   {/* Legal Basis Disclaimer */}
-                  <div className="p-4 bg-[#F9FAFB] border border-[#E2E5EB] text-xs text-neutral-600 leading-relaxed">
+                  <div className="p-4 bg-[#F9FAFB] border border-[#E2E5EB] rounded-xl text-xs text-neutral-600 leading-relaxed">
                     <strong>Юридическое основание:</strong> {result.legal_basis}
                     <p className="mt-1 text-[11px] text-neutral-400">
                       Свидетельство признается судами РФ и арбитражем в качестве надлежащего доказательства
@@ -333,7 +333,7 @@ export default function VerifyPage() {
                         href={result.download_url}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#111111] hover:bg-[#F81B00] text-white text-xs font-bold uppercase tracking-wider transition-colors shadow-xs"
+                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#111111] hover:bg-[#F81B00] text-white text-xs font-bold uppercase tracking-wider transition-colors rounded-xl shadow-xs"
                       >
                         <HiOutlineDocumentArrowDown className="w-4 h-4" />
                         Скачать официальное свидетельство (PDF)
@@ -343,7 +343,7 @@ export default function VerifyPage() {
                 </div>
               </div>
             ) : (
-              <div className="bg-white border-2 border-red-500 p-8 text-center space-y-3">
+              <div className="bg-white border-2 border-red-500 rounded-2xl p-6 sm:p-8 text-center space-y-3">
                 <div className="w-12 h-12 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto">
                   <HiOutlineShieldCheck className="w-6 h-6" />
                 </div>

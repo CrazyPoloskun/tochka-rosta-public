@@ -201,6 +201,24 @@ async def verify_user(
         target_id=user.id,
         details=f"Верификация: статус изменён с '{old_status}' на '{data.verification_status}'. Комментарий: {data.comment or 'Отсутствует'}",
     )
+
+    # Системное уведомление пользователю
+    v_title = "Организация верифицирована!" if data.verification_status == "verified" else "Верификация отклонена"
+    v_body = (
+        "Ваша научная организация успешно прошла проверку уставных документов и получила доступ ко всем функциям платформы."
+        if data.verification_status == "verified"
+        else f"Верификация отклонена модератором. Причина: {data.comment or 'Необходимо предоставить читаемые сканы документов'}"
+    )
+    notif = Notification(
+        recipient_id=user.id,
+        type="verification_update",
+        title=v_title,
+        body=v_body,
+        link_url="/dashboard?tab=settings",
+        severity="info" if data.verification_status == "verified" else "warning",
+    )
+    db.add(notif)
+
     await db.commit()
     await db.refresh(user)
     return UserResponse.model_validate(user)
@@ -387,6 +405,18 @@ async def moderate_content_item(
             target_id=idea.id,
             details=f"Модерация идеи '{idea.title}': статус '{old_status}' -> '{data.status}'. Комментарий: {data.moderation_comment or 'Нет'}",
         )
+
+        # Системное уведомление автору идеи
+        notif_idea = Notification(
+            recipient_id=idea.author_id,
+            type="content_moderated",
+            title=f"Заявка {'одобрена' if data.status == 'approved' else 'отклонена'} модератором",
+            body=f"Разработка «{idea.title}»: статус изменён на '{data.status}'. {f'Комментарий: {data.moderation_comment}' if data.moderation_comment else ''}",
+            link_url="/dashboard?tab=ideas",
+            severity="info" if data.status == "approved" else "warning",
+        )
+        db.add(notif_idea)
+
         await db.commit()
         return {"success": True, "message": f"Статус обновлён на {data.status}"}
 
@@ -410,6 +440,18 @@ async def moderate_content_item(
             target_id=task.id,
             details=f"Модерация задачи #{task.id}: статус '{data.status}'",
         )
+
+        # Системное уведомление заказчику задачи
+        notif_task = Notification(
+            recipient_id=task.investor_id,
+            type="task_moderated",
+            title=f"Задача #{task.id} {'одобрена' if data.status == 'approved' else 'на проверке'}",
+            body=f"Статус вашей R&D-задачи «{task.title}» обновлён на '{data.status}'.",
+            link_url="/dashboard?tab=tasks",
+            severity="info",
+        )
+        db.add(notif_task)
+
         await db.commit()
         return {"success": True, "message": f"Статус задачи обновлён на {data.status}"}
 

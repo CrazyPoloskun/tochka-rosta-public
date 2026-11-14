@@ -100,19 +100,21 @@ export function DashboardSidebar({
         </div>
 
         {/* User Role Card */}
-        <div className="p-3 mx-3 my-3 bg-[#F5F6F8] border border-[#E2E5EB] rounded-xl">
+        <div className="p-3 mx-3 my-3 bg-[#F5F6F8] border border-[#E2E5EB] rounded-xl flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280]">
-              {isLab ? "НИИ / Лаборатория" : "Инвестор / Донор"}
+              {isLab ? "НИИ / Лаборатория" : "Инвестор / Спонсор"}
             </span>
-            {isLab && (
+          </div>
+          {isLab && (
+            <div className="flex items-center">
               <span
-                className={`inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${
+                className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                   verificationStatus === "verified"
-                    ? "bg-emerald-100 text-emerald-800"
+                    ? "bg-emerald-100 text-emerald-800 border border-emerald-200/50"
                     : verificationStatus === "rejected"
-                    ? "bg-red-100 text-red-800"
-                    : "bg-amber-100 text-amber-800"
+                    ? "bg-red-100 text-red-800 border border-red-200/50"
+                    : "bg-amber-100 text-amber-800 border border-amber-200/50"
                 }`}
               >
                 <span
@@ -130,9 +132,9 @@ export function DashboardSidebar({
                   ? "Отклонён"
                   : "На проверке"}
               </span>
-            )}
-          </div>
-          <p className="text-xs font-semibold text-[#111111] mt-1 truncate">
+            </div>
+          )}
+          <p className="text-xs font-semibold text-[#111111] truncate">
             {user?.organization_name || user?.full_name || "Личный кабинет"}
           </p>
         </div>

@@ -13,7 +13,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     
-    # "investor" (Инвестор / Донор) или "lab" (НИИ / Лаборатория)
+    # "investor" (Инвестор / Спонсор) или "lab" (НИИ / Лаборатория)
     role: Mapped[str] = mapped_column(String(50), nullable=False, default="investor")
     
     # "active" или "pending"

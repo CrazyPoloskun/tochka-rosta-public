@@ -223,6 +223,32 @@ export function IdeasTab({
     }
   }
 
+  // Demo Approve Idea
+  const [demoApprovingIdeaId, setDemoApprovingIdeaId] = React.useState<number | null>(null)
+
+  const handleDemoApproveIdea = async (ideaId: number) => {
+    setDemoApprovingIdeaId(ideaId)
+    try {
+      const res = await authFetch(`/api/v1/ideas/${ideaId}/demo-approve`, {
+        method: "POST",
+      })
+      if (res.ok) {
+        success("Разработка мгновенно одобрена в демо-режиме и опубликована в каталоге", "Успешно (DEMO)")
+        if (viewIdeaModal && viewIdeaModal.id === ideaId) {
+          setViewIdeaModal((prev) => (prev ? { ...prev, moderation_status: "approved" } : null))
+        }
+        onRefresh()
+      } else {
+        const data = await res.json()
+        error(data.detail || "Не удалось одобрить разработку", "Ошибка")
+      }
+    } catch {
+      error("Сетевая ошибка при демо-одобрении", "Ошибка")
+    } finally {
+      setDemoApprovingIdeaId(null)
+    }
+  }
+
   const handleApplyAiTz = (data: {
     title: string
     category?: string
@@ -479,10 +505,10 @@ export function IdeasTab({
               setIsAiTzModalOpen(true)
             }}
             variant="outline"
-            className="text-xs font-bold border-[#F81B00]/30 hover:border-[#F81B00] bg-[#FFF5F5] hover:bg-[#FFEBEB] text-[#F81B00] rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
+            className="text-xs font-bold border-[#F81B00]/30 hover:border-[#F81B00] bg-[#FFF5F5] hover:bg-[#FFEBEB] text-[#F81B00] rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 h-9 px-3.5"
           >
             <HiOutlineSparkles className="size-4 text-[#F81B00]" />
-            <span>ИИ-помощник: составить ТЗ</span>
+            <span>ИИ-помощник ТЗ</span>
           </Button>
 
           {isLab ? (
@@ -490,22 +516,22 @@ export function IdeasTab({
               onClick={() => setIsPublishModalOpen(true)}
               disabled={!isVerifiedLab}
               title={!isVerifiedLab ? "Доступно после верификации НИИ" : ""}
-              className={`text-xs font-bold rounded-xl shadow-xs ${
+              className={`h-9 px-4 text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 ${
                 isVerifiedLab
-                  ? "bg-[#F81B00] hover:bg-[#e01800] text-white cursor-pointer"
+                  ? "bg-[#111111] hover:bg-black text-white cursor-pointer"
                   : "bg-slate-200 text-slate-500 cursor-not-allowed"
               }`}
             >
-              <HiOutlinePlusCircle className="size-4 mr-1.5" />
-              + Опубликовать разработку
+              <HiOutlinePlusCircle className="size-4" />
+              <span>+ Опубликовать разработку</span>
             </Button>
           ) : (
             <Button
               onClick={() => setIsNewIdeaModalOpen(true)}
-              className="text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs cursor-pointer"
+              className="h-9 px-4 text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
             >
-              <HiOutlinePlusCircle className="size-4 mr-1.5" />
-              + Предложить свою идею
+              <HiOutlinePlusCircle className="size-4" />
+              <span>+ Предложить свою идею</span>
             </Button>
           )}
         </div>
@@ -842,6 +868,20 @@ export function IdeasTab({
                         </Button>
                       </div>
                     )
+                  )}
+
+                  {/* Demo Moderation Action */}
+                  {idea.moderation_status !== "approved" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={demoApprovingIdeaId === idea.id}
+                      onClick={() => handleDemoApproveIdea(idea.id)}
+                      className="w-full text-[11px] font-bold border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 rounded-xl cursor-pointer shadow-2xs mt-2"
+                    >
+                      <HiOutlineCheckCircle className="size-3.5 mr-1 text-amber-600 shrink-0" />
+                      {demoApprovingIdeaId === idea.id ? "Одобрение..." : "demo: одобрить модерацию РИД"}
+                    </Button>
                   )}
                 </div>
               </Card>
@@ -1296,8 +1336,8 @@ export function IdeasTab({
         initialTitle={aiTzInitialTitle}
         initialQuery={aiTzInitialQuery}
         initialCategory={aiTzInitialCategory}
-        modalTitle="ИИ-помощник: составление ТЗ на разработку"
-        modalDescription="Формирование нормативного академического ТЗ по стандартам ГОСТ 15.016-2016 для каталога разработок"
+        modalTitle="ИИ-помощник ТЗ"
+        modalDescription="Генерация нормативного ТЗ по ГОСТ 15.016-2016"
         applyButtonText="Применить в заявку разработки"
       />
 
@@ -1405,6 +1445,20 @@ export function IdeasTab({
           <DialogFooter className="gap-2 sm:gap-0 pt-2 border-t border-[#E2E5EB]">
             {(viewIdeaModal?.author_id === user?.id || user?.is_admin) && (
               <div className="flex items-center gap-2 w-full justify-between sm:justify-start">
+                {viewIdeaModal?.moderation_status !== "approved" && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={demoApprovingIdeaId === viewIdeaModal?.id}
+                    onClick={() => {
+                      if (viewIdeaModal) handleDemoApproveIdea(viewIdeaModal.id)
+                    }}
+                    className="text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl cursor-pointer shadow-xs"
+                  >
+                    <HiOutlineCheckCircle className="size-4 mr-1 text-white" />
+                    {demoApprovingIdeaId === viewIdeaModal?.id ? "Одобрение..." : "demo: одобрить модерацию РИД"}
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="outline"
@@ -1423,7 +1477,10 @@ export function IdeasTab({
                   variant="outline"
                   onClick={() => {
                     const id = viewIdeaModal?.id
-                    if (id) setDeletingIdeaId(id)
+                    if (id) {
+                      setViewIdeaModal(null)
+                      setDeletingIdeaId(id)
+                    }
                   }}
                   className="text-xs font-bold border-red-200 text-red-600 hover:bg-red-50 rounded-xl cursor-pointer"
                 >

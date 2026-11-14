@@ -9,6 +9,7 @@ from app.models.user import User
 from app.models.task import Task, TaskBid
 from app.models.project import Project, ProjectMilestone
 from app.models.chat import Chat, Message
+from app.models.notification import Notification
 from app.models.matching import MatchingInvitation
 from app.schemas.task import TaskCreateRequest, TaskUpdateRequest, TaskBidCreateRequest, TaskResponse, TaskBidResponse
 from app.services.chat_service import get_or_create_context_chat
@@ -72,20 +73,35 @@ async def create_task(
         budget=data.budget,
         deadline=data.deadline.strip(),
         milestones=data.milestones,
-        moderation_status="approved",
+        moderation_status="pending",
         status="open",
     )
     db.add(task)
     await db.commit()
     await db.refresh(task)
 
-    # 1. Формирование цифрового свидетельства депонирования ТЗ
+    # 1. Системное уведомление для заказчика
+    try:
+        notif = Notification(
+            recipient_id=current_user.id,
+            type="task_created",
+            title="R&D-задача отправлена на модерацию",
+            body=f"Задача «{task.title}» успешно размещена и отправлена на проверку модератору.",
+            link_url="/dashboard?tab=tasks",
+            severity="info",
+        )
+        db.add(notif)
+        await db.commit()
+    except Exception as e:
+        print(f"[TASK CREATE] Notification warning: {e}")
+
+    # 2. Формирование цифрового свидетельства депонирования ТЗ
     try:
         await get_or_create_deposit_certificate(db, "task", task.id)
     except Exception as e:
         print(f"[TASK CREATE] Certificate warning: {e}")
 
-    # 2. Запуск AI Matchmaking (подбор Топ-3 НИИ)
+    # 3. Запуск AI Matchmaking (подбор Топ-3 НИИ)
     try:
         await run_task_matchmaking(db, task.id)
     except Exception as e:
@@ -96,6 +112,44 @@ async def create_task(
     res.bids_count = 0
     res.bids = []
     return res
+
+
+@router.post("/{task_id}/demo-approve", response_model=TaskResponse)
+async def demo_approve_task(
+    task_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Демо-функция: мгновенно переводит задачу в активный статус сбора заявок."""
+    res = await db.execute(select(Task).where(Task.id == task_id))
+    task = res.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="Задача не найдена")
+
+    task.moderation_status = "approved"
+    task.status = "open"
+
+    notif = Notification(
+        recipient_id=task.investor_id,
+        type="task_approved",
+        title="Тендер одобрен модератором!",
+        body=f"R&D-задача «{task.title}» успешно прошла проверку и открыта для откликов лабораторий.",
+        link_url="/dashboard?tab=tasks",
+        severity="info",
+    )
+    db.add(notif)
+    await db.commit()
+    await db.refresh(task)
+
+    i_res = await db.execute(select(User).where(User.id == task.investor_id))
+    inv = i_res.scalar_one_or_none()
+
+    t_res = TaskResponse.model_validate(task)
+    t_res.investor_name = inv.full_name if inv else current_user.full_name
+    t_res.milestones = task.milestones or []
+    t_res.bids_count = 0
+    t_res.bids = []
+    return t_res
 
 
 @router.get("/{task_id}", response_model=TaskResponse)

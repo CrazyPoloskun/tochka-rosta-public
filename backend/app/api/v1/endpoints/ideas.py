@@ -10,6 +10,7 @@ from app.models.user import User
 from app.models.idea import Idea
 from app.models.project import Project, ProjectMilestone
 from app.models.chat import Chat, Message
+from app.models.notification import Notification
 from app.schemas.idea import IdeaCreateRequest, IdeaUpdateRequest, IdeaResponse, IdeaOrderRequest
 from app.services.chat_service import get_or_create_context_chat
 from app.services.certificate_service import get_or_create_deposit_certificate
@@ -91,7 +92,22 @@ async def create_idea(
     await db.commit()
     await db.refresh(idea)
 
-    # Автоматическое формирование свидетельства о депонировании РИД
+    # 1. Системное уведомление для автора
+    try:
+        notif = Notification(
+            recipient_id=current_user.id,
+            type="idea_created",
+            title="Заявка отправлена на модерацию",
+            body=f"Ваша разработка «{idea.title}» успешно создана, депонирована в реестре РИД и передана на рассмотрение модератору.",
+            link_url="/dashboard?tab=ideas",
+            severity="info",
+        )
+        db.add(notif)
+        await db.commit()
+    except Exception as e:
+        print(f"[IDEA CREATE] Notification error: {e}")
+
+    # 2. Автоматическое формирование свидетельства о депонировании РИД
     try:
         await get_or_create_deposit_certificate(db, "idea", idea.id)
     except Exception as e:
@@ -101,6 +117,49 @@ async def create_idea(
     res.author_name = current_user.full_name
     res.organization_name = current_user.organization_name
     return res
+
+
+@router.post("/{idea_id}/demo-approve", response_model=IdeaResponse)
+async def demo_approve_idea(
+    idea_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Демо-функция: мгновенно одобряет модерацию разработки."""
+    res = await db.execute(select(Idea).where(Idea.id == idea_id))
+    idea = res.scalar_one_or_none()
+    if not idea:
+        raise HTTPException(status_code=404, detail="Разработка не найдена")
+
+    idea.moderation_status = "approved"
+    idea.moderation_comment = None
+
+    # Системное уведомление об одобрении
+    notif = Notification(
+        recipient_id=idea.author_id,
+        type="idea_approved",
+        title="Заявка одобрена модератором!",
+        body=f"Разработка «{idea.title}» успешно прошла проверку и опубликована в открытом каталоге платформы.",
+        link_url="/dashboard?tab=ideas",
+        severity="info",
+    )
+    db.add(notif)
+    await db.commit()
+    await db.refresh(idea)
+
+    # Обновляем свидетельство
+    try:
+        await get_or_create_deposit_certificate(db, "idea", idea.id)
+    except Exception:
+        pass
+
+    i_author_res = await db.execute(select(User).where(User.id == idea.author_id))
+    author = i_author_res.scalar_one_or_none()
+
+    res_dto = IdeaResponse.model_validate(idea)
+    res_dto.author_name = author.full_name if author else current_user.full_name
+    res_dto.organization_name = author.organization_name if author else current_user.organization_name
+    return res_dto
 
 
 @router.get("/{idea_id}", response_model=IdeaResponse)

@@ -101,9 +101,9 @@ function VerifyHashContent() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-10 space-y-6">
+      <main className="flex-1 max-w-4xl w-full mx-auto px-3.5 sm:px-6 py-6 sm:py-10 space-y-6">
         {loading && (
-          <div className="bg-white border border-[#E2E5EB] p-16 text-center space-y-3">
+          <div className="bg-white border border-[#E2E5EB] rounded-2xl p-8 sm:p-16 text-center space-y-3 shadow-xs">
             <div className="w-8 h-8 border-2 border-[#F81B00] border-t-transparent rounded-full animate-spin mx-auto" />
             <p className="text-xs font-mono text-neutral-500">
               Сверка цифрового отпечатка в реестре депозитария...
@@ -114,38 +114,38 @@ function VerifyHashContent() {
         {!loading && result && (
           <>
             {result.valid ? (
-              <div className="bg-white border-2 border-emerald-600 shadow-xl overflow-hidden animate-in fade-in duration-300">
+              <div className="bg-white border-2 border-emerald-600 rounded-2xl shadow-xl overflow-hidden animate-in fade-in duration-300">
                 {/* Emerald Verification Banner */}
-                <div className="bg-emerald-600 px-6 py-4 text-white flex items-center justify-between flex-wrap gap-3">
+                <div className="bg-emerald-600 px-4 sm:px-6 py-4 text-white flex items-center justify-between flex-wrap gap-3">
                   <div className="flex items-center space-x-3">
                     <HiOutlineCheckBadge className="w-7 h-7 text-white shrink-0" />
                     <div>
-                      <div className="text-xs font-mono uppercase tracking-wider text-emerald-100">
+                      <div className="text-[10px] font-mono uppercase tracking-wider text-emerald-100">
                         Официальная валидация
                       </div>
-                      <div className="text-base sm:text-lg font-bold">
+                      <div className="text-sm sm:text-lg font-bold">
                         ПОДЛИННОСТЬ СВИДЕТЕЛЬСТВА ПОДТВЕРЖДЕНА В ДЕПОЗИТАРИИ
                       </div>
                     </div>
                   </div>
                   {result.certificate_number && (
-                    <span className="px-3 py-1 bg-white text-[#111111] font-mono text-xs font-bold tracking-wider">
+                    <span className="px-3 py-1 bg-white text-[#111111] font-mono text-xs font-bold tracking-wider rounded-lg shadow-xs">
                       {result.certificate_number}
                     </span>
                   )}
                 </div>
 
                 {/* Dossier Information */}
-                <div className="p-6 sm:p-8 space-y-6">
+                <div className="p-4 sm:p-8 space-y-6">
                   {/* Title */}
                   <div className="space-y-1">
                     <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-400">
                       Объект интеллектуальной собственности:
                     </span>
-                    <h2 className="text-xl sm:text-2xl font-extrabold text-[#111111] leading-snug">
+                    <h2 className="text-lg sm:text-2xl font-extrabold text-[#111111] leading-snug">
                       {result.object_title}
                     </h2>
-                    <span className="inline-block mt-1 px-2 py-0.5 text-xs font-mono bg-neutral-100 text-neutral-700 border border-neutral-200">
+                    <span className="inline-block mt-1 px-2.5 py-0.5 text-xs font-mono bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-md">
                       {result.entity_type_label || "Научно-техническая разработка"}
                     </span>
                   </div>
@@ -204,13 +204,13 @@ function VerifyHashContent() {
                         <CopyButton text={result.sha256_hash} label="Скопировать хэш" />
                       )}
                     </div>
-                    <div className="p-3 bg-[#111111] text-white text-xs font-mono break-all selection:bg-[#F81B00]">
+                    <div className="p-3 bg-[#111111] text-white text-xs font-mono break-all selection:bg-[#F81B00] rounded-xl">
                       {result.sha256_hash}
                     </div>
                   </div>
 
                   {/* Legal Basis Disclaimer */}
-                  <div className="p-4 bg-[#F9FAFB] border border-[#E2E5EB] text-xs text-neutral-600 leading-relaxed">
+                  <div className="p-4 bg-[#F9FAFB] border border-[#E2E5EB] rounded-xl text-xs text-neutral-600 leading-relaxed">
                     <strong>Юридическое основание:</strong> {result.legal_basis}
                   </div>
 
@@ -221,7 +221,7 @@ function VerifyHashContent() {
                         href={result.download_url}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#111111] hover:bg-[#F81B00] text-white text-xs font-bold uppercase tracking-wider transition-colors shadow-xs"
+                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#111111] hover:bg-[#F81B00] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-colors shadow-xs"
                       >
                         <HiOutlineDocumentArrowDown className="w-4 h-4" />
                         Скачать официальное свидетельство (PDF)
@@ -231,7 +231,7 @@ function VerifyHashContent() {
                 </div>
               </div>
             ) : (
-              <div className="bg-white border-2 border-red-500 p-8 text-center space-y-3">
+              <div className="bg-white border-2 border-red-500 rounded-2xl p-6 sm:p-8 text-center space-y-3 shadow-sm">
                 <div className="w-12 h-12 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto">
                   <HiOutlineShieldCheck className="w-6 h-6" />
                 </div>
@@ -244,7 +244,7 @@ function VerifyHashContent() {
                 <div className="pt-3">
                   <Link
                     href="/verify"
-                    className="px-4 py-2 bg-[#111111] text-white text-xs font-bold uppercase tracking-wider"
+                    className="px-4 py-2 bg-[#111111] hover:bg-[#F81B00] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-colors inline-block"
                   >
                     Перейти к поиску
                   </Link>

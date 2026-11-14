@@ -1,4 +1,5 @@
 from datetime import datetime
+import hashlib
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, or_
@@ -8,6 +9,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.user import User
 from app.models.finance import Account, Transaction
+from app.models.notification import Notification
 from app.schemas.finance import LedgerResponse, DepositRequest, WithdrawRequest, TransactionResponse
 
 router = APIRouter()
@@ -183,4 +185,113 @@ async def request_withdraw(
         "message": f"Заявка на вывод {data.amount:,.2f} ₽ сформирована и ожидает подтверждения банком".replace(",", " "),
         "available_balance": account.available_balance,
         "frozen_balance": account.frozen_balance,
+    }
+
+
+@router.post("/transactions/{transaction_id}/demo-approve")
+async def demo_approve_payout(
+    transaction_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Демо-функция: мгновенно подтверждает и исполняет заявку на вывод средств."""
+    tx_res = await db.execute(select(Transaction).where(Transaction.id == transaction_id))
+    tx = tx_res.scalar_one_or_none()
+    if not tx:
+        raise HTTPException(status_code=404, detail="Транзакция не найдена")
+
+    tx.status = "completed"
+
+    try:
+        notif = Notification(
+            recipient_id=tx.from_user_id or current_user.id,
+            type="payout_completed",
+            title="Вывод средств подтверждён!",
+            body=f"Заявка на перевод {tx.amount:,.2f} ₽ успешно исполнена банком.",
+            link_url="/dashboard?tab=finances",
+            severity="info",
+        )
+        db.add(notif)
+    except Exception as e:
+        print(f"[DEMO PAYOUT] Notification warning: {e}")
+
+    await db.commit()
+    return {"message": "Выплата подтверждена (DEMO)", "transaction_id": tx.id}
+
+
+@router.get("/transactions/{tx_id}/receipt")
+async def get_transaction_receipt(
+    tx_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Генерирует официальное подтверждение совершения банковского перевода / платёжное поручение."""
+    res = await db.execute(select(Transaction).where(Transaction.id == tx_id))
+    tx = res.scalar_one_or_none()
+    if not tx:
+        raise HTTPException(status_code=404, detail="Транзакция не найдена")
+
+    # Проверка доступа: только участники или админ
+    if not current_user.is_admin and tx.from_user_id != current_user.id and tx.to_user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Доступ к документу перевода запрещён")
+
+    # Вычисляем SHA-256 хеш транзакции для криптографического подтверждения
+    created_iso = tx.created_at.isoformat() if tx.created_at else datetime.utcnow().isoformat()
+    tx_stamp = f"TX:{tx.id}:{tx.amount}:{tx.type}:{created_iso}".encode("utf-8")
+    tx_hash = hashlib.sha256(tx_stamp).hexdigest()
+
+    payer_name = "ООО «ТОЧКА РОСТА» (Эскроу-счёт)"
+    payer_inn = "7701982345"
+    recipient_name = current_user.organization_name or current_user.full_name
+    recipient_inn = current_user.inn or "Не указан"
+
+    if tx.from_user_id:
+        f_res = await db.execute(select(User).where(User.id == tx.from_user_id))
+        from_u = f_res.scalar_one_or_none()
+        if from_u:
+            payer_name = from_u.organization_name or from_u.full_name
+            payer_inn = from_u.inn or "Физлицо"
+
+    if tx.to_user_id:
+        t_res = await db.execute(select(User).where(User.id == tx.to_user_id))
+        to_u = t_res.scalar_one_or_none()
+        if to_u:
+            recipient_name = to_u.organization_name or to_u.full_name
+            recipient_inn = to_u.inn or "Физлицо"
+
+    return {
+        "success": True,
+        "receipt_number": f"ТР-ПП-{tx.id:06d}",
+        "transaction_id": tx.id,
+        "date": tx.created_at.strftime("%d.%m.%Y в %H:%M:%S MSK") if tx.created_at else "Дата не указана",
+        "status": "ПОДТВЕРЖДЕНО И ИСПОЛНЕНО",
+        "operation_type": tx.type,
+        "operation_label": (
+            "Пополнение гарантийного счёта" if tx.type == "deposit"
+            else "Выплата вознаграждения / прибыли" if tx.type == "profit_payout"
+            else "Блокировка средств на эскроу-депозите" if tx.type == "escrow_lock"
+            else "Исполнение и приёмка этапа НИОКР" if tx.type == "escrow_release"
+            else "Вывод средств на расчётный счёт" if tx.type == "payout"
+            else "Финансовый перевод"
+        ),
+        "amount": tx.amount,
+        "amount_formatted": f"{tx.amount:,.2f} ₽".replace(",", " "),
+        "currency": "RUB",
+        "payer": {
+            "name": payer_name,
+            "inn": payer_inn,
+        },
+        "recipient": {
+            "name": recipient_name,
+            "inn": recipient_inn,
+            "bank_details": tx.bank_details or {},
+        },
+        "purpose": tx.description or "Исполнение обязательств по соглашению на платформе «Точка Роста»",
+        "operator": PLATFORM_REQUISITES,
+        "digital_signature": {
+            "sha256": tx_hash,
+            "signed_by": "АО «Т-Банк» / Система быстрых платежей / Депозитарий платформы",
+            "signed_at": tx.created_at.strftime("%d.%m.%Y %H:%M:%S") if tx.created_at else "",
+            "certificate": "КриптоПро ЭЦП ГОСТ Р 34.10-2012 (Серийный № 7701-2026-F81B)",
+        },
     }

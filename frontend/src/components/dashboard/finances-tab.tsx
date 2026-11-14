@@ -10,6 +10,9 @@ import {
   HiOutlineShieldCheck,
   HiOutlineBuildingLibrary,
   HiOutlineCheckCircle,
+  HiOutlineDocumentText,
+  HiOutlinePrinter,
+  HiOutlineCheckBadge,
 } from "react-icons/hi2"
 
 import { Button } from "@/components/ui/button"
@@ -73,6 +76,51 @@ export function FinancesTab({
 
   // Filter transactions
   const [txFilter, setTxFilter] = React.useState<string>("all")
+
+  // Receipt / Transfer Confirmation Document Modal
+  const [receiptData, setReceiptData] = React.useState<any | null>(null)
+  const [loadingReceipt, setLoadingReceipt] = React.useState(false)
+
+  // Demo Approve Payout
+  const [demoApprovingTxId, setDemoApprovingTxId] = React.useState<number | null>(null)
+
+  const handleDemoApprovePayout = async (txId: number) => {
+    setDemoApprovingTxId(txId)
+    try {
+      const res = await authFetch(`/api/v1/finances/transactions/${txId}/demo-approve`, {
+        method: "POST",
+      })
+      if (res.ok) {
+        success("Выплата подтверждена и исполнена (DEMO)", "Успешно")
+        onRefresh()
+      } else {
+        const err = await res.json()
+        error(err.detail || "Не удалось подтвердить выплату", "Ошибка")
+      }
+    } catch {
+      error("Сетевая ошибка при подтверждении выплаты", "Ошибка")
+    } finally {
+      setDemoApprovingTxId(null)
+    }
+  }
+
+  const handleOpenReceipt = async (txId: number) => {
+    setLoadingReceipt(true)
+    try {
+      const res = await authFetch(`/api/v1/finances/transactions/${txId}/receipt`)
+      if (res.ok) {
+        const data = await res.json()
+        setReceiptData(data)
+      } else {
+        const err = await res.json().catch(() => ({}))
+        error(err.detail || "Не удалось загрузить квитанцию перевода", "Ошибка")
+      }
+    } catch {
+      error("Ошибка соединения при получении квитанции", "Ошибка")
+    } finally {
+      setLoadingReceipt(false)
+    }
+  }
 
   // Deposit handler (Investor)
   const handleDeposit = async (e: React.FormEvent) => {
@@ -334,6 +382,7 @@ export function FinancesTab({
                   <th className="py-2.5 px-3">Тип операции</th>
                   <th className="py-2.5 px-3">Назначение платежа</th>
                   <th className="py-2.5 px-3 text-right">Сумма</th>
+                  <th className="py-2.5 px-3 text-right">Документ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F1F3F5]">
@@ -411,6 +460,29 @@ export function FinancesTab({
                       >
                         {isPositive ? "+" : isNegative ? "-" : ""}
                         {Number(tx.amount).toLocaleString("ru-RU")} ₽
+                      </td>
+                      <td className="py-3 px-3 text-right whitespace-nowrap space-x-1.5">
+                        {tx.status === "pending" && (
+                          <button
+                            type="button"
+                            disabled={demoApprovingTxId === tx.id}
+                            onClick={() => handleDemoApprovePayout(tx.id)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-[11px] font-bold text-amber-900 rounded-lg transition-colors cursor-pointer shadow-2xs"
+                            title="Мгновенное исполнение выплаты в демо-режиме"
+                          >
+                            <HiOutlineCheckCircle className="size-3.5 text-amber-600" />
+                            <span>{demoApprovingTxId === tx.id ? "..." : "demo: подтвердить вывод"}</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenReceipt(tx.id)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-[#F5F6F8] border border-[#E2E5EB] hover:border-[#111111] text-[11px] font-semibold text-[#111111] rounded-lg transition-colors cursor-pointer shadow-2xs"
+                          title="Официальная справка / квитанция о подтверждении перевода"
+                        >
+                          <HiOutlineDocumentText className="size-3.5 text-[#F81B00]" />
+                          <span>Квитанция</span>
+                        </button>
                       </td>
                     </tr>
                   )
@@ -685,6 +757,134 @@ export function FinancesTab({
               className="text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs"
             >
               Печать счёта
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Transfer Confirmation Receipt Modal */}
+      <Dialog open={!!receiptData} onOpenChange={(open) => !open && setReceiptData(null)}>
+        <DialogContent className="max-w-xl bg-white rounded-2xl p-6 max-h-[92vh] overflow-y-auto space-y-4">
+          <DialogHeader className="border-b border-[#E2E5EB] pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200">
+                  <HiOutlineCheckBadge className="size-5" />
+                </span>
+                <div>
+                  <DialogTitle className="text-base font-bold text-[#111111]">
+                    Подтверждение банковского перевода
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-[#6B7280]">
+                    Квитанция об исполнении расчётов в платёжном контуре «Точка Роста»
+                  </DialogDescription>
+                </div>
+              </div>
+              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold">
+                {receiptData?.status || "ПОДТВЕРЖДЕНО"}
+              </Badge>
+            </div>
+          </DialogHeader>
+
+          {receiptData && (
+            <div className="space-y-4 text-xs">
+              {/* Receipt Header Badge */}
+              <div className="p-4 bg-[#F8FAFC] border border-[#E2E5EB] rounded-xl flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#6B7280] block">
+                    Номер документа / УИН
+                  </span>
+                  <span className="text-sm font-bold font-mono text-[#111111]">
+                    {receiptData.receipt_number}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#6B7280] block">
+                    Дата и время фиксации
+                  </span>
+                  <span className="text-xs font-semibold text-[#111111]">
+                    {receiptData.date}
+                  </span>
+                </div>
+              </div>
+
+              {/* Amount Box */}
+              <div className="p-4 bg-white border border-[#E2E5EB] rounded-xl flex items-center justify-between shadow-2xs">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280] block">
+                    {receiptData.operation_label}
+                  </span>
+                  <span className="text-xs text-[#4B5563] mt-0.5 block">
+                    {receiptData.purpose}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-xl font-extrabold text-[#111111] font-mono">
+                    {receiptData.amount_formatted}
+                  </span>
+                </div>
+              </div>
+
+              {/* Counterparties Table */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3 bg-[#F9FAFB] rounded-xl border border-[#E2E5EB] space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280] block">
+                    Плательщик / Отправитель:
+                  </span>
+                  <p className="font-bold text-[#111111]">{receiptData.payer.name}</p>
+                  <p className="text-[11px] text-[#6B7280]">ИНН: {receiptData.payer.inn}</p>
+                </div>
+
+                <div className="p-3 bg-[#F9FAFB] rounded-xl border border-[#E2E5EB] space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280] block">
+                    Получатель средств:
+                  </span>
+                  <p className="font-bold text-[#111111]">{receiptData.recipient.name}</p>
+                  <p className="text-[11px] text-[#6B7280]">ИНН: {receiptData.recipient.inn}</p>
+                </div>
+              </div>
+
+              {/* Digital Signature & Bank Stamp */}
+              <div className="p-4 bg-emerald-50/60 border border-emerald-200 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                    <HiOutlineShieldCheck className="size-4 text-emerald-600" />
+                    <span>Электронная цифровая подпись (ЭЦП ГОСТ Р 34.10-2012):</span>
+                  </span>
+                  <span className="text-[10px] font-mono text-emerald-800">
+                    ПРОВЕРЕНО
+                  </span>
+                </div>
+                <div className="p-2.5 bg-white rounded-lg border border-emerald-200 font-mono text-[10px] text-emerald-900 break-all space-y-0.5">
+                  <p><strong>SHA-256 хеш операции:</strong> {receiptData.digital_signature?.sha256}</p>
+                  <p><strong>Удостоверяющий центр:</strong> {receiptData.digital_signature?.signed_by}</p>
+                  <p><strong>Сертификат:</strong> {receiptData.digital_signature?.certificate}</p>
+                </div>
+                <p className="text-[10px] text-emerald-800 italic">
+                  Настоящий электронный документ имеет юридическую силу платёжного поручения в соответствии со ст. 6 Федерального закона № 63-ФЗ «Об электронной подписи».
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-2 border-t border-[#E2E5EB]">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setReceiptData(null)}
+              className="text-xs border-[#E2E5EB] rounded-xl cursor-pointer"
+            >
+              Закрыть
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined") window.print()
+              }}
+              className="text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
+            >
+              <HiOutlinePrinter className="size-4" />
+              <span>Печать квитанции</span>
             </Button>
           </DialogFooter>
         </DialogContent>

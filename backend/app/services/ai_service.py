@@ -120,7 +120,8 @@ async def call_real_llm(
             if response_format_json:
                 payload["response_format"] = {"type": "json_object"}
 
-            async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=15.0)) as client:
+            ai_proxy = _clean_str(settings.OPENROUTER_PROXY or settings.AI_PROXY) or None
+            async with httpx.AsyncClient(proxy=ai_proxy, timeout=httpx.Timeout(60.0, connect=15.0)) as client:
                 res = await client.post(openrouter_url, headers=headers, json=payload)
 
                 # Некоторые модели OpenRouter возвращают 400 при наличии response_format
@@ -156,7 +157,8 @@ async def call_real_llm(
             if response_format_json:
                 payload["response_format"] = {"type": "json_object"}
 
-            async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=15.0)) as client:
+            ai_proxy = _clean_str(settings.AI_PROXY or settings.OPENROUTER_PROXY) or None
+            async with httpx.AsyncClient(proxy=ai_proxy, timeout=httpx.Timeout(60.0, connect=15.0)) as client:
                 res = await client.post(openai_url, headers=headers, json=payload)
                 if res.status_code == 400 and response_format_json:
                     payload.pop("response_format", None)
@@ -194,7 +196,8 @@ async def call_real_llm(
             if response_format_json:
                 payload["generationConfig"]["responseMimeType"] = "application/json"
 
-            async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=15.0)) as client:
+            ai_proxy = _clean_str(settings.AI_PROXY or settings.OPENROUTER_PROXY) or None
+            async with httpx.AsyncClient(proxy=ai_proxy, timeout=httpx.Timeout(60.0, connect=15.0)) as client:
                 res = await client.post(url, json=payload)
                 if res.status_code == 200:
                     data = res.json()

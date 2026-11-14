@@ -301,7 +301,7 @@ export function AuthModal() {
           {modalMode === "register-investor" && (
             <form onSubmit={handleInvestorRegister} className="space-y-4">
               <div className="p-3 bg-[#F5F6F8] rounded-xl text-xs text-[#4B5563] border border-[#E2E5EB]">
-                Регистрация для физических лиц, доноров науки и представителей коммерческих компаний, ищущих R&D разработки.
+                Регистрация для физических лиц, спонсоров науки и представителей коммерческих компаний, ищущих R&D разработки.
               </div>
 
               <div className="space-y-1.5">

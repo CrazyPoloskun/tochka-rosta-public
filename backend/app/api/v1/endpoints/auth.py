@@ -533,3 +533,17 @@ async def download_user_document(
         raise HTTPException(status_code=404, detail="Файл документа не найден на сервере")
 
     return FileResponse(file_path, filename=clean_filename)
+
+
+@router.post("/demo/toggle-verification", response_model=UserResponse)
+async def demo_toggle_verification(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Демо-функция: мгновенно переключает статус верификации организации для демонстрации."""
+    current_user.verification_status = "verified" if current_user.verification_status != "verified" else "pending"
+    current_user.status = "active"
+    current_user.moderation_comment = None
+    await db.commit()
+    await db.refresh(current_user)
+    return UserResponse.model_validate(current_user)

@@ -77,7 +77,7 @@ export default function Home() {
                     : "border-transparent text-[#6B7280] hover:text-[#111111] hover:border-zinc-300"
                 }`}
               >
-                Инвесторам и донорам
+                Инвесторам и спонсорам
               </button>
 
               <button
@@ -275,14 +275,14 @@ export default function Home() {
             
             {activeTab === "investors" ? (
               <>
-                {/* Вариант А: Инвесторам и донорам */}
+                {/* Вариант А: Инвесторам и спонсорам */}
                 <div className="lg:col-span-6 flex flex-col justify-center space-y-5">
                   <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#111111] tracking-tight leading-[1.12] animate-slide-down">
                     Финансируйте научные разработки <span className="text-[#F81B00]">без риска потери бюджета</span>
                   </h1>
 
                   <p className="text-base sm:text-lg text-[#4B5563] leading-relaxed max-w-xl font-normal animate-slide-down-delay-1">
-                    Платформа объединяет бизнес, частных доноров и исследовательские институты. Вы финансируете исследования или запускаете производство своих идей. Оплата исполнителю переводится только после успешной проверки образца.
+                    Платформа объединяет бизнес, частных спонсоров и исследовательские институты. Вы финансируете исследования или запускаете производство своих идей. Оплата исполнителю переводится только после успешной проверки образца.
                   </p>
 
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2 animate-slide-down-delay-2">
@@ -377,7 +377,7 @@ export default function Home() {
                 Форматы взаимодействия на платформе
               </h2>
               <p className="text-sm sm:text-base text-[#4B5563] leading-relaxed">
-                Единый правовой и финансовый контур для ученых, инвесторов и доноров.
+                Единый правовой и финансовый контур для ученых, инвесторов и спонсоров.
               </p>
             </ScrollReveal>
 
@@ -460,7 +460,7 @@ export default function Home() {
               <div className="bg-white border border-[#E2E5EB] rounded-2xl p-6 sm:p-8 space-y-7 shadow-xs h-full">
               <div className="pb-4 border-b border-[#E2E5EB]">
                 <h3 className="text-xl font-bold text-[#111111]">
-                  Порядок действий для инвестора и донора
+                  Порядок действий для инвестора и спонсора
                 </h3>
               </div>
 
@@ -856,7 +856,7 @@ export default function Home() {
                     }}
                     className="hover:text-white transition-colors cursor-pointer"
                   >
-                    Инвесторам и донорам
+                    Инвесторам и спонсорам
                   </button>
                 </li>
                 <li>

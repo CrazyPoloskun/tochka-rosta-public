@@ -1,20 +1,46 @@
 "use client"
 
 import * as React from "react"
-import { HiOutlineExclamationTriangle, HiOutlineXMark, HiOutlineArrowPath } from "react-icons/hi2"
+import { HiOutlineExclamationTriangle, HiOutlineXMark, HiOutlineArrowPath, HiOutlineSparkles } from "react-icons/hi2"
 import { Button } from "@/components/ui/button"
-import { User } from "@/lib/auth-context"
+import { User, useAuth } from "@/lib/auth-context"
+import { useToast } from "@/components/ui/toast"
 
 interface VerificationBannerProps {
   user: User | null
   onFixDocuments: () => void
+  onRefresh?: () => void
 }
 
-export function VerificationBanner({ user, onFixDocuments }: VerificationBannerProps) {
+export function VerificationBanner({ user, onFixDocuments, onRefresh }: VerificationBannerProps) {
+  const { authFetch, refreshUser } = useAuth()
+  const { success, error } = useToast()
+  const [loadingDemo, setLoadingDemo] = React.useState(false)
+
   if (user?.role !== "lab") return null
 
   const status = user.verification_status || "pending"
   if (status === "verified") return null
+
+  const handleDemoVerify = async () => {
+    setLoadingDemo(true)
+    try {
+      const res = await authFetch("/api/v1/auth/demo/toggle-verification", {
+        method: "POST",
+      })
+      if (res.ok) {
+        success("Статус организации успешно изменён на «Верифицирован» (Demo)", "Верификация пройдена")
+        if (refreshUser) await refreshUser()
+        if (onRefresh) onRefresh()
+      } else {
+        error("Не удалось выполнить демо-верификацию", "Ошибка")
+      }
+    } catch {
+      error("Сетевая ошибка при выполнении демо-верификации", "Ошибка")
+    } finally {
+      setLoadingDemo(false)
+    }
+  }
 
   if (status === "pending") {
     return (
@@ -32,14 +58,27 @@ export function VerificationBanner({ user, onFixDocuments }: VerificationBannerP
             </p>
           </div>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onFixDocuments}
-          className="shrink-0 text-xs border-amber-300 text-amber-900 hover:bg-amber-100 rounded-xl font-medium cursor-pointer"
-        >
-          Уставные документы
-        </Button>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleDemoVerify}
+            disabled={loadingDemo}
+            className="text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs cursor-pointer gap-1.5"
+            title="Мгновенно подтвердить организацию для демонстрации"
+          >
+            <HiOutlineSparkles className="size-3.5 text-amber-400" />
+            <span>{loadingDemo ? "Секунду..." : "demo: верифицировать организацию"}</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onFixDocuments}
+            className="text-xs border-amber-300 text-amber-900 hover:bg-amber-100 rounded-xl font-medium cursor-pointer"
+          >
+            Уставные документы
+          </Button>
+        </div>
       </div>
     )
   }
@@ -61,14 +100,27 @@ export function VerificationBanner({ user, onFixDocuments }: VerificationBannerP
             </p>
           </div>
         </div>
-        <Button
-          size="sm"
-          onClick={onFixDocuments}
-          className="shrink-0 text-xs bg-[#F81B00] hover:bg-[#e01800] text-white rounded-xl shadow-xs font-medium cursor-pointer"
-        >
-          <HiOutlineArrowPath className="size-3.5 mr-1.5" />
-          Исправить документы и отправить повторно
-        </Button>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleDemoVerify}
+            disabled={loadingDemo}
+            className="text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs cursor-pointer gap-1.5"
+            title="Мгновенно подтвердить организацию для демонстрации"
+          >
+            <HiOutlineSparkles className="size-3.5 text-amber-400" />
+            <span>{loadingDemo ? "Секунду..." : "demo: верифицировать организацию"}</span>
+          </Button>
+          <Button
+            size="sm"
+            onClick={onFixDocuments}
+            className="text-xs bg-[#F81B00] hover:bg-[#e01800] text-white rounded-xl shadow-xs font-medium cursor-pointer"
+          >
+            <HiOutlineArrowPath className="size-3.5 mr-1.5" />
+            Исправить документы
+          </Button>
+        </div>
       </div>
     )
   }

@@ -13,6 +13,7 @@ from app.core.deps import get_current_user
 from app.models.user import User
 from app.models.chat import Chat, Message, ChatMember, MessageAttachment
 from app.models.project import Project, ProjectSyndicateMember
+from app.models.notification import Notification
 from app.schemas.chat import (
     ChatResponse,
     MessageResponse,
@@ -618,4 +619,121 @@ async def send_message(
     except Exception:
         pass
 
+    # Создание системных уведомлений для участников чата
+    try:
+        recipient_ids = []
+        if chat.chat_type == "direct":
+            other_id = chat.lab_id if current_user.id == chat.investor_id else chat.investor_id
+            if other_id and other_id != current_user.id:
+                recipient_ids.append(other_id)
+        else:
+            cm_res = await db.execute(
+                select(ChatMember.user_id).where(
+                    and_(ChatMember.chat_id == chat.id, ChatMember.user_id != current_user.id)
+                )
+            )
+            recipient_ids = [uid for uid in cm_res.scalars().all()]
+
+        sender_label = current_user.organization_name or current_user.full_name or "Собеседник"
+        for r_id in recipient_ids:
+            body_text = msg.content[:120] if msg.content else "Отправлен файл вложения"
+            notif = Notification(
+                recipient_id=r_id,
+                type="new_message",
+                title=f"Сообщение от {sender_label}",
+                body=body_text,
+                link_url=f"/dashboard?tab=messages&chat_id={chat.id}",
+                severity="info",
+            )
+            db.add(notif)
+        await db.commit()
+    except Exception as e:
+        print(f"[CHAT NOTIFICATION] Error: {e}")
+
     return res
+
+
+@router.post("/{chat_id}/forward", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
+async def forward_message(
+    chat_id: int,
+    source_message_id: int = Query(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Пересылает сообщение из любого доступного диалога в указанный чат с системной пометкой."""
+    # 1. Проверяем целевой чат
+    c_res = await db.execute(select(Chat).where(Chat.id == chat_id))
+    chat = c_res.scalar_one_or_none()
+    if not chat or not await check_user_has_chat_access(chat, current_user, db):
+        raise HTTPException(status_code=403, detail="Доступ к целевому чату запрещён")
+
+    # 2. Исходное сообщение
+    sm_res = await db.execute(
+        select(Message, User.full_name)
+        .join(User, Message.sender_id == User.id)
+        .options(selectinload(Message.attachments))
+        .where(Message.id == source_message_id)
+    )
+    row = sm_res.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Исходное сообщение для пересылки не найдено")
+
+    source_msg, orig_author_name = row
+    # Проверяем доступ к исходному чату
+    sc_res = await db.execute(select(Chat).where(Chat.id == source_msg.chat_id))
+    source_chat = sc_res.scalar_one_or_none()
+    if not source_chat or not await check_user_has_chat_access(source_chat, current_user, db):
+        raise HTTPException(status_code=403, detail="Доступ к исходному сообщению запрещён")
+
+    forwarded_content = f"↪ Переслано от {orig_author_name}:\n{source_msg.content}"
+    f_msg = Message(
+        chat_id=chat.id,
+        sender_id=current_user.id,
+        content=forwarded_content,
+        is_read=False,
+        is_system=False,
+    )
+    chat.updated_at = datetime.utcnow()
+    db.add(f_msg)
+    await db.commit()
+    await db.refresh(f_msg)
+
+    # Системное оповещение
+    recipient_ids = []
+    if chat.chat_type == "direct":
+        other_id = chat.lab_id if current_user.id == chat.investor_id else chat.investor_id
+        if other_id and other_id != current_user.id:
+            recipient_ids.append(other_id)
+    else:
+        cm_res = await db.execute(
+            select(ChatMember.user_id).where(
+                and_(ChatMember.chat_id == chat.id, ChatMember.user_id != current_user.id)
+            )
+        )
+        recipient_ids = [uid for uid in cm_res.scalars().all()]
+
+    sender_label = current_user.organization_name or current_user.full_name or "Собеседник"
+    for r_id in recipient_ids:
+        notif = Notification(
+            recipient_id=r_id,
+            type="forwarded_message",
+            title=f"Пересланное сообщение от {sender_label}",
+            body=forwarded_content[:120],
+            link_url=f"/dashboard?tab=messages&chat_id={chat.id}",
+            severity="info",
+        )
+        db.add(notif)
+    await db.commit()
+
+    return MessageResponse(
+        id=f_msg.id,
+        chat_id=f_msg.chat_id,
+        sender_id=f_msg.sender_id,
+        content=f_msg.content,
+        is_read=f_msg.is_read,
+        is_system=f_msg.is_system,
+        created_at=f_msg.created_at,
+        sender_name=current_user.full_name or current_user.organization_name,
+        sender_role=current_user.role,
+        attachments=[],
+    )

@@ -73,36 +73,12 @@ export function SettingsTab({ user, onUpdateProfile, onRefresh, authFetch }: Set
 
   // Patents list
   const [patents, setPatents] = React.useState<PatentItem[]>(
-    user?.patents_info && Array.isArray(user.patents_info) && user.patents_info.length > 0
-      ? user.patents_info
-      : [
-          {
-            number: "RU 2741234 C1",
-            title: "Способ получения наномодифицированного углеродного волокна",
-            date: "14.05.2023",
-            attachment_name: "patent_2741234.pdf",
-          },
-        ]
+    user?.patents_info && Array.isArray(user.patents_info) ? user.patents_info : []
   )
 
   // Statutory documents list
   const [documents, setDocuments] = React.useState<DocumentItem[]>(
-    user?.documents && Array.isArray(user.documents) && user.documents.length > 0
-      ? user.documents
-      : [
-          {
-            name: "Устав организации (редакция 2022)",
-            type: "PDF скан с печатью",
-            status: verificationStatus === "verified" ? "verified" : "pending",
-            date: "Загружен",
-          },
-          {
-            name: "Выписка из ЕГРЮЛ с ЭЦП ФНС",
-            type: "Официальная выписка",
-            status: verificationStatus === "verified" ? "verified" : "pending",
-            date: "Загружен",
-          },
-        ]
+    user?.documents && Array.isArray(user.documents) ? user.documents : []
   )
 
   // New Patent Modal
@@ -122,6 +98,8 @@ export function SettingsTab({ user, onUpdateProfile, onRefresh, authFetch }: Set
 
   // Patent deletion confirmation
   const [patentToDelete, setPatentToDelete] = React.useState<{ idx: number; title: string } | null>(null)
+  // Doc deletion confirmation
+  const [docToDelete, setDocToDelete] = React.useState<{ idx: number; name: string } | null>(null)
 
   // Validations
   const innClean = inn.replace(/\D/g, "")
@@ -318,6 +296,24 @@ export function SettingsTab({ user, onUpdateProfile, onRefresh, authFetch }: Set
     } finally {
       setUploadingDoc(false)
     }
+  }
+
+  // Remove Doc
+  const handleRemoveDoc = async (idx: number) => {
+    const updatedDocs = documents.filter((_, i) => i !== idx)
+    setDocuments(updatedDocs)
+    if (authFetch) {
+      try {
+        await authFetch("/api/v1/auth/profile/org", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ documents: updatedDocs }),
+        })
+        onRefresh()
+      } catch {}
+    }
+    success("Документ удален из списка", "Удаление выполнено")
+    setDocToDelete(null)
   }
 
   // Portfolio file upload handler
@@ -619,49 +615,63 @@ export function SettingsTab({ user, onUpdateProfile, onRefresh, authFetch }: Set
               </Button>
             </div>
 
-            <div className="space-y-2">
-              {documents.map((doc, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-3 bg-[#F8FAFC] border border-[#E2E5EB] rounded-xl"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <HiOutlineDocumentText className="size-4 text-[#F81B00] shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-[#111111] truncate">{doc.name}</p>
-                      <p className="text-[10px] text-[#6B7280]">{doc.type}</p>
+            {documents.length === 0 ? (
+              <p className="text-xs text-[#6B7280] italic py-2">
+                Уставные документы пока не загружены. Нажмите «+ Загрузить скан».
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {documents.map((doc, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-3 bg-[#F8FAFC] border border-[#E2E5EB] rounded-xl"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                      <HiOutlineDocumentText className="size-4 text-[#F81B00] shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-[#111111] truncate">{doc.name}</p>
+                        <p className="text-[10px] text-[#6B7280]">{doc.type}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {doc.file_url && (
+                        <a
+                          href={doc.file_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[11px] font-semibold text-[#F81B00] hover:underline"
+                        >
+                          Скачать
+                        </a>
+                      )}
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          doc.status === "verified"
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            : doc.status === "rejected"
+                            ? "bg-red-50 text-red-700 border border-red-200"
+                            : "bg-amber-50 text-amber-800 border border-amber-200"
+                        }`}
+                      >
+                        {doc.status === "verified"
+                          ? "Проверено"
+                          : doc.status === "rejected"
+                          ? "Требует замены"
+                          : "На проверке"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setDocToDelete({ idx, name: doc.name })}
+                        title="Удалить документ"
+                        className="p-1.5 text-[#9CA3AF] hover:text-red-600 transition-colors cursor-pointer shrink-0"
+                      >
+                        <HiOutlineTrash className="size-4" />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {doc.file_url && (
-                      <a
-                        href={doc.file_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[11px] font-semibold text-[#F81B00] hover:underline"
-                      >
-                        Скачать
-                      </a>
-                    )}
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        doc.status === "verified"
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          : doc.status === "rejected"
-                          ? "bg-red-50 text-red-700 border border-red-200"
-                          : "bg-amber-50 text-amber-800 border border-amber-200"
-                      }`}
-                    >
-                      {doc.status === "verified"
-                        ? "Проверено"
-                        : doc.status === "rejected"
-                        ? "Требует замены"
-                        : "На проверке"}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </Card>
         )}
 
@@ -1105,6 +1115,28 @@ export function SettingsTab({ user, onUpdateProfile, onRefresh, authFetch }: Set
             handleRemovePatent(patentToDelete.idx)
             setPatentToDelete(null)
             success("Патент удален из реестра", "Удаление выполнено")
+          }
+        }}
+      />
+
+      {/* Statutory Doc Deletion Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!docToDelete}
+        onOpenChange={(open) => {
+          if (!open) setDocToDelete(null)
+        }}
+        title="Удаление уставного документа"
+        description={
+          docToDelete
+            ? `Вы уверены, что хотите удалить документ «${docToDelete.name}»? Это действие нельзя отменить.`
+            : ""
+        }
+        confirmText="Удалить документ"
+        cancelText="Отмена"
+        variant="destructive"
+        onConfirm={() => {
+          if (docToDelete) {
+            handleRemoveDoc(docToDelete.idx)
           }
         }}
       />

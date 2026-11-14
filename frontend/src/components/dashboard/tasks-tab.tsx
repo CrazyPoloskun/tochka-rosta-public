@@ -227,6 +227,32 @@ export function TasksTab({
     }
   }
 
+  // Demo Approve Task
+  const [demoApprovingTaskId, setDemoApprovingTaskId] = React.useState<number | null>(null)
+
+  const handleDemoApproveTask = async (taskId: number) => {
+    setDemoApprovingTaskId(taskId)
+    try {
+      const res = await authFetch(`/api/v1/tasks/${taskId}/demo-approve`, {
+        method: "POST",
+      })
+      if (res.ok) {
+        success("R&D-задача мгновенно переведена в активный статус сбора заявок", "Успешно (DEMO)")
+        if (viewTaskModal && viewTaskModal.id === taskId) {
+          setViewTaskModal((prev) => (prev ? { ...prev, moderation_status: "approved", status: "open" } : null))
+        }
+        onRefresh()
+      } else {
+        const data = await res.json()
+        error(data.detail || "Не удалось одобрить задачу", "Ошибка")
+      }
+    } catch {
+      error("Сетевая ошибка при демо-одобрении", "Ошибка")
+    } finally {
+      setDemoApprovingTaskId(null)
+    }
+  }
+
   const handleApplyAiTz = (tzData: {
     title: string
     category?: string
@@ -415,23 +441,22 @@ export function TasksTab({
         </div>
 
         {!isLab && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2.5">
             <Button
+              type="button"
               variant="outline"
-              size="sm"
               onClick={() => setIsAiAssistantOpen(true)}
-              className="text-xs font-bold border-[#E2E5EB] bg-white hover:bg-[#F5F6F8] text-[#111111] rounded-xl shadow-xs cursor-pointer gap-1.5"
+              className="text-xs font-bold border-[#F81B00]/30 hover:border-[#F81B00] bg-[#FFF5F5] hover:bg-[#FFEBEB] text-[#F81B00] rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 h-9 px-3.5"
             >
               <HiOutlineSparkles className="size-4 text-[#F81B00]" />
               <span>ИИ-помощник ТЗ</span>
             </Button>
             <Button
-              size="sm"
               onClick={() => setIsNewTaskOpen(true)}
-              className="text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs cursor-pointer"
+              className="h-9 px-4 text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
             >
-              <HiOutlinePlusCircle className="size-4 mr-1.5" />
-              + Разместить R&D-задачу
+              <HiOutlinePlusCircle className="size-4" />
+              <span>+ Разместить R&D-задачу</span>
             </Button>
           </div>
         )}
@@ -629,12 +654,18 @@ export function TasksTab({
                         Тендер #{task.id}
                       </Badge>
                       <CopyButton text={String(task.id)} label="ID" title="Копировать номер задачи" />
-                      <Badge
-                        variant={task.status === "open" ? "default" : "secondary"}
-                        className="text-[10px] font-bold uppercase"
-                      >
-                        {task.status === "open" ? "Открыт сбор заявок" : "Исполнитель выбран"}
-                      </Badge>
+                      {task.moderation_status === "pending" ? (
+                        <Badge className="text-[10px] font-bold uppercase bg-amber-50 text-amber-800 border border-amber-200">
+                          На модерации
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant={task.status === "open" ? "default" : "secondary"}
+                          className="text-[10px] font-bold uppercase"
+                        >
+                          {task.status === "open" ? "Открыт сбор заявок" : "Исполнитель выбран"}
+                        </Badge>
+                      )}
                       <span className="text-[11px] text-[#6B7280] flex items-center gap-1">
                         <HiOutlineCalendar className="size-3.5" />
                         Срок: {task.deadline}
@@ -729,6 +760,19 @@ export function TasksTab({
                           <HiOutlineTrash className="size-3.5" />
                         </Button>
                       </>
+                    )}
+                    {/* Demo Moderation Action */}
+                    {(task.moderation_status === "pending" || user?.is_admin) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={demoApprovingTaskId === task.id}
+                        onClick={() => handleDemoApproveTask(task.id)}
+                        className="px-3 text-xs font-bold border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 rounded-xl cursor-pointer shadow-2xs"
+                      >
+                        <HiOutlineCheckCircle className="size-3.5 mr-1 text-amber-600 shrink-0" />
+                        {demoApprovingTaskId === task.id ? "Одобрение..." : "demo: открыть сбор заявок"}
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -1276,6 +1320,20 @@ export function TasksTab({
           <DialogFooter className="gap-2 sm:gap-0 pt-2 border-t border-[#E2E5EB]">
             {(viewTaskModal?.creator_id === user?.id || viewTaskModal?.investor_id === user?.id || user?.is_admin) && (
               <div className="flex items-center gap-2 w-full justify-between sm:justify-start">
+                {(viewTaskModal?.moderation_status === "pending" || user?.is_admin) && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={demoApprovingTaskId === viewTaskModal?.id}
+                    onClick={() => {
+                      if (viewTaskModal) handleDemoApproveTask(viewTaskModal.id)
+                    }}
+                    className="text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl cursor-pointer shadow-xs"
+                  >
+                    <HiOutlineCheckCircle className="size-4 mr-1 text-white" />
+                    {demoApprovingTaskId === viewTaskModal?.id ? "Одобрение..." : "demo: открыть сбор заявок"}
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="outline"
@@ -1294,7 +1352,10 @@ export function TasksTab({
                   variant="outline"
                   onClick={() => {
                     const id = viewTaskModal?.id
-                    if (id) setDeletingTaskId(id)
+                    if (id) {
+                      setViewTaskModal(null)
+                      setDeletingTaskId(id)
+                    }
                   }}
                   className="text-xs font-bold border-red-200 text-red-600 hover:bg-red-50 rounded-xl cursor-pointer"
                 >

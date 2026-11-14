@@ -122,6 +122,7 @@ export interface TaskItem {
   budget: number
   deadline: string
   milestones?: TaskMilestone[]
+  moderation_status?: "pending" | "approved" | "rejected"
   status: "open" | "in_progress" | "completed"
   created_at: string
   creator_name?: string

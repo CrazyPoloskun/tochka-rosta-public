@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     OPENROUTER_API_KEY: str = ""
     OPENROUTER_MODEL: str = "google/gemini-2.5-flash"
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+    OPENROUTER_PROXY: str | None = None  # Например: "http://user:pass@proxy-ip:port" или "socks5://127.0.0.1:10808"
+    AI_PROXY: str | None = None          # Общий прокси для всех зарубежных AI-провайдеров
 
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o-mini"

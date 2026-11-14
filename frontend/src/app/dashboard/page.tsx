@@ -317,6 +317,7 @@ function DashboardContent() {
           <VerificationBanner
             user={user}
             onFixDocuments={() => handleSelectTab("settings")}
+            onRefresh={refreshUser}
           />
 
           {/* Active Tab Views */}
