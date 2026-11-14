@@ -72,32 +72,32 @@ export function AiShineSkeleton({
   className?: string
 }) {
   return (
-    <div className={`openrouter-shine-card shadow-md animate-in fade-in zoom-in-95 duration-200 ${className}`}>
-      <div className="openrouter-shine-inner p-5 space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-[#E2E5EB]/60">
+    <div className={`border border-[#E2E5EB] bg-white rounded-2xl p-5 shadow-xs animate-in fade-in duration-200 ${className}`}>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-[#E2E5EB]">
           <div className="flex items-center gap-2.5">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#F81B00] opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#F81B00]" />
+            <span className="relative flex size-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#111111] opacity-75" />
+              <span className="relative inline-flex rounded-full size-2.5 bg-[#111111]" />
             </span>
-            <span className="text-xs font-bold uppercase tracking-wider text-[#111111] openrouter-text-shimmer">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#111111]">
               {title}
             </span>
           </div>
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F81B00]/10 text-[#F81B00] border border-[#F81B00]/20 flex items-center gap-1.5">
-            <span className="size-1.5 rounded-full bg-[#F81B00] animate-pulse" />
-            AI Neural Engine
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#F5F6F8] text-[#4B5563] border border-[#E2E5EB] flex items-center gap-1.5">
+            <span className="size-1.5 rounded-full bg-[#111111] animate-pulse" />
+            AI Engine
           </span>
         </div>
 
         <div className="space-y-2.5">
-          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-[#E2E5EB]">
-            <div className="h-full rounded-full openrouter-shimmer-bar w-full" />
+          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-full rounded-full bg-[#111111] w-2/3 animate-pulse" />
           </div>
           <div className="space-y-2 pt-1">
-            <div className="h-3 w-4/5 rounded-md openrouter-shimmer-bar opacity-70" />
-            <div className="h-3 w-full rounded-md openrouter-shimmer-bar opacity-50" />
-            <div className="h-3 w-2/3 rounded-md openrouter-shimmer-bar opacity-35" />
+            <div className="h-3 w-4/5 rounded-md bg-slate-100 animate-pulse" />
+            <div className="h-3 w-full rounded-md bg-slate-100 animate-pulse" />
+            <div className="h-3 w-2/3 rounded-md bg-slate-100 animate-pulse" />
           </div>
         </div>
 

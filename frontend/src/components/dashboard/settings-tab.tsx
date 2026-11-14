@@ -991,12 +991,12 @@ export function SettingsTab({ user, onUpdateProfile, onRefresh, authFetch }: Set
               </p>
             )}
 
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <DialogFooter className="gap-3 pt-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setIsPatentModalOpen(false)}
-                className="text-xs border-[#E2E5EB] rounded-xl"
+                className="text-xs border-[#E2E5EB] rounded-xl px-4 cursor-pointer"
               >
                 Отмена
               </Button>
@@ -1074,12 +1074,12 @@ export function SettingsTab({ user, onUpdateProfile, onRefresh, authFetch }: Set
               )}
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <DialogFooter className="gap-3 pt-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setIsDocModalOpen(false)}
-                className="text-xs border-[#E2E5EB] rounded-xl"
+                className="text-xs border-[#E2E5EB] rounded-xl px-4 cursor-pointer"
               >
                 Отмена
               </Button>

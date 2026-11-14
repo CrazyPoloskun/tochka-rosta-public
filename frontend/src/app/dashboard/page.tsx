@@ -335,6 +335,7 @@ function DashboardContent() {
             <IdeasTab
               user={user}
               ideas={ideas}
+              projects={projects}
               loading={loadingIdeas}
               onRefresh={fetchIdeas}
               authFetch={authFetch}

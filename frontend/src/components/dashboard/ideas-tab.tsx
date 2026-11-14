@@ -39,14 +39,16 @@ import { useToast } from "@/components/ui/toast"
 import { CopyButton } from "@/components/ui/copy-button"
 import { CardGridSkeleton } from "@/components/ui/skeleton-loader"
 import { User } from "@/lib/auth-context"
-import { IdeaItem } from "./dashboard-types"
+import { IdeaItem, Project } from "./dashboard-types"
 import { CounterpartyModal } from "@/components/profile/counterparty-modal"
 import { AiTaskAssistantModal } from "@/components/dashboard/ai-task-assistant-modal"
+import { AiMarker } from "@/components/ui/ai-elements"
 import { MilestonesChainView, MilestonesChainEditor, MilestoneItemData } from "./milestones-chain"
 
 interface IdeasTabProps {
   user: User | null
   ideas: IdeaItem[]
+  projects?: Project[]
   loading: boolean
   onRefresh: () => void
   authFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
@@ -67,6 +69,7 @@ const CATEGORIES = [
 export function IdeasTab({
   user,
   ideas,
+  projects = [],
   loading,
   onRefresh,
   authFetch,
@@ -77,8 +80,25 @@ export function IdeasTab({
   const isLab = user?.role === "lab"
   const isVerifiedLab = isLab && user?.verification_status === "verified"
 
-  // Internal tab: Lab: "my_tech" | "investor_ideas"; Investor: "showcase" | "my_ideas"
+  // Internal tab: Lab: "my_tech" | "investor_ideas" | "donations"; Investor: "showcase" | "my_ideas" | "donations"
   const [internalTab, setInternalTab] = React.useState<string>(isLab ? "my_tech" : "showcase")
+  const [publishedType, setPublishedType] = React.useState<"lab_tech" | "donation_campaign">("lab_tech")
+  const [orderedIdeaIds, setOrderedIdeaIds] = React.useState<number[]>([])
+
+  const userActiveIdeaIds = React.useMemo(() => {
+    const set = new Set<number>()
+    if (projects) {
+      for (const p of projects) {
+        if ((p as any).idea_id) {
+          set.add(Number((p as any).idea_id))
+        }
+      }
+    }
+    for (const id of orderedIdeaIds) {
+      set.add(id)
+    }
+    return set
+  }, [projects, orderedIdeaIds])
   const [counterpartyModalId, setCounterpartyModalId] = React.useState<number | null>(null)
   const [selectedCategory, setSelectedCategory] = React.useState("Все")
   const [searchQuery, setSearchQuery] = React.useState("")
@@ -323,19 +343,21 @@ export function IdeasTab({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: "lab_tech",
+          type: publishedType,
           title: techTitle.trim(),
           summary: techSummary.trim(),
           category: techCategory,
           trl_level: techTrl,
           budget_total: Number(techBudget) || 1000000,
-          milestones: milestones,
+          milestones: publishedType === "donation_campaign" ? [] : milestones,
         }),
       })
       const data = await res.json()
       if (res.ok) {
         success(
-          "Разработка успешно отправлена на проверку! Авторство зафиксировано: сформирован цифровой хеш SHA-256 и метка времени.",
+          publishedType === "donation_campaign"
+            ? "Сбор пожертвований на исследование успешно опубликован! Авторство зафиксировано: сформирован цифровой хеш SHA-256."
+            : "Разработка успешно отправлена на проверку! Авторство зафиксировано: сформирован цифровой хеш SHA-256 и метка времени.",
           "Хеш авторства зафиксирован"
         )
         setIsPublishModalOpen(false)
@@ -406,7 +428,8 @@ export function IdeasTab({
       })
       const data = await res.json().catch(() => ({}))
       if (res.ok) {
-        success("Предложение отправлено инвестору! Создана сделка и открыт чат согласования.", "Предложение отправлено")
+        setOrderedIdeaIds((prev) => [...prev, proposalModal.id])
+        success("Предложение отправлено заказчику! Создана сделка и открыт чат согласования.", "Предложение отправлено")
         setProposalModal(null)
         setProposalMessage("")
         onRefresh()
@@ -434,15 +457,23 @@ export function IdeasTab({
       })
       const data = await res.json().catch(() => ({}))
       if (res.ok) {
-        success(
-          isDonation
-            ? "Пожертвование успешно сформировано! Чат с научной группой открыт."
-            : "R&D-сделка успешно инициирована! Создан проект и открыт диалог с НИИ.",
-          "Сделка создана"
-        )
-        setDonationModal(null)
-        onRefresh()
-        onNavigateToProjects()
+        if (isDonation) {
+          success(
+            "Пожертвование успешно направлено на поддержку научного исследования! Средства зачислены лаборатории.",
+            "Пожертвование переведено"
+          )
+          setDonationModal(null)
+          onRefresh()
+        } else {
+          setOrderedIdeaIds((prev) => [...prev, ideaId])
+          success(
+            "Сделка по разработке успешно инициирована! Создан проект и открыт диалог с научной лабораторией.",
+            "Сделка создана"
+          )
+          setDonationModal(null)
+          onRefresh()
+          onNavigateToProjects()
+        }
       } else {
         error(data?.detail || "Ошибка оформления сделки", "Ошибка")
       }
@@ -454,14 +485,18 @@ export function IdeasTab({
   // Filter ideas
   const filteredIdeas = ideas.filter((idea) => {
     if (isLab) {
-      if (internalTab === "my_tech") {
-        if (idea.author_id !== user?.id) return false
+      if (internalTab === "donations") {
+        if (idea.type !== "donation_campaign") return false
+      } else if (internalTab === "my_tech") {
+        if (idea.author_id !== user?.id || idea.type === "donation_campaign") return false
       } else {
         if (idea.type !== "investor_idea") return false
       }
     } else {
-      if (internalTab === "showcase") {
-        if (idea.type === "investor_idea" && idea.author_id !== user?.id) return false
+      if (internalTab === "donations") {
+        if (idea.type !== "donation_campaign") return false
+      } else if (internalTab === "showcase") {
+        if (idea.type === "investor_idea" || idea.type === "donation_campaign") return false
       } else {
         if (idea.author_id !== user?.id) return false
       }
@@ -538,12 +573,12 @@ export function IdeasTab({
       </div>
 
       {/* Internal Sub-Tabs Switcher */}
-      <div className="flex items-center gap-2 border-b border-[#E2E5EB] pb-3">
+      <div className="flex items-center gap-2 border-b border-[#E2E5EB] pb-3 overflow-x-auto">
         {isLab ? (
           <>
             <button
               onClick={() => setInternalTab("my_tech")}
-              className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+              className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer shrink-0 ${
                 internalTab === "my_tech"
                   ? "bg-[#111111] text-white shadow-xs"
                   : "text-[#6B7280] hover:text-[#111111] hover:bg-[#F5F6F8]"
@@ -553,20 +588,31 @@ export function IdeasTab({
             </button>
             <button
               onClick={() => setInternalTab("investor_ideas")}
-              className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+              className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer shrink-0 ${
                 internalTab === "investor_ideas"
                   ? "bg-[#111111] text-white shadow-xs"
                   : "text-[#6B7280] hover:text-[#111111] hover:bg-[#F5F6F8]"
               }`}
             >
-              Идеи от инвесторов (поиск заказов)
+              Идеи от бизнеса (поиск заказов)
+            </button>
+            <button
+              onClick={() => setInternalTab("donations")}
+              className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                internalTab === "donations"
+                  ? "bg-[#111111] text-white shadow-xs"
+                  : "text-[#6B7280] hover:text-[#111111] hover:bg-[#F5F6F8]"
+              }`}
+            >
+              <HiOutlineHeart className="size-3.5 text-rose-500" />
+              <span>Пожертвования на науку</span>
             </button>
           </>
         ) : (
           <>
             <button
               onClick={() => setInternalTab("showcase")}
-              className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+              className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer shrink-0 ${
                 internalTab === "showcase"
                   ? "bg-[#111111] text-white shadow-xs"
                   : "text-[#6B7280] hover:text-[#111111] hover:bg-[#F5F6F8]"
@@ -576,13 +622,24 @@ export function IdeasTab({
             </button>
             <button
               onClick={() => setInternalTab("my_ideas")}
-              className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+              className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer shrink-0 ${
                 internalTab === "my_ideas"
                   ? "bg-[#111111] text-white shadow-xs"
                   : "text-[#6B7280] hover:text-[#111111] hover:bg-[#F5F6F8]"
               }`}
             >
               Мои идеи для НИИ
+            </button>
+            <button
+              onClick={() => setInternalTab("donations")}
+              className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                internalTab === "donations"
+                  ? "bg-[#111111] text-white shadow-xs"
+                  : "text-[#6B7280] hover:text-[#111111] hover:bg-[#F5F6F8]"
+              }`}
+            >
+              <HiOutlineHeart className="size-3.5 text-rose-500" />
+              <span>Пожертвования на науку</span>
             </button>
           </>
         )}
@@ -640,6 +697,9 @@ export function IdeasTab({
             const isAuthor = idea.author_id === user?.id
             const isInvestorIdea = idea.type === "investor_idea"
 
+            const isDonationCampaign = idea.type === "donation_campaign"
+            const alreadyOrdered = userActiveIdeaIds.has(idea.id)
+
             return (
               <Card
                 key={idea.id}
@@ -648,9 +708,17 @@ export function IdeasTab({
                 <div className="space-y-3">
                   {/* Category & Status */}
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#F81B00] bg-red-50 px-2 py-0.5 rounded-md">
-                      {idea.category}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#F81B00] bg-red-50 px-2 py-0.5 rounded-md">
+                        {idea.category}
+                      </span>
+                      {isDonationCampaign && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200 flex items-center gap-1">
+                          <HiOutlineHeart className="size-3 text-rose-600" />
+                          Пожертвование на науку
+                        </span>
+                      )}
+                    </div>
                     {isAuthor ? (
                       <span
                         className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
@@ -715,9 +783,14 @@ export function IdeasTab({
 
                   {/* TRL, Milestones & Certificate */}
                   <div className="pt-2 border-t border-[#F1F3F5] space-y-2">
-                    {!isInvestorIdea && (
+                    {isDonationCampaign ? (
                       <div className="flex items-center justify-between text-[11px] text-[#6B7280]">
-                        <span>Готовность: <strong className="text-[#111111]">TRL {idea.trl_level}/9</strong></span>
+                        <span>Формат: <strong className="text-rose-700">Поддержка науки</strong></span>
+                        <span>Цель: <strong className="text-[#111111]">{Number(idea.budget_total || 0).toLocaleString("ru-RU")} ₽</strong></span>
+                      </div>
+                    ) : !isInvestorIdea && (
+                      <div className="flex items-center justify-between text-[11px] text-[#6B7280]">
+                        <span>Готовность технологии: <strong className="text-[#111111]">{idea.trl_level} из 9</strong></span>
                         <span>Этапов сметы: <strong className="text-[#111111]">{idea.milestones?.length || 3}</strong></span>
                       </div>
                     )}
@@ -727,7 +800,7 @@ export function IdeasTab({
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 font-semibold text-[#111111] hover:text-[#F81B00] transition-colors"
-                        title="Скачать официальное свидетельство о депонировании РИД с QR-кодом"
+                        title="Скачать официальное свидетельство о депонировании с QR-кодом"
                       >
                         <HiOutlineDocumentArrowDown className="size-3.5 text-[#F81B00]" />
                         <span>Свидетельство (PDF)</span>
@@ -750,7 +823,11 @@ export function IdeasTab({
                 <div className="pt-4 mt-4 border-t border-[#F1F3F5] space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280]">
-                      {isInvestorIdea ? "Целевой бюджет" : "Оценка НИОКР"}
+                      {isDonationCampaign
+                        ? "Цель пожертвований"
+                        : isInvestorIdea
+                        ? "Целевой бюджет"
+                        : "Оценка сметы"}
                     </span>
                     <span className="text-sm font-bold text-[#111111]">
                       {Number(idea.budget_total || 0).toLocaleString("ru-RU")} ₽
@@ -776,7 +853,7 @@ export function IdeasTab({
                           variant="outline"
                           onClick={() => handleOpenEdit(idea)}
                           className="px-2.5 text-[11px] font-bold border-[#E2E5EB] text-[#111111] hover:border-[#111111] rounded-xl cursor-pointer"
-                          title="Редактировать заявку и этапы"
+                          title="Редактировать заявку"
                         >
                           <HiOutlinePencilSquare className="size-3.5" />
                         </Button>
@@ -793,19 +870,40 @@ export function IdeasTab({
                     )}
                   </div>
 
-                  {/* Action Buttons based on Role */}
-                  {isLab ? (
-                    isInvestorIdea ? (
+                  {/* Action Buttons based on Role & Donation status */}
+                  {isDonationCampaign ? (
+                    !isAuthor && (
                       <Button
                         size="sm"
                         onClick={() => {
-                          setProposalModal(idea)
-                          setProposedBudget(String(idea.budget_total || ""))
+                          setDonationModal(idea)
+                          setDonationAmount("100000")
                         }}
-                        className="w-full text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs"
+                        className="w-full text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-xs flex items-center justify-center gap-1.5 cursor-pointer h-9"
                       >
-                        Предложить реализацию от НИИ
+                        <HiOutlineHeart className="size-4" />
+                        <span>Поддержать исследование (Пожертвовать)</span>
                       </Button>
+                    )
+                  ) : isLab ? (
+                    isInvestorIdea ? (
+                      alreadyOrdered ? (
+                        <div className="text-center py-2 px-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-semibold flex items-center justify-center gap-1.5">
+                          <HiOutlineCheck className="size-4" />
+                          <span>Предложение уже отправлено</span>
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setProposalModal(idea)
+                            setProposedBudget(String(idea.budget_total || ""))
+                          }}
+                          className="w-full text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs"
+                        >
+                          Предложить реализацию от НИИ
+                        </Button>
+                      )
                     ) : (
                       isAuthor && idea.moderation_status === "rejected" && (
                         <Button
@@ -842,13 +940,23 @@ export function IdeasTab({
                             <HiOutlineHeart className="size-3.5 mr-1 text-[#F81B00]" />
                             Пожертвовать
                           </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => handleOrderIdea(idea.id, false)}
-                            className="text-[11px] font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs"
-                          >
-                            Заказать R&D
-                          </Button>
+                          {alreadyOrdered ? (
+                            <Button
+                              size="sm"
+                              disabled
+                              className="text-[11px] font-bold bg-slate-100 border border-slate-200 text-slate-500 rounded-xl cursor-not-allowed shadow-none"
+                            >
+                              Заказ уже оформлен
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => handleOrderIdea(idea.id, false)}
+                              className="text-[11px] font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs"
+                            >
+                              Заказать разработку
+                            </Button>
+                          )}
                         </div>
                         <Button
                           size="sm"
@@ -880,7 +988,7 @@ export function IdeasTab({
                       className="w-full text-[11px] font-bold border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 rounded-xl cursor-pointer shadow-2xs mt-2"
                     >
                       <HiOutlineCheckCircle className="size-3.5 mr-1 text-amber-600 shrink-0" />
-                      {demoApprovingIdeaId === idea.id ? "Одобрение..." : "demo: одобрить модерацию РИД"}
+                      {demoApprovingIdeaId === idea.id ? "Одобрение..." : "demo: одобрить модерацию разработки"}
                     </Button>
                   )}
                 </div>
@@ -902,30 +1010,25 @@ export function IdeasTab({
             </DialogDescription>
           </DialogHeader>
 
-          {/* AI PDF Parser Feature Box with OpenRouter Shine */}
+          {/* AI PDF Parser Feature Box with shadcn AI Styling */}
           {parsingPdf ? (
-            <div className="my-2 openrouter-shine-card shadow-md animate-in fade-in duration-200">
-              <div className="openrouter-shine-inner p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#111111] openrouter-text-shimmer flex items-center gap-2">
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#F81B00] opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#F81B00]"></span>
-                    </span>
-                    ИИ анализирует научную статью (PDF)...
-                  </span>
-                  <span className="text-[10px] font-bold text-[#F81B00] bg-[#F81B00]/10 px-2 py-0.5 rounded-full border border-[#F81B00]/20 flex items-center gap-1">
-                    <span className="size-1.5 rounded-full bg-[#F81B00] animate-pulse" />
-                    OpenRouter Active
-                  </span>
-                </div>
-                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-[#E2E5EB]">
-                  <div className="h-full rounded-full openrouter-shimmer-bar w-full" />
-                </div>
-                <p className="text-[11px] text-[#4B5563]">
-                  Нейросеть извлекает технологические параметры, определяет уровень TRL и автоматически формирует этапы сметы по ГОСТ...
-                </p>
+            <div className="my-2 p-4 bg-[#F8FAFC] border border-[#E2E5EB] rounded-2xl shadow-xs animate-in fade-in duration-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#111111] flex items-center gap-2">
+                  <AiMarker variant="primary" size="md" />
+                  ИИ анализирует научную статью (PDF)...
+                </span>
+                <span className="text-[10px] font-semibold text-[#4B5563] bg-white px-2 py-0.5 rounded-full border border-[#E2E5EB] flex items-center gap-1.5">
+                  <span className="size-1.5 rounded-full bg-[#111111] animate-pulse" />
+                  AI Engine
+                </span>
               </div>
+              <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                <div className="h-full rounded-full bg-[#111111] w-2/3 animate-pulse" />
+              </div>
+              <p className="text-[11px] text-[#4B5563]">
+                Нейросеть извлекает технологические параметры, определяет уровень TRL и автоматически формирует этапы сметы по ГОСТ...
+              </p>
             </div>
           ) : (
             <div className="my-2 p-4 bg-red-50/60 border border-red-200/80 rounded-2xl space-y-2">
@@ -962,14 +1065,60 @@ export function IdeasTab({
           )}
 
           <form onSubmit={handlePublishTech} className="space-y-3.5 pt-2">
+            {/* Format Selector: Commercial Deal vs Donation */}
+            <div className="p-3 bg-[#F8FAFC] border border-[#E2E5EB] rounded-xl space-y-2">
+              <span className="text-[11px] font-bold text-[#111111] uppercase tracking-wider block">
+                Формат публикации:
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPublishedType("lab_tech")}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    publishedType === "lab_tech"
+                      ? "border-[#111111] bg-white ring-1 ring-[#111111] shadow-2xs"
+                      : "border-[#E2E5EB] bg-white/70 hover:border-slate-300"
+                  }`}
+                >
+                  <span className="text-xs font-bold text-[#111111] block">Целевой коммерческий заказ</span>
+                  <span className="text-[10px] text-[#6B7280] block mt-0.5">
+                    НИОКР с поэтапной приёмкой и финансированием через эскроу
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPublishedType("donation_campaign")}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    publishedType === "donation_campaign"
+                      ? "border-rose-500 bg-rose-50/50 ring-1 ring-rose-500 shadow-2xs"
+                      : "border-[#E2E5EB] bg-white/70 hover:border-slate-300"
+                  }`}
+                >
+                  <span className="text-xs font-bold text-rose-700 flex items-center gap-1 block">
+                    <HiOutlineHeart className="size-3.5" />
+                    Сбор пожертвований
+                  </span>
+                  <span className="text-[10px] text-[#6B7280] block mt-0.5">
+                    Безвозмездная поддержка исследований без контрактов и деления на этапы
+                  </span>
+                </button>
+              </div>
+            </div>
+
             <div>
               <label className="text-xs font-semibold text-[#111111] block mb-1">
-                Название разработки (понятное бизнесу)
+                {publishedType === "donation_campaign"
+                  ? "Название научного исследования для сбора средств"
+                  : "Название разработки (понятное бизнесу)"}
               </label>
               <Input
                 value={techTitle}
                 onChange={(e) => setTechTitle(e.target.value)}
-                placeholder="Например: Композитный сверхпрочный полимер для авиастроения"
+                placeholder={
+                  publishedType === "donation_campaign"
+                    ? "Например: Исследование квантовых эффектов в сверхпроводниках"
+                    : "Например: Композитный сверхпрочный полимер для авиастроения"
+                }
                 className="h-9 text-xs rounded-xl"
                 required
               />
@@ -992,7 +1141,7 @@ export function IdeasTab({
               </div>
               <div>
                 <label className="text-xs font-semibold text-[#111111] block mb-1">
-                  Уровень готовности (TRL: 1–9)
+                  Уровень готовности (шкала: 1–9)
                 </label>
                 <Input
                   type="number"
@@ -1008,12 +1157,18 @@ export function IdeasTab({
 
             <div>
               <label className="text-xs font-semibold text-[#111111] block mb-1">
-                Описание коммерческого потенциала и технологии
+                {publishedType === "donation_campaign"
+                  ? "Описание целей исследования и научной значимости"
+                  : "Описание коммерческого потенциала и технологии"}
               </label>
               <textarea
                 value={techSummary}
                 onChange={(e) => setTechSummary(e.target.value)}
-                placeholder="Опишите суть решения, преимущества перед аналогами и ожидаемый эффект для заказчика..."
+                placeholder={
+                  publishedType === "donation_campaign"
+                    ? "Опишите научную гипотезу, планируемые эксперименты и на что пойдут пожертвования..."
+                    : "Опишите суть решения, преимущества перед аналогами и ожидаемый эффект для заказчика..."
+                }
                 className="w-full h-24 border border-[#E2E5EB] rounded-xl p-2.5 text-xs text-[#111111] outline-hidden resize-none leading-relaxed"
                 required
               />
@@ -1021,7 +1176,9 @@ export function IdeasTab({
 
             <div>
               <label className="text-xs font-semibold text-[#111111] block mb-1">
-                Общий бюджет НИОКР (₽)
+                {publishedType === "donation_campaign"
+                  ? "Целевая сумма пожертвований в рублях"
+                  : "Общий бюджет разработки в рублях"}
               </label>
               <Input
                 type="number"
@@ -1032,27 +1189,39 @@ export function IdeasTab({
               />
             </div>
 
-            {/* Stages Timeline Chain Editor */}
-            <MilestonesChainEditor
-              milestones={milestones}
-              onChange={setMilestones}
-              onSyncBudget={(tot) => setTechBudget(String(tot))}
-            />
+            {/* Stages Timeline Chain Editor only for commercial tech, not donations */}
+            {publishedType !== "donation_campaign" ? (
+              <MilestonesChainEditor
+                milestones={milestones}
+                onChange={setMilestones}
+                onSyncBudget={(tot) => setTechBudget(String(tot))}
+              />
+            ) : (
+              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-950 space-y-1">
+                <span className="font-bold flex items-center gap-1.5 text-rose-800">
+                  <HiOutlineHeart className="size-4" />
+                  Безвозмездное пожертвование на науку
+                </span>
+                <p className="text-[11px] text-rose-900 leading-relaxed">
+                  Пожертвования перечисляются напрямую на развитие исследовательской группы без деления на контрактные этапы сдачи и без коммерческих обязательств перед заказчиком.
+                </p>
+              </div>
+            )}
 
             {/* Authorship Hash Banner */}
             <div className="p-3 bg-[#F8FAFC] border border-[#E2E5EB] rounded-xl text-[11px] text-[#4B5563] flex items-center gap-2">
               <HiOutlineShieldCheck className="size-4 text-emerald-600 shrink-0" />
               <span>
-                Авторство фиксируется: формируется цифровой хеш SHA-256 и метка времени в блокчейне сделок платформы.
+                Авторство фиксируется: формируется цифровой хеш SHA-256 и метка времени в реестре платформы.
               </span>
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <DialogFooter className="gap-3 pt-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setIsPublishModalOpen(false)}
-                className="text-xs border-[#E2E5EB] rounded-xl"
+                className="text-xs border-[#E2E5EB] rounded-xl px-4 cursor-pointer"
               >
                 Отмена
               </Button>
@@ -1061,7 +1230,11 @@ export function IdeasTab({
                 disabled={publishing}
                 className="text-xs font-bold bg-[#F81B00] hover:bg-[#e01800] text-white rounded-xl shadow-xs"
               >
-                {publishing ? "Сохранение..." : "Опубликовать разработку"}
+                {publishing
+                  ? "Сохранение..."
+                  : publishedType === "donation_campaign"
+                  ? "Опубликовать сбор пожертвований"
+                  : "Опубликовать разработку"}
               </Button>
             </DialogFooter>
           </form>
@@ -1121,12 +1294,12 @@ export function IdeasTab({
               />
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <DialogFooter className="gap-3 pt-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setProposalModal(null)}
-                className="text-xs border-[#E2E5EB] rounded-xl"
+                className="text-xs border-[#E2E5EB] rounded-xl px-4 cursor-pointer"
               >
                 Отмена
               </Button>
@@ -1233,12 +1406,12 @@ export function IdeasTab({
               />
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <DialogFooter className="gap-3 pt-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setIsNewIdeaModalOpen(false)}
-                className="text-xs border-[#E2E5EB] rounded-xl"
+                className="text-xs border-[#E2E5EB] rounded-xl px-4 cursor-pointer"
               >
                 Отмена
               </Button>
@@ -1296,12 +1469,12 @@ export function IdeasTab({
               Средства будут перечислены на специальный счёт исследования. Вы получите регулярные научные отчёты о целевом расходовании.
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <DialogFooter className="gap-3 pt-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setDonationModal(null)}
-                className="text-xs border-[#E2E5EB] rounded-xl"
+                className="text-xs border-[#E2E5EB] rounded-xl px-4 cursor-pointer"
               >
                 Отмена
               </Button>
@@ -1442,7 +1615,7 @@ export function IdeasTab({
           </div>
 
           {/* Footer actions */}
-          <DialogFooter className="gap-2 sm:gap-0 pt-2 border-t border-[#E2E5EB]">
+          <DialogFooter className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-[#E2E5EB]">
             {(viewIdeaModal?.author_id === user?.id || user?.is_admin) && (
               <div className="flex items-center gap-2 w-full justify-between sm:justify-start">
                 {viewIdeaModal?.moderation_status !== "approved" && (
@@ -1592,12 +1765,12 @@ export function IdeasTab({
               onSyncBudget={(tot) => setEditBudget(String(tot))}
             />
 
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <DialogFooter className="gap-3 pt-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setEditIdeaModal(null)}
-                className="text-xs border-[#E2E5EB] rounded-xl"
+                className="text-xs border-[#E2E5EB] rounded-xl px-4 cursor-pointer"
               >
                 Отмена
               </Button>

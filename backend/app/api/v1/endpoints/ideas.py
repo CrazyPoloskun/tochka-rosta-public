@@ -1,7 +1,7 @@
 import hashlib
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -9,6 +9,7 @@ from app.core.deps import get_current_user
 from app.models.user import User
 from app.models.idea import Idea
 from app.models.project import Project, ProjectMilestone
+from app.models.finance import Account, Transaction
 from app.models.chat import Chat, Message
 from app.models.notification import Notification
 from app.schemas.idea import IdeaCreateRequest, IdeaUpdateRequest, IdeaResponse, IdeaOrderRequest
@@ -293,15 +294,82 @@ async def order_idea(
     if idea.author_id == current_user.id:
         raise HTTPException(status_code=400, detail="Нельзя заказать собственную разработку")
 
-    # Создаем проект
     investor_id = current_user.id if current_user.role == "investor" else idea.author_id
     lab_id = idea.author_id if current_user.role == "investor" else current_user.id
-
     budget = (data.proposed_budget if data and data.proposed_budget else idea.budget_total) or Decimal("100000")
-    order_type_label = "Пожертвование на исследование" if (data and data.order_type == "donation") else "Заказ R&D"
 
+    # 1. ОБРАБОТКА ПОЖЕРТВОВАНИЯ (НЕ ПРОЕКТ, А БЕЗВОЗМЕЗДНЫЙ ПЕРЕВОД НА ИССЛЕДОВАНИЯ)
+    if data and data.order_type == "donation":
+        inv_acc_res = await db.execute(select(Account).where(Account.user_id == current_user.id))
+        inv_account = inv_acc_res.scalar_one_or_none()
+        if not inv_account or inv_account.available_balance < budget:
+            avail = inv_account.available_balance if inv_account else Decimal("0.00")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Недостаточно средств на балансе для пожертвования. Доступно: {avail:,.2f} ₽. Пополните счёт.",
+            )
+
+        # Списание у жертвователя
+        inv_account.available_balance -= budget
+
+        # Зачисление лаборатории-автору
+        lab_acc_res = await db.execute(select(Account).where(Account.user_id == lab_id))
+        lab_account = lab_acc_res.scalar_one_or_none()
+        if not lab_account:
+            lab_account = Account(user_id=lab_id, available_balance=Decimal("0.00"), frozen_balance=Decimal("0.00"))
+            db.add(lab_account)
+            await db.flush()
+
+        lab_account.available_balance += budget
+
+        # Финансовая проводка пожертвования
+        tx = Transaction(
+            from_user_id=current_user.id,
+            to_user_id=lab_id,
+            amount=budget,
+            type="donation",
+            status="completed",
+            description=f"Безвозмездное пожертвование на научные исследования: «{idea.title}»",
+        )
+        db.add(tx)
+
+        # Уведомление автору разработки
+        notif = Notification(
+            recipient_id=lab_id,
+            type="donation_received",
+            title="Получено пожертвование на науку",
+            body=f"{current_user.organization_name or current_user.full_name} внёс пожертвование {budget:,.2f} ₽ на развитие вашей разработки «{idea.title}».",
+            link_url="/dashboard?tab=finances",
+            severity="success",
+        )
+        db.add(notif)
+        await db.commit()
+
+        return {
+            "message": f"Пожертвование {budget:,.2f} ₽ успешно перечислено на спецсчёт исследовательской группы!",
+            "is_donation": True,
+        }
+
+    # 2. ПРОВЕРКА ДУБЛИКАТА: НЕЛЬЗЯ ВЗЯТЬ ОДИН И ТОТ ЖЕ ЗАКАЗ ВТОРОЙ РАЗ
+    existing_proj = await db.execute(
+        select(Project).where(
+            and_(
+                Project.investor_id == investor_id,
+                Project.lab_id == lab_id,
+                Project.title.like(f"%{idea.title}%"),
+                Project.status != "cancelled",
+            )
+        )
+    )
+    if existing_proj.first():
+        raise HTTPException(
+            status_code=400,
+            detail="Вы уже оформили сделку по данной разработке. Нельзя взять один и тот же заказ дважды.",
+        )
+
+    # 3. СОЗДАНИЕ КОММЕРЧЕСКОГО ПРОЕКТА НИОКР
     project = Project(
-        title=f"{order_type_label}: {idea.title}",
+        title=f"Заказ разработки: {idea.title}",
         investor_id=investor_id,
         lab_id=lab_id,
         total_budget=budget,

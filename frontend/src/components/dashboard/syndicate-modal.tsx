@@ -87,8 +87,8 @@ export function SyndicateModal({
   const parsedAmount = Number(depositAmount) || 0
   const totalRaised = capTable?.total_raised || project.syndication_total_raised || 0
   const softCap = capTable?.soft_cap || project.syndication_soft_cap || project.total_budget || 0
-  const estimatedTotal = totalRaised + parsedAmount
-  const estimatedSharePercent = estimatedTotal > 0 ? ((parsedAmount / estimatedTotal) * 100).toFixed(2) : "0.00"
+  const baseBudget = Math.max(softCap, totalRaised + parsedAmount)
+  const estimatedSharePercent = baseBudget > 0 ? ((parsedAmount / baseBudget) * 100).toFixed(2) : "0.00"
 
   const userMembership = capTable?.members.find((m) => m.investor_id === currentUserId)
   const isLead = capTable?.is_lead || project.investor_id === currentUserId
@@ -96,7 +96,7 @@ export function SyndicateModal({
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault()
     if (parsedAmount < minDeposit) {
-      error(`Минимальный взнос в синдикат: ${minDeposit.toLocaleString("ru-RU")} ₽`, "Взнос ниже минимума")
+      error(`Минимальный взнос соинвестора: ${minDeposit.toLocaleString("ru-RU")} ₽`, "Взнос ниже минимума")
       return
     }
 
@@ -121,14 +121,14 @@ export function SyndicateModal({
 
       if (res.ok) {
         success(
-          `Взнос ${parsedAmount.toLocaleString("ru-RU")} ₽ успешно зачислен на эскроу синдиката. Ваша доля зафиксирована!`,
-          "Вы в синдикате!"
+          `Взнос ${parsedAmount.toLocaleString("ru-RU")} ₽ успешно зачислен на эскроу-счёт. Ваша доля зафиксирована!`,
+          "Соинвестирование подтверждено"
         )
         fetchCapTable()
         onSuccess()
       } else {
         const errData = await res.json().catch(() => ({}))
-        error(errData.detail || "Не удалось внести средства в синдикат", "Ошибка")
+        error(errData.detail || "Не удалось внести средства", "Ошибка")
       }
     } catch {
       error("Сетевая ошибка при выполнении транзакции", "Ошибка")
@@ -177,7 +177,7 @@ export function SyndicateModal({
             </span>
             <div>
               <DialogTitle className="text-lg font-bold text-[#111111]">
-                Клубное софинансирование (Синдикат)
+                Коллективное соинвестирование
               </DialogTitle>
               <DialogDescription className="text-xs text-[#6B7280]">
                 Сделка #{project.id}: «{project.title}»
@@ -195,7 +195,7 @@ export function SyndicateModal({
                 <span>Собрано на эскроу: {totalRaised.toLocaleString("ru-RU")} ₽</span>
               </span>
               <span className="font-semibold text-[#6B7280]">
-                Цель (Soft Cap): {softCap.toLocaleString("ru-RU")} ₽
+                Целевой объём финансирования: {softCap.toLocaleString("ru-RU")} ₽
               </span>
             </div>
 
@@ -233,10 +233,10 @@ export function SyndicateModal({
                   <HiOutlineShieldCheck className="size-4" />
                 </span>
                 <div>
-                  <span className="font-bold">Вы участвуете в синдикате:</span>
+                  <span className="font-bold">Вы участвуете в соинвестировании:</span>
                   <p className="text-[11px] text-emerald-800">
                     Внесено: <strong>{Number(userMembership.invested_amount).toLocaleString("ru-RU")} ₽</strong> • Доля в
-                    РИД: <strong>{userMembership.share_percent}%</strong>
+                    проекте: <strong>{userMembership.share_percent}%</strong>
                   </p>
                 </div>
               </div>
@@ -250,17 +250,115 @@ export function SyndicateModal({
                   className="text-[11px] text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 rounded-lg h-7 gap-1"
                 >
                   <HiOutlineArrowLeftOnRectangle className="size-3.5" />
-                  <span>{submittingLeave ? "Отзыв..." : "Выйти из синдиката"}</span>
+                  <span>{submittingLeave ? "Отзыв..." : "Отозвать соинвестиции"}</span>
                 </Button>
               )}
             </div>
           )}
 
-          {/* Cap Table (Реестр соинвесторов) */}
+          {/* Сводка о том, какой процент сейчас положен каждому участнику пропорционально вложенному */}
+          <div className="p-4 bg-[#F8FAFC] border border-[#E2E5EB] rounded-2xl space-y-3.5 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-[#E2E5EB]">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <HiOutlineSparkles className="size-4 text-[#F81B00]" />
+                  <span className="font-bold text-xs text-[#111111] uppercase tracking-wider">
+                    Сводка причитающихся долей соинвесторов
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#6B7280] mt-0.5">
+                  Процент владения результатами и распределения прибыли пропорционально внесённому капиталу
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-[11px] text-[#6B7280]">В пуле:</span>
+                <span className="font-mono font-bold text-[#111111] bg-white px-2 py-0.5 rounded-lg border border-[#E2E5EB]">
+                  {totalRaised.toLocaleString("ru-RU")} ₽
+                </span>
+              </div>
+            </div>
+
+            {/* Визуальная сегментированная шкала долей */}
+            {capTable?.members && capTable.members.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center text-[11px] text-[#6B7280]">
+                  <span>Распределение 100% долей пула:</span>
+                  <span className="font-semibold text-[#111111]">{capTable.members.length} участн.</span>
+                </div>
+                <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden flex shadow-inner">
+                  {capTable.members.map((m, idx) => {
+                    const colors = [
+                      "bg-emerald-500",
+                      "bg-sky-500",
+                      "bg-indigo-500",
+                      "bg-amber-500",
+                      "bg-violet-500",
+                      "bg-rose-500",
+                    ]
+                    const c = colors[idx % colors.length]
+                    const pct = Number(m.share_percent)
+                    return (
+                      <div
+                        key={m.id}
+                        className={`${c} h-full border-r border-white/60 transition-all duration-300`}
+                        style={{ width: `${Math.max(pct, 2)}%` }}
+                        title={`${m.organization_name || m.investor_name}: ${pct.toFixed(2)}%`}
+                      />
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Быстрые карточки процентов участников */}
+            {capTable?.members && capTable.members.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                {capTable.members.map((m, idx) => {
+                  const colors = [
+                    { light: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
+                    { light: "bg-sky-50", text: "text-sky-700", border: "border-sky-200" },
+                    { light: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200" },
+                    { light: "bg-amber-50", text: "text-amber-800", border: "border-amber-200" },
+                    { light: "bg-violet-50", text: "text-violet-700", border: "border-violet-200" },
+                    { light: "bg-rose-50", text: "text-rose-700", border: "border-rose-200" },
+                  ]
+                  const c = colors[idx % colors.length]
+                  return (
+                    <div
+                      key={m.id}
+                      className="p-2.5 bg-white border border-[#E2E5EB] rounded-xl flex items-center justify-between gap-2 shadow-2xs"
+                    >
+                      <div className="min-w-0">
+                        <span className="font-semibold text-xs text-[#111111] truncate block">
+                          {m.organization_name || m.investor_name}
+                        </span>
+                        <span className="text-[10px] text-[#6B7280] block">
+                          Взнос: {Number(m.invested_amount).toLocaleString("ru-RU")} ₽
+                        </span>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-lg text-xs font-black font-mono ${c.light} ${c.text} border ${c.border}`}
+                        >
+                          {Number(m.share_percent).toFixed(2)}%
+                        </span>
+                        <span className="text-[9px] text-[#6B7280] block mt-0.5 font-medium">
+                          {m.is_lead ? "Лид-инвестор" : "Соинвестор"}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Детальный реестр долей участников */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold uppercase tracking-wider text-[#111111] text-[11px]">
-                Реестр долей соинвесторов (Cap Table):
+                Детальный реестр долей участников:
               </span>
               <button
                 type="button"
@@ -278,7 +376,7 @@ export function SyndicateModal({
                   <tr>
                     <th className="px-3.5 py-2">Инвестор</th>
                     <th className="px-3.5 py-2">Взнос</th>
-                    <th className="px-3.5 py-2">Доля в РИД</th>
+                    <th className="px-3.5 py-2">Доля в результатах</th>
                     <th className="px-3.5 py-2">Тип прав</th>
                   </tr>
                 </thead>
@@ -316,7 +414,7 @@ export function SyndicateModal({
                   ) : (
                     <tr>
                       <td colSpan={4} className="p-4 text-center text-xs text-[#9CA3AF] italic">
-                        Соинвесторы ещё не вступили в синдикат. Станьте первым участником!
+                        Соинвесторы пока не внесли средства в сделку.
                       </td>
                     </tr>
                   )}
@@ -325,17 +423,26 @@ export function SyndicateModal({
             </div>
           </div>
 
-          {/* Form: Join Syndicate (Внести софинансирование) */}
-          {project.syndication_status === "open" && (
+          {/* Form: Join or Owner Notice */}
+          {isLead || project.investor_id === currentUserId ? (
+            <div className="p-4 bg-[#F8FAFC] border border-[#E2E5EB] rounded-2xl text-center space-y-1">
+              <p className="text-xs font-bold text-[#111111]">
+                Вы являетесь инициатором и ведущим инвестором данной сделки
+              </p>
+              <p className="text-[11px] text-[#6B7280]">
+                Вам доступен открытый просмотр всех участников и их взносов. Самостоятельное соинвестирование в собственный проект отключено.
+              </p>
+            </div>
+          ) : project.syndication_status === "open" ? (
             <form onSubmit={handleJoin} className="p-4 bg-white border border-[#E2E5EB] rounded-xl space-y-3">
               <span className="font-bold text-xs text-[#111111] block">
-                {userMembership ? "Довнести средства в синдикат:" : "Вступить в синдикат соинвесторов:"}
+                {userMembership ? "Довнести софинансирование:" : "Внести софинансирование в сделку:"}
               </span>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div>
                   <label className="text-[11px] font-semibold text-[#374151] block mb-1">
-                    Сумма софинансирования (₽):
+                    Сумма софинансирования в рублях:
                   </label>
                   <Input
                     type="number"
@@ -354,7 +461,7 @@ export function SyndicateModal({
 
                 <div>
                   <label className="text-[11px] font-semibold text-[#374151] block mb-1">
-                    Тип закрепления прав на РИД:
+                    Тип закрепления прав на разработку:
                   </label>
                   <select
                     value={ipShareType}
@@ -393,21 +500,19 @@ export function SyndicateModal({
                 </span>
               </Button>
             </form>
-          )}
-
-          {project.syndication_status !== "open" && (
+          ) : (
             <div className="p-3 bg-[#F5F6F8] rounded-xl text-center text-xs text-[#6B7280]">
-              Сбор средств по данному синдикату успешно завершён. Этапы сделки профинансированы.
+              Сбор средств по данному проекту успешно завершён. Этапы сделки профинансированы.
             </div>
           )}
         </div>
 
-        <DialogFooter className="pt-2">
+        <DialogFooter className="gap-3 pt-3 border-t border-[#E2E5EB]">
           <Button
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
-            className="text-xs rounded-xl border-[#E2E5EB]"
+            className="text-xs font-semibold rounded-xl border-[#E2E5EB] px-4 cursor-pointer hover:bg-[#F5F6F8]"
           >
             Закрыть
           </Button>

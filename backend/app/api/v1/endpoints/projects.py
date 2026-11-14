@@ -418,6 +418,9 @@ async def join_syndicate(
     if project.lab_id == current_user.id:
         raise HTTPException(status_code=400, detail="Исполнитель проекта (НИИ) не может выступать инвестором своего проекта")
 
+    if project.investor_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Инициатор проекта не может соинвестировать в собственный проект")
+
     if project.syndication_min_deposit > 0 and data.amount < project.syndication_min_deposit:
         raise HTTPException(
             status_code=400,
@@ -477,9 +480,12 @@ async def join_syndicate(
     all_members = all_members_res.scalars().all()
     total_raised = sum((m.invested_amount for m in all_members), Decimal("0.00"))
 
-    if total_raised > 0:
+    target_budget = project.syndication_soft_cap if project.syndication_soft_cap > 0 else (project.total_budget or Decimal("1.00"))
+    base_pool = max(target_budget, total_raised)
+
+    if base_pool > 0:
         for m in all_members:
-            m.share_percent = round((m.invested_amount / total_raised) * Decimal("100.00"), 2)
+            m.share_percent = round((m.invested_amount / base_pool) * Decimal("100.00"), 2)
 
     # 4. Проверка выполнения Soft Cap
     if project.syndication_soft_cap > 0 and total_raised >= project.syndication_soft_cap:
@@ -688,9 +694,12 @@ async def leave_syndicate(
     )
     all_members = all_members_res.scalars().all()
     total_raised = sum((m.invested_amount for m in all_members), Decimal("0.00"))
-    if total_raised > 0:
+    target_budget = project.syndication_soft_cap if project.syndication_soft_cap > 0 else (project.total_budget or Decimal("1.00"))
+    base_pool = max(target_budget, total_raised)
+
+    if base_pool > 0:
         for m in all_members:
-            m.share_percent = round((m.invested_amount / total_raised) * Decimal("100.00"), 2)
+            m.share_percent = round((m.invested_amount / base_pool) * Decimal("100.00"), 2)
 
     # Удаление из участников группового чата проекта
     c_res = await db.execute(

@@ -573,12 +573,12 @@ export function FinancesTab({
               )}
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <DialogFooter className="gap-3 pt-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setIsDepositOpen(false)}
-                className="text-xs border-[#E2E5EB] rounded-xl"
+                className="text-xs border-[#E2E5EB] rounded-xl px-4 cursor-pointer"
               >
                 Отмена
               </Button>
@@ -673,12 +673,12 @@ export function FinancesTab({
               Платёжное поручение формируется автоматически в течение 1 рабочего дня.
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <DialogFooter className="gap-3 pt-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setIsWithdrawOpen(false)}
-                className="text-xs border-[#E2E5EB] rounded-xl"
+                className="text-xs border-[#E2E5EB] rounded-xl px-4 cursor-pointer"
               >
                 Отмена
               </Button>
@@ -740,12 +740,12 @@ export function FinancesTab({
             </div>
           )}
 
-          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+          <DialogFooter className="gap-3 pt-3">
             <Button
               type="button"
               variant="outline"
               onClick={() => setInvoiceData(null)}
-              className="text-xs border-[#E2E5EB] rounded-xl"
+              className="text-xs border-[#E2E5EB] rounded-xl px-4 cursor-pointer"
             >
               Закрыть
             </Button>
@@ -867,12 +867,12 @@ export function FinancesTab({
             </div>
           )}
 
-          <DialogFooter className="gap-2 sm:gap-0 pt-2 border-t border-[#E2E5EB]">
+          <DialogFooter className="gap-3 pt-3 border-t border-[#E2E5EB]">
             <Button
               type="button"
               variant="outline"
               onClick={() => setReceiptData(null)}
-              className="text-xs border-[#E2E5EB] rounded-xl cursor-pointer"
+              className="text-xs border-[#E2E5EB] rounded-xl px-4 cursor-pointer"
             >
               Закрыть
             </Button>

@@ -71,6 +71,7 @@ export function TasksTab({
   const [loadingInvitations, setLoadingInvitations] = React.useState(false)
   const [recommendedLabsMap, setRecommendedLabsMap] = React.useState<Record<number, RecommendedLabItem[]>>({})
   const [loadingRecsForTask, setLoadingRecsForTask] = React.useState<number | null>(null)
+  const [submittedTaskIds, setSubmittedTaskIds] = React.useState<number[]>([])
 
   // Load invitations for Lab
   const loadLabInvitations = React.useCallback(async () => {
@@ -384,11 +385,13 @@ export function TasksTab({
       })
       const data = await res.json()
       if (res.ok) {
+        setSubmittedTaskIds((prev) => [...prev, bidModalTask.id])
         success("Отклик лаборатории успешно отправлен заказчику с подтверждёнными патентами!", "Отклик отправлен")
         setBidModalTask(null)
         setBidPlan("")
         setSelectedPatents([])
         onRefresh()
+        loadLabInvitations()
       } else {
         error(data.detail || "Ошибка подачи отклика", "Ошибка")
       }
@@ -579,26 +582,34 @@ export function TasksTab({
                     <span>Свидетельство ТЗ (PDF)</span>
                   </a>
 
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      const matchedTask = tasks.find((t) => t.id === inv.task_id) || {
-                        id: inv.task_id,
-                        title: inv.title,
-                        budget: inv.budget,
-                        deadline: inv.deadline,
-                        description: inv.description,
-                        creator_id: 0,
-                        status: "open" as const,
-                        created_at: "",
-                      }
-                      setBidModalTask(matchedTask)
-                      setBidBudget(String(inv.budget))
-                    }}
-                    className="text-xs font-bold bg-[#111111] hover:bg-[#F81B00] text-white rounded-xl shadow-xs"
-                  >
-                    Подать предложение от НИИ
-                  </Button>
+                  {tasks.find((t) => t.id === inv.task_id)?.bids?.some((b) => b.lab_id === user?.id) ||
+                  submittedTaskIds.includes(inv.task_id) ? (
+                    <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 flex items-center gap-1.5">
+                      <HiOutlineCheck className="size-4" />
+                      Отклик уже отправлен
+                    </span>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const matchedTask = tasks.find((t) => t.id === inv.task_id) || {
+                          id: inv.task_id,
+                          title: inv.title,
+                          budget: inv.budget,
+                          deadline: inv.deadline,
+                          description: inv.description,
+                          creator_id: 0,
+                          status: "open" as const,
+                          created_at: "",
+                        }
+                        setBidModalTask(matchedTask)
+                        setBidBudget(String(inv.budget))
+                      }}
+                      className="text-xs font-bold bg-[#111111] hover:bg-[#F81B00] text-white rounded-xl shadow-xs"
+                    >
+                      Подать предложение от НИИ
+                    </Button>
+                  )}
                 </div>
               </Card>
             ))
@@ -640,7 +651,8 @@ export function TasksTab({
           {tasks.map((task) => {
             const isCreator = task.creator_id === user?.id || task.investor_id === user?.id || user?.is_admin
             const bidsCount = task.bids?.length || 0
-            const hasMyBid = isLab && task.bids?.some((b) => b.lab_id === user?.id)
+            const hasMyBid =
+              isLab && (task.bids?.some((b) => b.lab_id === user?.id) || submittedTaskIds.includes(task.id))
 
             return (
               <Card
@@ -1069,12 +1081,12 @@ export function TasksTab({
               onSyncBudget={(tot) => setTaskBudget(String(tot))}
             />
 
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <DialogFooter className="gap-3 pt-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setIsNewTaskOpen(false)}
-                className="text-xs border-[#E2E5EB] rounded-xl"
+                className="text-xs border-[#E2E5EB] rounded-xl px-4 cursor-pointer"
               >
                 Отмена
               </Button>
@@ -1182,12 +1194,12 @@ export function TasksTab({
               )}
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <DialogFooter className="gap-3 pt-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setBidModalTask(null)}
-                className="text-xs border-[#E2E5EB] rounded-xl"
+                className="text-xs border-[#E2E5EB] rounded-xl px-4 cursor-pointer"
               >
                 Отмена
               </Button>
@@ -1317,7 +1329,7 @@ export function TasksTab({
           </div>
 
           {/* Footer actions */}
-          <DialogFooter className="gap-2 sm:gap-0 pt-2 border-t border-[#E2E5EB]">
+          <DialogFooter className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-[#E2E5EB]">
             {(viewTaskModal?.creator_id === user?.id || viewTaskModal?.investor_id === user?.id || user?.is_admin) && (
               <div className="flex items-center gap-2 w-full justify-between sm:justify-start">
                 {(viewTaskModal?.moderation_status === "pending" || user?.is_admin) && (
@@ -1448,12 +1460,12 @@ export function TasksTab({
               onSyncBudget={(tot) => setEditTaskBudget(String(tot))}
             />
 
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <DialogFooter className="gap-3 pt-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setEditTaskModal(null)}
-                className="text-xs border-[#E2E5EB] rounded-xl"
+                className="text-xs border-[#E2E5EB] rounded-xl px-4 cursor-pointer"
               >
                 Отмена
               </Button>

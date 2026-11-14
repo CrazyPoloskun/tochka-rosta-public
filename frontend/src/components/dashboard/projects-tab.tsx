@@ -17,6 +17,7 @@ import {
   HiOutlineUserGroup,
   HiOutlineBanknotes,
   HiOutlineChatBubbleLeftRight,
+  HiOutlineArrowRight,
 } from "react-icons/hi2"
 
 import { Button } from "@/components/ui/button"
@@ -131,9 +132,6 @@ export function ProjectsTab({
   const [disputeReason, setDisputeReason] = React.useState("")
   const [submittingDispute, setSubmittingDispute] = React.useState(false)
 
-  // File Viewer
-  const [selectedFile, setSelectedFile] = React.useState<ProjectFile | null>(null)
-  const [uploadingFile, setUploadingFile] = React.useState(false)
   const [fundingMilestoneId, setFundingMilestoneId] = React.useState<number | null>(null)
 
   // Confirm approve modal
@@ -314,30 +312,6 @@ export function ProjectsTab({
     }
   }
 
-  // Upload project file
-  const handleUploadProjectFile = async (projectId: number, file: File) => {
-    setUploadingFile(true)
-    try {
-      const formData = new FormData()
-      formData.append("file", file)
-      const res = await authFetch(`/api/v1/projects/${projectId}/files`, {
-        method: "POST",
-        body: formData,
-      })
-      if (res.ok) {
-        success(`Файл «${file.name}» успешно прикреплен к сделке`, "Файл загружен")
-        onRefresh()
-      } else {
-        const data = await res.json()
-        error(data.detail || "Ошибка загрузки файла", "Ошибка")
-      }
-    } catch {
-      error("Сетевая ошибка при загрузке файла", "Ошибка")
-    } finally {
-      setUploadingFile(false)
-    }
-  }
-
   const activeProject = projects.find((p) => p.id === expandedProjectId) || projects[0]
 
   return (
@@ -414,7 +388,7 @@ export function ProjectsTab({
                         {p.is_syndicated && (
                           <span className="inline-flex items-center gap-1 text-[9px] font-bold text-[#F81B00] bg-[#F81B00]/10 px-1.5 py-0.5 rounded-md">
                             <HiOutlineUserGroup className="size-2.5" />
-                            Синдикат
+                            Соинвестиции
                           </span>
                         )}
                       </div>
@@ -489,32 +463,33 @@ export function ProjectsTab({
                   </div>
                 </div>
 
-                {/* Синдикация и софинансирование */}
+                {/* Коллективное соинвестирование */}
                 {activeProject.is_syndicated ? (
-                  <div className="p-3.5 bg-[#F5F6F8] rounded-xl border border-[#E2E5EB] space-y-2.5">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="p-1.5 rounded-lg bg-[#111111] text-white">
-                          <HiOutlineUserGroup className="size-4 text-[#F81B00]" />
+                  <div className="p-4 bg-[#F8FAFC] rounded-2xl border border-[#E2E5EB] space-y-3.5 shadow-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <span className="p-2 rounded-xl bg-[#111111] text-white">
+                          <HiOutlineUserGroup className="size-5 text-[#F81B00]" />
                         </span>
                         <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-[#111111]">
-                              Клубная сделка (Синдикат)
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-sm font-bold text-[#111111]">
+                              Коллективное соинвестирование
                             </span>
-                            <Badge
-                              variant="outline"
-                              className={`text-[9px] font-bold ${
-                                activeProject.syndication_status === "funded"
-                                  ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-                                  : "border-amber-300 bg-amber-50 text-amber-800"
-                              }`}
-                            >
-                              {activeProject.syndication_status === "funded" ? "Цель достигнута" : "Сбор открыт"}
-                            </Badge>
+                            {activeProject.syndication_status === "funded" ? (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-xs">
+                                <span className="size-2 rounded-full bg-emerald-500" />
+                                Цель достигнута
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-black tracking-wide uppercase bg-emerald-600 text-white shadow-md ring-2 ring-emerald-300/80 animate-pulse">
+                                <span className="size-2 rounded-full bg-white" />
+                                Сбор открыт
+                              </span>
+                            )}
                           </div>
-                          <span className="text-[11px] text-[#6B7280]">
-                            Соинвесторов в пуле: <strong>{activeProject.syndicate_members_count || 1}</strong>
+                          <span className="text-xs text-[#6B7280]">
+                            Участников соинвестирования: <strong>{activeProject.syndicate_members_count || 1}</strong>
                           </span>
                         </div>
                       </div>
@@ -523,10 +498,14 @@ export function ProjectsTab({
                         <Button
                           size="sm"
                           onClick={() => setSyndicateModalProject(activeProject)}
-                          className="text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs gap-1.5 h-8 px-3.5 cursor-pointer"
+                          className="text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs gap-1.5 h-9 px-4 cursor-pointer"
                         >
-                          <HiOutlineUserGroup className="size-3.5 text-[#F81B00]" />
-                          <span>Cap Table / Соинвестировать</span>
+                          <HiOutlineUserGroup className="size-4 text-[#F81B00]" />
+                          <span>
+                            {activeProject.investor_id === user?.id
+                              ? "Реестр долей участников"
+                              : "Соинвестировать в проект"}
+                          </span>
                         </Button>
 
                         {(activeProject.lab_id === user?.id || user?.is_admin) && (
@@ -534,10 +513,10 @@ export function ProjectsTab({
                             size="sm"
                             variant="outline"
                             onClick={() => setProfitModalProject(activeProject)}
-                            className="text-xs font-bold border-[#E2E5EB] bg-white hover:bg-[#F5F6F8] text-[#111111] rounded-xl shadow-xs gap-1.5 h-8 px-3 cursor-pointer"
+                            className="text-xs font-bold border-[#E2E5EB] bg-white hover:bg-[#F5F6F8] text-[#111111] rounded-xl shadow-xs gap-1.5 h-9 px-3.5 cursor-pointer"
                             title="Выплатить прибыль соинвесторам пропорционально долям"
                           >
-                            <HiOutlineBanknotes className="size-3.5 text-emerald-600" />
+                            <HiOutlineBanknotes className="size-4 text-emerald-600" />
                             <span>Распределить прибыль</span>
                           </Button>
                         )}
@@ -548,30 +527,34 @@ export function ProjectsTab({
                           onClick={() => {
                             window.location.href = `/dashboard?tab=messages`
                           }}
-                          className="text-xs font-semibold text-[#4B5563] hover:text-[#111111] h-8 px-2.5 rounded-xl gap-1"
+                          className="text-xs font-semibold text-[#4B5563] hover:text-[#111111] h-9 px-3 rounded-xl gap-1"
                           title="Открыть групповой чат проекта"
                         >
-                          <HiOutlineChatBubbleLeftRight className="size-3.5 text-[#6B7280]" />
+                          <HiOutlineChatBubbleLeftRight className="size-4 text-[#6B7280]" />
                           <span>Чат</span>
                         </Button>
                       </div>
                     </div>
 
-                    {/* Progress Bar of Syndication */}
-                    <div className="space-y-1 pt-1">
-                      <div className="flex justify-between text-[11px] text-[#4B5563]">
-                        <span>
-                          Собрано на эскроу:{" "}
-                          <strong>{Number(activeProject.syndication_total_raised || 0).toLocaleString("ru-RU")} ₽</strong>
-                        </span>
-                        <span>
-                          Цель (Soft Cap):{" "}
-                          <strong>
-                            {Number(activeProject.syndication_soft_cap || activeProject.total_budget || 0).toLocaleString("ru-RU")} ₽
-                          </strong>
+                    {/* Большие ключевые финансовые показатели */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-1">
+                      <div className="bg-white p-3.5 rounded-xl border border-[#E2E5EB] shadow-2xs">
+                        <span className="text-xs font-medium text-[#6B7280] block">Собрано на эскроу-счёте</span>
+                        <span className="text-xl sm:text-2xl font-black text-[#111111] font-mono tracking-tight block mt-0.5">
+                          {Number(activeProject.syndication_total_raised || 0).toLocaleString("ru-RU")} ₽
                         </span>
                       </div>
-                      <div className="w-full bg-[#E2E5EB] h-2 rounded-full overflow-hidden">
+                      <div className="bg-white p-3.5 rounded-xl border border-[#E2E5EB] shadow-2xs">
+                        <span className="text-xs font-medium text-[#6B7280] block">Целевой объём финансирования</span>
+                        <span className="text-xl sm:text-2xl font-black text-[#111111] font-mono tracking-tight block mt-0.5">
+                          {Number(activeProject.syndication_soft_cap || activeProject.total_budget || 0).toLocaleString("ru-RU")} ₽
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar of Syndication */}
+                    <div className="space-y-1 pt-1">
+                      <div className="w-full bg-[#E2E5EB] h-2.5 rounded-full overflow-hidden">
                         <div
                           className="bg-[#111111] h-full rounded-full transition-all duration-300"
                           style={{
@@ -586,6 +569,24 @@ export function ProjectsTab({
                           }}
                         />
                       </div>
+                    </div>
+
+                    {/* Proportional Shares Summary Quick Bar */}
+                    <div className="pt-2 border-t border-[#E2E5EB]/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-1.5 text-[#6B7280]">
+                        <HiOutlineSparkles className="size-3.5 text-[#F81B00]" />
+                        <span>
+                          Доли участников и прибыль начисляются автоматически пропорционально внесённому объёму
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSyndicateModalProject(activeProject)}
+                        className="text-xs font-semibold text-[#111111] hover:text-[#F81B00] hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>Сводка долей участников</span>
+                        <HiOutlineArrowRight className="size-3" />
+                      </button>
                     </div>
                   </div>
                 ) : (
@@ -604,7 +605,7 @@ export function ProjectsTab({
                         className="text-xs font-bold border-amber-300 bg-white hover:bg-amber-100 text-amber-900 rounded-xl shrink-0 h-8 gap-1.5 cursor-pointer shadow-2xs"
                       >
                         <HiOutlineSparkles className="size-3.5 text-amber-600" />
-                        <span>Открыть синдикацию</span>
+                        <span>Открыть соинвестирование</span>
                       </Button>
                     </div>
                   )
@@ -721,7 +722,7 @@ export function ProjectsTab({
                                     : isEscrowFunded
                                     ? "Средства на эскроу"
                                     : isDisputed
-                                    ? "Арбитраж (Спор)"
+                                    ? "Арбитражный спор"
                                     : "Ожидает резервирования"}
                                 </span>
                               </div>
@@ -851,69 +852,6 @@ export function ProjectsTab({
                 })}
               </div>
               </div>
-
-              {/* Project Files Manager */}
-              <Card className="rounded-2xl border-[#E2E5EB] p-5 bg-white space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <HiOutlinePaperClip className="size-4 text-[#6B7280]" />
-                    <h3 className="text-xs font-bold uppercase tracking-wide text-[#111111]">
-                      Файловый менеджер сделки
-                    </h3>
-                  </div>
-                  <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#F5F6F8] hover:bg-[#E2E5EB] text-[#111111] rounded-xl transition-colors">
-                    <span>+ Загрузить документ</span>
-                    <input
-                      type="file"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file) handleUploadProjectFile(activeProject.id, file)
-                      }}
-                      disabled={uploadingFile}
-                    />
-                  </label>
-                </div>
-
-                {!activeProject.files || activeProject.files.length === 0 ? (
-                  <p className="text-xs text-[#6B7280] italic">
-                    К сделке пока не прикреплены документы (ТЗ, сметы, протоколы испытаний).
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {activeProject.files.map((file) => (
-                      <div
-                        key={file.id}
-                        className="flex items-center justify-between p-2.5 bg-[#F8FAFC] border border-[#E2E5EB] rounded-xl hover:border-[#CBD5E1] transition-all"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <HiOutlineDocumentText className="size-4 text-[#F81B00] shrink-0" />
-                          <span className="text-xs font-medium text-[#111111] truncate">
-                            {file.file_name}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSelectedFile(file)}
-                            className="h-7 px-2 text-[10px] text-[#4B5563]"
-                          >
-                            <HiOutlineEye className="size-3.5" />
-                          </Button>
-                          <a
-                            href={file.file_path}
-                            download={file.file_name}
-                            className="p-1.5 text-[#6B7280] hover:text-[#111111] transition-colors"
-                          >
-                            <HiOutlineArrowDownTray className="size-3.5" />
-                          </a>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
             </div>
           )}
         </div>
@@ -950,12 +888,12 @@ export function ProjectsTab({
               <span>После отправки ИИ подготовит executive summary для ускоренной приёмки этапа.</span>
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <DialogFooter className="gap-3 pt-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setReportModal(null)}
-                className="text-xs border-[#E2E5EB] rounded-xl"
+                className="text-xs border-[#E2E5EB] rounded-xl px-4 cursor-pointer"
               >
                 Отмена
               </Button>
@@ -1015,7 +953,7 @@ export function ProjectsTab({
               <div className="p-4 bg-red-50/50 border border-red-100 rounded-2xl text-xs text-[#111111] space-y-2 leading-relaxed">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-[#F81B00]">
                   <HiOutlineSparkles className="size-4" />
-                  <span>Аналитическое резюме для инвестора (AI Summary)</span>
+                  <span>Аналитическое резюме для инвестора</span>
                 </div>
                 <p className="whitespace-pre-line text-[#262626]">{viewingReport.ai}</p>
               </div>
@@ -1042,7 +980,7 @@ export function ProjectsTab({
               className="w-full sm:w-auto text-xs border-red-200 text-red-600 hover:bg-red-50 rounded-xl font-medium"
             >
               <HiOutlineScale className="size-3.5 mr-1" />
-              Открыть спор (Арбитраж)
+              Передать на арбитраж
             </Button>
             <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
               <Button
@@ -1102,12 +1040,12 @@ export function ProjectsTab({
               />
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <DialogFooter className="gap-3 pt-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setDisputeModal(null)}
-                className="text-xs border-[#E2E5EB] rounded-xl"
+                className="text-xs border-[#E2E5EB] rounded-xl px-4 cursor-pointer"
               >
                 Отмена
               </Button>
@@ -1137,33 +1075,7 @@ export function ProjectsTab({
         }}
       />
 
-      {/* File Viewer Modal */}
-      <Dialog open={!!selectedFile} onOpenChange={(open) => !open && setSelectedFile(null)}>
-        <DialogContent className="max-w-xl bg-white rounded-2xl p-6">
-          <DialogHeader>
-            <DialogTitle className="text-base font-bold text-[#111111] truncate">
-              {selectedFile?.file_name}
-            </DialogTitle>
-            <DialogDescription className="text-xs text-[#6B7280]">
-              Предпросмотр документа сделки
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-6 text-center space-y-3 bg-[#F8FAFC] rounded-2xl border border-[#E2E5EB] my-2">
-            <HiOutlineDocumentText className="size-12 text-[#F81B00] mx-auto" />
-            <p className="text-xs font-semibold text-[#111111]">{selectedFile?.file_name}</p>
-            <a
-              href={selectedFile?.file_path}
-              download={selectedFile?.file_name}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#111111] text-white text-xs font-bold rounded-xl hover:bg-black transition-colors"
-            >
-              <HiOutlineArrowDownTray className="size-4" />
-              Скачать файл
-            </a>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Syndicate Modal (Cap Table & Co-investing) */}
+      {/* Модальное окно коллективного соинвестирования */}
       <SyndicateModal
         project={syndicateModalProject}
         open={!!syndicateModalProject}
@@ -1288,12 +1200,12 @@ export function ProjectsTab({
               />
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <DialogFooter className="gap-3 pt-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setGostModal(null)}
-                className="text-xs border-[#E2E5EB] rounded-xl"
+                className="text-xs border-[#E2E5EB] rounded-xl px-4 cursor-pointer"
               >
                 Отмена
               </Button>

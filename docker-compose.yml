@@ -15,6 +15,26 @@ services:
       timeout: 5s
       retries: 5
 
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: tochka_gluetun
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      - VPN_SERVICE_PROVIDER=custom
+      - VPN_TYPE=wireguard
+      - WIREGUARD_ENDPOINT_IP=${WG_ENDPOINT_IP:-}
+      - WIREGUARD_ENDPOINT_PORT=${WG_ENDPOINT_PORT:-51820}
+      - WIREGUARD_PUBLIC_KEY=${WG_PUBLIC_KEY:-}
+      - WIREGUARD_PRIVATE_KEY=${WG_PRIVATE_KEY:-}
+      - WIREGUARD_PRESHARED_KEY=${WG_PRESHARED_KEY:-}
+      - WIREGUARD_ADDRESSES=${WG_ADDRESSES:-10.0.0.2/24}
+      - HTTPPROXY=on
+      - HTTPPROXY_LOG=off
+
   backend:
     build:
       context: ./backend
@@ -36,8 +56,8 @@ services:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-2.5-flash}
       OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
-      OPENROUTER_PROXY: ${OPENROUTER_PROXY:-}
-      AI_PROXY: ${AI_PROXY:-}
+      OPENROUTER_PROXY: ${OPENROUTER_PROXY:-http://gluetun:8888}
+      AI_PROXY: ${AI_PROXY:-http://gluetun:8888}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
@@ -48,6 +68,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      gluetun:
+        condition: service_started
 
   frontend:
     build:

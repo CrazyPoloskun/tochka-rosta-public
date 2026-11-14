@@ -282,83 +282,8 @@
 }
 
 /* ==============================================================================
-   OPENROUTER-STYLE SHINE & GENERATION EFFECTS
+   AI ELEMENTS & GENERATION EFFECTS (SHADCN AI MINIMALIST STYLES)
    ============================================================================== */
-
-@keyframes openrouter-shine {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-@keyframes openrouter-border-shine {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-.openrouter-shine-card {
-  position: relative;
-  border-radius: 1rem;
-  padding: 1.5px;
-  background: linear-gradient(
-    90deg,
-    #F81B00 0%,
-    #FF6B4A 25%,
-    #9333EA 50%,
-    #3B82F6 75%,
-    #F81B00 100%
-  );
-  background-size: 300% 300%;
-  animation: openrouter-border-shine 3s ease infinite;
-}
-
-.openrouter-shine-inner {
-  position: relative;
-  z-index: 1;
-  background: #FFFFFF;
-  border-radius: calc(1rem - 1.5px);
-}
-
-.dark .openrouter-shine-inner {
-  background: #18181B;
-}
-
-.openrouter-shimmer-bar {
-  background: linear-gradient(
-    90deg,
-    rgba(248, 27, 0, 0.15) 0%,
-    rgba(248, 27, 0, 0.8) 50%,
-    rgba(147, 51, 234, 0.6) 75%,
-    rgba(248, 27, 0, 0.15) 100%
-  );
-  background-size: 200% 100%;
-  animation: openrouter-shine 2s infinite linear;
-}
-
-.openrouter-text-shimmer {
-  background: linear-gradient(
-    90deg,
-    #111111 0%,
-    #F81B00 35%,
-    #9333EA 60%,
-    #111111 100%
-  );
-  background-size: 200% auto;
-  color: transparent;
-  -webkit-background-clip: text;
-  background-clip: text;
-  animation: openrouter-shine 2.5s linear infinite;
-}
 
 /* Timeline Chain Connector Styles */
 .timeline-chain-node {

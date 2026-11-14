@@ -77,12 +77,12 @@ export function EnableSyndicateModal({
       })
 
       if (res.ok) {
-        success("Сделка переведена в статус синдиката! Другие инвесторы могут войти со своими долями.", "Синдикация открыта")
+        success("Коллективное соинвестирование открыто! Другие инвесторы могут войти со своими долями.", "Сбор открыт")
         onSuccess()
         onOpenChange(false)
       } else {
         const errData = await res.json().catch(() => ({}))
-        error(errData.detail || "Не удалось перевести сделку в формат синдиката", "Ошибка")
+        error(errData.detail || "Не удалось открыть коллективное соинвестирование", "Ошибка")
       }
     } catch {
       error("Сетевая ошибка при выполнении операции", "Ошибка")
@@ -101,7 +101,7 @@ export function EnableSyndicateModal({
             </span>
             <div>
               <DialogTitle className="text-base font-bold text-[#111111]">
-                Открыть синдикацию проекта
+                Открыть коллективное соинвестирование
               </DialogTitle>
               <DialogDescription className="text-xs text-[#6B7280]">
                 Привлечение соинвесторов с долевым финансированием эскроу
@@ -112,12 +112,12 @@ export function EnableSyndicateModal({
 
         <form onSubmit={handleEnable} className="space-y-4 pt-2 text-xs">
           <div className="p-3 bg-[#F5F6F8] rounded-xl text-[#374151] leading-relaxed">
-            Вы станете <strong>Лид-инвестором</strong> сделки #{project.id}. Другие участники платформы смогут внести средства в пул, пропорционально разделив будущие роялти или права на патент.
+            Вы станете организатором коллективного пула сделки #{project.id}. Другие участники платформы смогут внести средства в пул, пропорционально разделив будущие роялти или права на разработку.
           </div>
 
           <div>
             <label className="text-[11px] font-semibold text-[#111111] block mb-1">
-              Целевой объем софинансирования (Soft Cap, ₽):
+              Целевой объём софинансирования в рублях:
             </label>
             <Input
               type="number"
@@ -134,7 +134,7 @@ export function EnableSyndicateModal({
 
           <div>
             <label className="text-[11px] font-semibold text-[#111111] block mb-1">
-              Минимальный порог входа для одного соинвестора (₽):
+              Минимальный взнос для одного соинвестора в рублях:
             </label>
             <Input
               type="number"
@@ -148,21 +148,21 @@ export function EnableSyndicateModal({
             />
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+          <DialogFooter className="gap-3 pt-3">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="text-xs rounded-xl border-[#E2E5EB]"
+              className="text-xs rounded-xl border-[#E2E5EB] px-4"
             >
               Отмена
             </Button>
             <Button
               type="submit"
               disabled={submitting}
-              className="text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs cursor-pointer"
+              className="text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs cursor-pointer px-4"
             >
-              {submitting ? "Активация..." : "Открыть клубный сбор"}
+              {submitting ? "Активация..." : "Открыть сбор соинвестиций"}
             </Button>
           </DialogFooter>
         </form>

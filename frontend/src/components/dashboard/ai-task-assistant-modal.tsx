@@ -22,11 +22,19 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/toast"
+import {
+  AiMarker,
+  Suggestions,
+  Suggestion,
+  ChainOfThought,
+  ChainStep,
+} from "@/components/ui/ai-elements"
 
 interface GeneratedTzResult {
   title: string
@@ -76,19 +84,50 @@ const INDUSTRY_OPTIONS = [
   "Аэрокосмос и БАС",
 ]
 
-const QUICK_EXAMPLES = [
-  "Нужен морозостойкий полимер для стаканчиков, не боящийся кипятка 95°C",
-  "Беспилотный манипулятор для сортировки руды в шахте при вибрациях",
-  "Биоразлагаемый шовный материал с антибактериальным серебряным слоем",
+const QUICK_SUGGESTIONS = [
+  "Морозостойкий полимер для корпусов, не боящийся перепадов от -60°C до +95°C",
+  "Беспилотный манипулятор для сортировки руды в шахте при экстремальных вибрациях",
+  "Биоразлагаемый шовный материал с напылением наносеребра для хирургии",
   "Твердотельный аккумулятор для электрокаров с зарядкой за 10 минут",
+  "Сверхлегкий композитный профиль крыла для тяжелых БПЛА",
 ]
 
-const GENERATION_STAGES = [
-  { icon: "🔍", label: "Семантический анализ технического запроса...", progress: 20 },
-  { icon: "📐", label: "Сопоставление с патентным классификатором МПК и ГОСТ 15.016...", progress: 45 },
-  { icon: "⚙️", label: "Расчет физико-химических и инженерных допусков...", progress: 68 },
-  { icon: "📊", label: "Календарное планирование этапов и калькуляция сметы...", progress: 85 },
-  { icon: "📜", label: "Формирование разделов РИД и финальная валидация ТЗ...", progress: 96 },
+const INITIAL_CHAIN_STEPS: ChainStep[] = [
+  {
+    id: "1",
+    title: "Семантический анализ технического запроса",
+    detail: "Извлечение граничных условий, физико-химических допусков и целей разработки",
+    status: "pending",
+    duration: "0.4s",
+  },
+  {
+    id: "2",
+    title: "Сопоставление с патентными классификаторами МПК и ГОСТ 15.016-2016",
+    detail: "Поиск действующих нормативных стандартов НИОКР и аналогов в патентной базе РФ",
+    status: "pending",
+    duration: "0.8s",
+  },
+  {
+    id: "3",
+    title: "Расчёт физико-химических и инженерных допусков",
+    detail: "Определение методологии стендовых испытаний, погрешностей и регламентов приёмки",
+    status: "pending",
+    duration: "1.1s",
+  },
+  {
+    id: "4",
+    title: "Календарное планирование этапов и калькуляция сметы",
+    detail: "Разбивка НИОКР на вехи (milestones) с привязкой уровней технологической готовности TRL 3→6",
+    status: "pending",
+    duration: "1.5s",
+  },
+  {
+    id: "5",
+    title: "Формирование разделов РИД и финальная валидация ТЗ",
+    detail: "Определение прав на интеллектуальную собственность, патентных формул и актов сдачи",
+    status: "pending",
+    duration: "0.5s",
+  },
 ]
 
 export function AiTaskAssistantModal({
@@ -113,16 +152,43 @@ export function AiTaskAssistantModal({
   const [result, setResult] = React.useState<GeneratedTzResult | null>(null)
   const [isEditingResult, setIsEditingResult] = React.useState(false)
 
+  // Обновление цепочки рассуждений во время генерации
+  const [chainSteps, setChainSteps] = React.useState<ChainStep[]>(INITIAL_CHAIN_STEPS)
+
   React.useEffect(() => {
     let interval: any
     if (loading) {
       setCurrentStageIdx(0)
+      setChainSteps((prev) =>
+        prev.map((s, idx) => ({
+          ...s,
+          status: idx === 0 ? "running" : "pending",
+        }))
+      )
+
       interval = setInterval(() => {
-        setCurrentStageIdx((prev) => (prev < GENERATION_STAGES.length - 1 ? prev + 1 : prev))
-      }, 1900)
+        setCurrentStageIdx((prev) => {
+          const next = prev < INITIAL_CHAIN_STEPS.length - 1 ? prev + 1 : prev
+          setChainSteps((oldSteps) =>
+            oldSteps.map((s, idx) => ({
+              ...s,
+              status: idx < next ? "completed" : idx === next ? "running" : "pending",
+            }))
+          )
+          return next
+        })
+      }, 1800)
+    } else if (result) {
+      // Помечаем все шаги завершенными
+      setChainSteps((prev) =>
+        prev.map((s) => ({
+          ...s,
+          status: "completed",
+        }))
+      )
     }
     return () => clearInterval(interval)
-  }, [loading])
+  }, [loading, result])
 
   React.useEffect(() => {
     if (open) {
@@ -181,7 +247,8 @@ export function AiTaskAssistantModal({
 
   const handleCopyTz = () => {
     if (!result) return
-    const formatted = `ТЕХНИЧЕСКОЕ ЗАДАНИЕ НА НИОКР\n` +
+    const formatted =
+      `ТЕХНИЧЕСКОЕ ЗАДАНИЕ НА НИОКР\n` +
       `Тема: ${result.title}\n` +
       `Отрасль: ${result.category}\n` +
       `Целевой уровень TRL: ${result.target_trl_start || 3} → ${result.target_trl_end || 6}\n` +
@@ -200,70 +267,59 @@ export function AiTaskAssistantModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl p-6 border-[#E2E5EB] shadow-xl">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl p-6 border-[#E2E5EB] shadow-2xl">
         <DialogHeader className="border-b border-[#E2E5EB] pb-4">
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-[#F81B00]/10 text-[#F81B00]">
+          <div className="flex items-center gap-2.5">
+            <span className="p-2 rounded-xl bg-[#F81B00]/10 text-[#F81B00] shrink-0">
               <HiOutlineSparkles className="size-5" />
             </span>
             <div>
-              <DialogTitle className="text-base sm:text-lg font-bold text-[#111111]">
-                {modalTitle || "ИИ-помощник ТЗ"}
+              <DialogTitle className="text-base sm:text-lg font-bold text-[#111111] tracking-tight">
+                {modalTitle || "ИИ-помощник формирования ТЗ"}
               </DialogTitle>
               <DialogDescription className="text-xs text-[#6B7280]">
-                {modalDescription || "Генерация ГОСТ-ТЗ, сметы и календарного плана"}
+                {modalDescription || "Генерация ГОСТ-ТЗ, календарного плана и сметы по стандарту ГОСТ 15.016-2016"}
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
-          {/* Input Form with Quick Examples on top */}
-          <div className="space-y-3 bg-[#F5F6F8] p-4 sm:p-5 rounded-2xl border border-[#E2E5EB]">
-            {/* Quick Prompts placed ABOVE input */}
-            <div className="space-y-1.5 pb-1">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280]">
-                  Быстрые примеры запросов:
-                </span>
-                <span className="text-[10px] text-[#9CA3AF]">Кликните для автозаполнения</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {QUICK_EXAMPLES.map((ex, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => {
-                      setUserQuery(ex)
-                    }}
-                    className="text-[11px] text-left px-2.5 py-1 rounded-xl bg-white border border-[#E2E5EB] text-[#374151] hover:border-[#F81B00] hover:text-[#F81B00] hover:bg-[#FFF5F5] transition-all cursor-pointer truncate max-w-full shadow-2xs"
-                  >
-                    {ex}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {/* Input Form with Suggestion Chips */}
+          <div className="space-y-3 bg-[#F8FAFC] p-4 sm:p-5 rounded-2xl border border-[#E2E5EB]">
+            {/* shadcn AI Suggestion Chips */}
+            <Suggestions label="Подсказки запроса (Suggestion):">
+              {QUICK_SUGGESTIONS.map((ex, idx) => (
+                <Suggestion
+                  key={idx}
+                  onClick={() => setUserQuery(ex)}
+                  className="bg-white hover:border-[#111111]"
+                >
+                  {ex}
+                </Suggestion>
+              ))}
+            </Suggestions>
 
             {/* Input Textarea Area */}
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-[#111111] block mb-1">
-                Опишите задачу простыми словами:
+              <label className="text-xs font-bold text-[#111111] block mb-1.5">
+                Опишите техническую задачу:
               </label>
               <textarea
                 value={userQuery}
                 onChange={(e) => setUserQuery(e.target.value)}
                 placeholder="Например: Нужен ударопрочный морозостойкий композит для корпусов приборов в условиях крайнего севера (до -60°C)..."
-                className="w-full h-22 border border-[#E2E5EB] rounded-xl p-3 text-xs bg-white text-[#111111] focus:border-[#F81B00] focus:ring-1 focus:ring-[#F81B00]/20 outline-hidden resize-none leading-relaxed transition-all shadow-2xs"
+                className="w-full h-24 border border-[#E2E5EB] rounded-xl p-3 text-xs bg-white text-[#111111] focus:border-[#111111] focus:ring-1 focus:ring-[#111111]/20 outline-hidden resize-none leading-relaxed transition-all shadow-2xs"
               />
             </div>
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-[#6B7280]">Отрасль:</span>
+                <span className="text-xs text-[#6B7280] font-medium">Отрасль:</span>
                 <select
                   value={selectedIndustry}
                   onChange={(e) => setSelectedIndustry(e.target.value)}
-                  className="h-8.5 border border-[#E2E5EB] rounded-xl px-2.5 text-xs bg-white text-[#111111] focus:border-[#F81B00] outline-hidden shadow-2xs cursor-pointer"
+                  className="h-9 border border-[#E2E5EB] rounded-xl px-2.5 text-xs bg-white text-[#111111] focus:border-[#111111] outline-hidden shadow-2xs cursor-pointer"
                 >
                   {INDUSTRY_OPTIONS.map((opt) => (
                     <option key={opt} value={opt}>
@@ -273,77 +329,47 @@ export function AiTaskAssistantModal({
                 </select>
               </div>
 
+              {/* Action Button с чистым маркером вместо крутящегося спиннера */}
               <Button
                 size="sm"
                 onClick={() => handleGenerate()}
                 disabled={loading || !userQuery.trim()}
-                className="gap-2 text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs cursor-pointer px-4 h-8.5"
+                className="gap-2 text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs cursor-pointer px-4 h-9"
               >
-                <HiOutlineSparkles className={`size-4 ${loading ? "animate-spin text-[#F81B00]" : "text-[#F81B00]"}`} />
+                {loading ? (
+                  <AiMarker variant="primary" size="sm" active />
+                ) : (
+                  <HiOutlineSparkles className="size-4 text-[#F81B00]" />
+                )}
                 <span>{loading ? "Формирование ТЗ по ГОСТ..." : "Сгенерировать ТЗ"}</span>
               </Button>
             </div>
           </div>
 
-          {/* OpenRouter-style Shine Card & Dynamic Generation Status */}
+          {/* shadcn AI: CHAIN OF THOUGHT (вместо разноцветного градиентного блока) */}
           {loading && (
-            <div className="openrouter-shine-card shadow-md animate-in fade-in zoom-in-95 duration-200">
-              <div className="openrouter-shine-inner p-5 space-y-4">
-                {/* Header with glowing beacon */}
-                <div className="flex items-center justify-between pb-3 border-b border-[#E2E5EB]/60">
-                  <div className="flex items-center gap-2.5">
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#F81B00] opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#F81B00]"></span>
-                    </span>
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#111111] openrouter-text-shimmer">
-                      Нейросетевая генерация ТЗ по ГОСТ 15.016-2016
-                    </span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F81B00]/10 text-[#F81B00] border border-[#F81B00]/20 flex items-center gap-1.5">
-                    <span className="size-1.5 rounded-full bg-[#F81B00] animate-pulse" />
-                    OpenRouter Neural
-                  </span>
-                </div>
-
-                {/* Animated Generation Status */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs font-semibold text-[#111111]">
-                    <span className="flex items-center gap-2">
-                      <span className="text-sm">{GENERATION_STAGES[currentStageIdx].icon}</span>
-                      <span className="font-medium text-[#111111]">{GENERATION_STAGES[currentStageIdx].label}</span>
-                    </span>
-                    <span className="text-[#F81B00] font-mono text-[11px] font-bold">
-                      {GENERATION_STAGES[currentStageIdx].progress}%
-                    </span>
-                  </div>
-
-                  {/* Flowing Shimmer Bar */}
-                  <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-[#E2E5EB]">
-                    <div
-                      className="h-full rounded-full openrouter-shimmer-bar transition-all duration-500 ease-out"
-                      style={{ width: `${GENERATION_STAGES[currentStageIdx].progress}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Shimmering Skeleton Mocking Output */}
-                <div className="space-y-2 pt-1">
-                  <div className="h-2.5 w-4/5 rounded-md openrouter-shimmer-bar opacity-60" />
-                  <div className="h-2.5 w-full rounded-md openrouter-shimmer-bar opacity-40" />
-                  <div className="h-2.5 w-3/5 rounded-md openrouter-shimmer-bar opacity-30" />
-                </div>
-
-                <div className="pt-1 text-center text-[10px] text-[#6B7280]">
-                  Используются патентные классификаторы МПК и нормативная база трансфера технологий РФ
-                </div>
-              </div>
+            <div className="animate-in fade-in duration-200">
+              <ChainOfThought
+                steps={chainSteps}
+                currentStepIndex={currentStageIdx}
+                running={true}
+                defaultOpen={true}
+              />
             </div>
           )}
 
           {/* Generated Result Preview */}
           {result && !loading && (
             <div className="space-y-4 animate-in fade-in duration-200">
+              {/* Collapsed Chain of Thought (доступен для инспекции хода рассуждений) */}
+              <ChainOfThought
+                steps={chainSteps}
+                currentStepIndex={chainSteps.length - 1}
+                running={false}
+                defaultOpen={false}
+                title="Цепочка рассуждений модели (Chain of Thought)"
+              />
+
               {/* Header Box */}
               <div className="p-4 bg-white border border-[#E2E5EB] rounded-2xl space-y-3 shadow-2xs">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -366,241 +392,190 @@ export function AiTaskAssistantModal({
                       }`}
                     >
                       <HiOutlinePencilSquare className="size-3.5" />
-                      <span>{isEditingResult ? "Завершить правку" : "Редактировать ТЗ"}</span>
+                      <span>{isEditingResult ? "Просмотр" : "Редактировать"}</span>
                     </button>
-                    {!isEditingResult && (
-                      <div className="flex items-center gap-3 text-xs text-[#4B5563] ml-1">
-                        <span className="flex items-center gap-1 font-semibold text-[#111111]">
-                          <HiOutlineCurrencyDollar className="size-4 text-[#F81B00]" />
-                          {(result.suggested_budget || 2000000).toLocaleString("ru-RU")} ₽
-                        </span>
-                        <span className="flex items-center gap-1 font-medium">
-                          <HiOutlineClock className="size-4 text-[#6B7280]" />
-                          {result.suggested_deadline || "6 месяцев"}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </div>
 
                 {isEditingResult ? (
-                  <div className="space-y-3 pt-1 border-t border-[#E2E5EB]/60">
+                  <div className="space-y-3 pt-1">
                     <div>
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280] block mb-1">
-                        Тема разработки / Название ТЗ:
+                      <label className="text-[10px] font-bold uppercase text-[#6B7280] block mb-1">
+                        Тема НИОКР:
                       </label>
                       <Input
                         value={result.title}
                         onChange={(e) => setResult({ ...result, title: e.target.value })}
-                        className="text-xs h-9 bg-white border-[#E2E5EB] font-bold text-[#111111] rounded-xl"
+                        className="h-8 text-xs font-bold rounded-xl"
                       />
                     </div>
-
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280] block mb-1">
+                        <label className="text-[10px] font-bold uppercase text-[#6B7280] block mb-1">
                           Ориентировочный бюджет (₽):
                         </label>
                         <Input
                           type="number"
                           value={result.suggested_budget || 2000000}
-                          onChange={(e) => setResult({ ...result, suggested_budget: Number(e.target.value) })}
-                          className="text-xs h-9 bg-white border-[#E2E5EB] font-mono text-[#111111] rounded-xl"
+                          onChange={(e) =>
+                            setResult({ ...result, suggested_budget: Number(e.target.value) })
+                          }
+                          className="h-8 text-xs rounded-xl"
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280] block mb-1">
+                        <label className="text-[10px] font-bold uppercase text-[#6B7280] block mb-1">
                           Срок выполнения:
                         </label>
                         <Input
                           value={result.suggested_deadline || "6 месяцев"}
-                          onChange={(e) => setResult({ ...result, suggested_deadline: e.target.value })}
-                          className="text-xs h-9 bg-white border-[#E2E5EB] text-[#111111] rounded-xl"
+                          onChange={(e) =>
+                            setResult({ ...result, suggested_deadline: e.target.value })
+                          }
+                          className="h-8 text-xs rounded-xl"
                         />
                       </div>
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280] block mb-1">
-                        Научное обоснование и цель:
-                      </label>
-                      <textarea
-                        value={result.scientific_summary || ""}
-                        onChange={(e) => setResult({ ...result, scientific_summary: e.target.value })}
-                        className="w-full h-20 border border-[#E2E5EB] rounded-xl p-2.5 text-xs bg-white text-[#111111] focus:border-[#F81B00] outline-hidden leading-relaxed"
-                      />
                     </div>
                   </div>
                 ) : (
                   <div>
-                    <h4 className="text-sm font-bold text-[#111111] leading-snug">
+                    <h3 className="text-sm sm:text-base font-bold text-[#111111] leading-snug">
                       {result.title}
-                    </h4>
-                    {result.scientific_summary && (
-                      <p className="text-xs text-[#4B5563] mt-1.5 leading-relaxed italic">
-                        «{result.scientific_summary}»
-                      </p>
-                    )}
+                    </h3>
+                    <div className="flex flex-wrap items-center gap-3 pt-2 text-xs text-[#6B7280]">
+                      <span className="flex items-center gap-1 font-mono font-medium text-[#111111]">
+                        <HiOutlineCurrencyDollar className="size-3.5 text-emerald-600" />
+                        {(result.suggested_budget || 2000000).toLocaleString("ru-RU")} ₽
+                      </span>
+                      <span>•</span>
+                      <span className="flex items-center gap-1">
+                        <HiOutlineClock className="size-3.5" />
+                        {result.suggested_deadline || "6 месяцев"}
+                      </span>
+                      <span>•</span>
+                      <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-md font-mono">
+                        ГОСТ 15.016-2016
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>
 
-              {/* Navigation Tabs */}
-              <div className="inline-flex p-1 bg-[#F5F6F8] border border-[#E2E5EB] rounded-xl gap-1 text-xs font-semibold">
+              {/* Subtabs for Result Sections */}
+              <div className="flex border-b border-[#E2E5EB] gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setActiveTab("reqs")}
-                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  className={`text-xs font-bold pb-2 px-1 border-b-2 transition-all cursor-pointer ${
                     activeTab === "reqs"
-                      ? "bg-white text-[#111111] shadow-2xs"
-                      : "text-[#6B7280] hover:text-[#111111]"
+                      ? "border-[#111111] text-[#111111]"
+                      : "border-transparent text-[#6B7280] hover:text-[#111111]"
                   }`}
                 >
-                  Технические параметры & Испытания
+                  Требования и методология
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveTab("stages")}
-                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  className={`text-xs font-bold pb-2 px-1 border-b-2 transition-all cursor-pointer ${
                     activeTab === "stages"
-                      ? "bg-white text-[#111111] shadow-2xs"
-                      : "text-[#6B7280] hover:text-[#111111]"
+                      ? "border-[#111111] text-[#111111]"
+                      : "border-transparent text-[#6B7280] hover:text-[#111111]"
                   }`}
                 >
-                  Этапы и РИД
+                  Этапы НИОКР ({result.stages?.length || 4})
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveTab("ip")}
-                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  className={`text-xs font-bold pb-2 px-1 border-b-2 transition-all cursor-pointer ${
                     activeTab === "ip"
-                      ? "bg-white text-[#111111] shadow-2xs"
-                      : "text-[#6B7280] hover:text-[#111111]"
+                      ? "border-[#111111] text-[#111111]"
+                      : "border-transparent text-[#6B7280] hover:text-[#111111]"
                   }`}
                 >
-                  Права на РИД & Патенты
+                  Права на РИД и патенты
                 </button>
               </div>
 
-              {/* Tab 1: Reqs & Testing */}
+              {/* Tab 1: Requirements & Methodology */}
               {activeTab === "reqs" && (
-                isEditingResult ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                    <div className="p-3.5 bg-[#FAFAFB] rounded-xl border border-[#E2E5EB] space-y-1.5">
-                      <label className="text-[11px] font-bold text-[#111111] block">
-                        Нормативно-технические параметры (по одному на строке):
-                      </label>
+                <div className="space-y-3">
+                  <div className="p-4 bg-white rounded-2xl border border-[#E2E5EB] shadow-2xs space-y-2">
+                    <span className="text-xs font-bold text-[#111111] block">
+                      Научно-техническое обоснование:
+                    </span>
+                    {isEditingResult ? (
                       <textarea
-                        value={(result.technical_requirements || []).join("\n")}
+                        value={result.scientific_summary || ""}
                         onChange={(e) =>
-                          setResult({
-                            ...result,
-                            technical_requirements: e.target.value.split("\n"),
-                          })
+                          setResult({ ...result, scientific_summary: e.target.value })
                         }
-                        className="w-full h-36 border border-[#E2E5EB] rounded-xl p-2.5 text-xs bg-white focus:border-[#F81B00] outline-hidden leading-relaxed"
+                        rows={3}
+                        className="w-full p-2 border border-[#E2E5EB] rounded-xl text-xs"
                       />
-                    </div>
-
-                    <div className="p-3.5 bg-[#FAFAFB] rounded-xl border border-[#E2E5EB] space-y-1.5">
-                      <label className="text-[11px] font-bold text-[#111111] block">
-                        Методы стендовых испытаний (по одному на строке):
-                      </label>
-                      <textarea
-                        value={(result.testing_methodology || []).join("\n")}
-                        onChange={(e) =>
-                          setResult({
-                            ...result,
-                            testing_methodology: e.target.value.split("\n"),
-                          })
-                        }
-                        className="w-full h-36 border border-[#E2E5EB] rounded-xl p-2.5 text-xs bg-white focus:border-[#F81B00] outline-hidden leading-relaxed"
-                      />
-                    </div>
+                    ) : (
+                      <p className="text-xs text-[#4B5563] leading-relaxed">
+                        {result.scientific_summary}
+                      </p>
+                    )}
                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                    <div className="p-3.5 bg-[#FAFAFB] rounded-xl border border-[#E2E5EB] space-y-2">
-                      <span className="text-[11px] font-bold text-[#111111] flex items-center gap-1.5">
-                        <HiOutlineCpuChip className="size-4 text-[#F81B00]" />
-                        <span>Нормативно-технические параметры:</span>
-                      </span>
-                      <ul className="space-y-1.5 text-[#374151] list-disc list-inside leading-relaxed">
-                        {(result.technical_requirements || []).map((req, i) => (
-                          <li key={i}>{req}</li>
-                        ))}
-                      </ul>
-                    </div>
 
-                    <div className="p-3.5 bg-[#FAFAFB] rounded-xl border border-[#E2E5EB] space-y-2">
-                      <span className="text-[11px] font-bold text-[#111111] flex items-center gap-1.5">
-                        <HiOutlineBeaker className="size-4 text-[#F81B00]" />
-                        <span>Методы контроля и стендовых испытаний:</span>
-                      </span>
-                      <ul className="space-y-1.5 text-[#374151] list-disc list-inside leading-relaxed">
-                        {(result.testing_methodology || []).map((m, i) => (
-                          <li key={i}>{m}</li>
-                        ))}
-                      </ul>
-                    </div>
+                  <div className="p-4 bg-white rounded-2xl border border-[#E2E5EB] shadow-2xs space-y-2">
+                    <span className="text-xs font-bold text-[#111111] flex items-center gap-1.5">
+                      <HiOutlineDocumentCheck className="size-4 text-[#F81B00]" />
+                      <span>Нормативно-технические требования:</span>
+                    </span>
+                    <ul className="space-y-1.5 text-xs text-[#374151]">
+                      {(result.technical_requirements || []).map((req, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <span className="size-1.5 rounded-full bg-[#111111] mt-1.5 shrink-0" />
+                          <span className="leading-relaxed">{req}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                )
+
+                  <div className="p-4 bg-white rounded-2xl border border-[#E2E5EB] shadow-2xs space-y-2">
+                    <span className="text-xs font-bold text-[#111111] flex items-center gap-1.5">
+                      <HiOutlineBeaker className="size-4 text-emerald-600" />
+                      <span>Методы стендовых испытаний и валидации:</span>
+                    </span>
+                    <ul className="space-y-1.5 text-xs text-[#374151]">
+                      {(result.testing_methodology || []).map((m, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <span className="size-1.5 rounded-full bg-emerald-600 mt-1.5 shrink-0" />
+                          <span className="leading-relaxed">{m}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
               )}
 
               {/* Tab 2: Stages Chain connected with line */}
               {activeTab === "stages" && (
-                isEditingResult ? (
-                  <div className="p-4 bg-white rounded-2xl border border-[#E2E5EB] space-y-2 text-xs shadow-2xs">
-                    <label className="text-[11px] font-bold text-[#111111] block">
-                      Календарные этапы НИОКР (каждый этап с новой строки):
-                    </label>
-                    <textarea
-                      value={(result.stages || []).join("\n")}
-                      onChange={(e) =>
-                        setResult({
-                          ...result,
-                          stages: e.target.value.split("\n"),
-                        })
-                      }
-                      className="w-full h-40 border border-[#E2E5EB] rounded-xl p-3 text-xs bg-white focus:border-[#F81B00] outline-hidden leading-relaxed font-mono"
-                    />
-                  </div>
-                ) : (
-                <div className="space-y-4 text-xs">
+                <div className="space-y-4">
                   <div className="p-4 bg-white rounded-2xl border border-[#E2E5EB] shadow-2xs space-y-3">
-                    <div className="flex items-center justify-between pb-2 border-b border-[#E2E5EB]">
-                      <span className="text-xs font-bold text-[#111111] flex items-center gap-1.5">
-                        <HiOutlineDocumentCheck className="size-4 text-[#F81B00]" />
-                        <span>Календарная цепочка этапов НИОКР:</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-[#111111]">
+                        Рекомендуемая дорожная карта НИОКР:
                       </span>
-                      <span className="text-[10px] font-semibold text-[#6B7280]">
-                        {(result.stages || []).length} этапа с контрольными точками
-                      </span>
+                      <span className="text-[10px] text-[#6B7280]">ГОСТ 15.016-2016</span>
                     </div>
 
-                    {/* Connected Chain Timeline */}
                     <div className="relative pl-7 space-y-3.5 pt-1">
-                      {/* Continuous vertical connecting line */}
-                      <div className="absolute left-[13px] top-3.5 bottom-3.5 w-0.5 bg-gradient-to-b from-[#F81B00] via-[#F81B00]/60 to-[#E2E5EB]" />
+                      <div className="absolute left-2.5 top-2.5 bottom-2.5 w-0.5 bg-[#E2E5EB]" />
 
                       {(result.stages || []).map((stage, i) => (
-                        <div key={i} className="relative flex items-start gap-3 group">
-                          {/* Connected Step Node */}
-                          <div className="absolute -left-7 size-7 rounded-full bg-white border-2 border-[#F81B00] text-[#F81B00] font-bold text-xs flex items-center justify-center shadow-xs z-10 transition-transform group-hover:scale-110">
+                        <div key={i} className="relative flex items-start gap-3">
+                          <div className="absolute -left-7 top-0 size-5 rounded-full bg-[#111111] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
                             {i + 1}
                           </div>
-
-                          {/* Stage Content Card */}
-                          <div className="flex-1 p-3 bg-[#F9FAFB] rounded-xl border border-[#E2E5EB] transition-all hover:border-[#F81B00]/40 hover:bg-white shadow-2xs">
-                            <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
-                              <span className="font-bold text-[#111111] text-xs flex items-center gap-1.5">
-                                <span className="size-1.5 rounded-full bg-[#F81B00]" />
-                                Этап {i + 1}
-                              </span>
-                              <Badge variant="outline" className="border-[#E2E5EB] bg-white text-[10px] text-[#4B5563] font-medium">
-                                Сдача отчетности
-                              </Badge>
-                            </div>
+                          <div className="bg-[#F8FAFC] border border-[#E2E5EB] rounded-xl p-3 flex-1 space-y-1">
+                            <span className="text-xs font-bold text-[#111111] block">
+                              Этап {i + 1}
+                            </span>
                             <p className="text-xs text-[#374151] leading-relaxed">
                               {stage.replace(/^Этап\s*\d+[:.]?\s*/i, "")}
                             </p>
@@ -617,7 +592,7 @@ export function AiTaskAssistantModal({
                     </span>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                       {(result.deliverables || []).map((d, i) => (
-                        <div key={i} className="p-2.5 bg-[#F9FAFB] rounded-xl border border-[#E2E5EB] text-xs text-[#374151] flex items-start gap-2">
+                        <div key={i} className="p-2.5 bg-[#F8FAFC] rounded-xl border border-[#E2E5EB] text-xs text-[#374151] flex items-start gap-2">
                           <span className="size-1.5 rounded-full bg-[#F81B00] mt-1 shrink-0" />
                           <span>{d}</span>
                         </div>
@@ -625,7 +600,6 @@ export function AiTaskAssistantModal({
                     </div>
                   </div>
                 </div>
-                )
               )}
 
               {/* Tab 3: IP recommendation */}
@@ -641,48 +615,44 @@ export function AiTaskAssistantModal({
                   </p>
                 </div>
               )}
-
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-[#E2E5EB]">
-                <div className="flex items-center gap-2">
-                  {result.model_used && (
-                    <span className="text-[10px] text-[#6B7280] bg-[#F5F6F8] px-2 py-1 rounded-md border border-[#E2E5EB]">
-                      ИИ: {result.model_used}
-                    </span>
-                  )}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleCopyTz}
-                    className="gap-1.5 text-xs rounded-xl border-[#E2E5EB] hover:bg-[#F5F6F8]"
-                  >
-                    <HiOutlineClipboardDocumentCheck className="size-4 text-[#4B5563]" />
-                    <span>Скопировать ТЗ</span>
-                  </Button>
-                </div>
-
-                <div className="flex items-center justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => onOpenChange(false)}
-                    className="text-xs rounded-xl border-[#E2E5EB]"
-                  >
-                    Закрыть
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={handleApply}
-                    className="gap-2 text-xs font-bold bg-[#F81B00] hover:bg-[#d01700] text-white rounded-xl shadow-xs cursor-pointer px-4"
-                  >
-                    <HiOutlineCheck className="size-4" />
-                    <span>{applyButtonText || "Применить в заявку тендера"}</span>
-                  </Button>
-                </div>
-              </div>
             </div>
           )}
         </div>
+
+        {/* Modal Footer: четкие кнопки с отступами, никогда не слипаются */}
+        <DialogFooter className="gap-3 pt-4 border-t border-[#E2E5EB] mt-4 flex flex-col-reverse sm:flex-row sm:justify-end items-stretch sm:items-center">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="text-xs font-semibold rounded-xl border-[#E2E5EB] px-4 cursor-pointer hover:bg-[#F5F6F8]"
+          >
+            Закрыть
+          </Button>
+
+          {result && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCopyTz}
+                className="gap-1.5 text-xs font-semibold rounded-xl border-[#E2E5EB] hover:bg-[#F5F6F8] px-3.5"
+              >
+                <HiOutlineClipboardDocumentCheck className="size-4 text-[#4B5563]" />
+                <span>Скопировать ТЗ</span>
+              </Button>
+
+              <Button
+                type="button"
+                onClick={handleApply}
+                className="gap-2 text-xs font-bold bg-[#F81B00] hover:bg-[#d01700] text-white rounded-xl shadow-xs cursor-pointer px-4.5 h-10"
+              >
+                <HiOutlineCheck className="size-4" />
+                <span>{applyButtonText || "Применить в заявку"}</span>
+              </Button>
+            </>
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
