@@ -47,7 +47,13 @@ function VerifyHashContent() {
     setLoading(true)
 
     fetch(`/api/v1/public/verify/${encodeURIComponent(rawHash)}`)
-      .then((res) => res.json())
+      .then(async (res) => {
+        if (!res.ok) {
+          const altRes = await fetch(`/api/v1/certificates/public/verify/${encodeURIComponent(rawHash)}`)
+          if (altRes.ok) return altRes.json()
+        }
+        return res.json()
+      })
       .then((data: VerifyResult) => {
         if (isMounted) setResult(data)
       })

@@ -63,6 +63,23 @@ def generate_qr_buffer(url: str) -> io.BytesIO:
     return buf
 
 
+def draw_fitted_string(c, text: str, x: float, y: float, max_w: float, font_name: str, font_size: float, fill_color):
+    """Отрисовывает строку, гарантируя, что она никогда не выйдет за пределы max_w."""
+    if not text:
+        return
+    text = str(text).strip()
+    c.setFont(font_name, font_size)
+    c.setFillColor(fill_color)
+    if c.stringWidth(text, font_name, font_size) <= max_w:
+        c.drawString(x, y, text)
+        return
+
+    truncated = text
+    while truncated and c.stringWidth(truncated + "...", font_name, font_size) > max_w:
+        truncated = truncated[:-1].strip()
+    c.drawString(x, y, (truncated + "...") if truncated else text[:25])
+
+
 def render_pdf_certificate(
     output_path: str,
     cert_number: str,
@@ -179,7 +196,7 @@ def render_pdf_certificate(
 
     dy = y - 22
     fields = [
-        ("Наименование объекта:", object_title[:75] + ("..." if len(object_title) > 75 else "")),
+        ("Наименование объекта:", object_title),
         ("Тип объекта РИД:", entity_type_label),
         ("Правообладатель / Автор:", author_name),
         ("Организация:", org_name if org_name else "Индивидуальный разработчик"),
@@ -187,14 +204,14 @@ def render_pdf_certificate(
         ("Дата и время фиксации:", deposited_dt.strftime("%d.%m.%Y в %H:%M:%S MSK (UTC+3)")),
     ]
 
+    val_max_w = card_w - 185 - 15  # Безопасная граница внутри карточки
+
     for label, val in fields:
         c.setFont(font_bold, 9.5)
         c.setFillColor(colors.HexColor("#555555"))
         c.drawString(card_x + 18, dy, label)
 
-        c.setFont(font_reg, 9.5)
-        c.setFillColor(colors.HexColor("#111111"))
-        c.drawString(card_x + 185, dy, val)
+        draw_fitted_string(c, val, card_x + 185, dy, val_max_w, font_reg, 9.5, colors.HexColor("#111111"))
         dy -= 23
 
     # Блок криптографического отпечатка SHA-256
@@ -210,7 +227,7 @@ def render_pdf_certificate(
     c.setFillColor(colors.HexColor("#111111"))
     c.roundRect(hash_box_x, y, hash_box_w, hash_box_h, 4, stroke=0, fill=1)
 
-    c.setFont("Courier-Bold" if "Courier-Bold" in pdfmetrics.getRegisteredFontNames() else "Helvetica-Bold", 10.5)
+    c.setFont("Courier-Bold" if "Courier-Bold" in pdfmetrics.getRegisteredFontNames() else "Helvetica-Bold", 9)
     c.setFillColor(colors.HexColor("#FFFFFF"))
     c.drawCentredString(width / 2, y + 8, sha256_hash)
 
@@ -277,11 +294,18 @@ def render_pdf_certificate(
 
     # Подвал
     c.setFont(font_reg, 7.5)
-    c.setFillColor(colors.HexColor("#999999"))
+    c.setFillColor(colors.HexColor("#555555"))
     c.drawCentredString(
         width / 2,
-        margin + 16,
-        f"Публичный реестр верификации: {verify_url} • Сформировано автоматически системой «Точка Роста»",
+        margin + 20,
+        f"Публичный реестр верификации: {verify_url}",
+    )
+    c.setFont(font_reg, 6.8)
+    c.setFillColor(colors.HexColor("#888888"))
+    c.drawCentredString(
+        width / 2,
+        margin + 10,
+        "Официальный электронный документ • Цифровая платформа трансфера технологий «Точка Роста»",
     )
 
     c.showPage()
@@ -348,8 +372,12 @@ async def get_or_create_deposit_certificate(
     ogrn = user.ogrn if user else None
 
     # Вычисление канонического хэша SHA-256
-    canonical_str = f"{object_title}|{summary_text}|{author_id}|{inn or ''}|{created_at.isoformat()}|{file_hash}"
-    sha256_hash = hashlib.sha256(canonical_str.encode("utf-8")).hexdigest()
+    # Если у объекта уже зафиксирован публичный хеш авторства (file_hash), используем его для 100% валидности в реестре
+    if file_hash:
+        sha256_hash = file_hash
+    else:
+        canonical_str = f"{object_title}|{summary_text}|{author_id}|{inn or ''}|{created_at.isoformat()}"
+        sha256_hash = hashlib.sha256(canonical_str.encode("utf-8")).hexdigest()
 
     cert_number = cert.certificate_number if cert else generate_certificate_number()
     verify_url = f"{FRONTEND_URL}/verify/{sha256_hash}"

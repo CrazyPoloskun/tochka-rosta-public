@@ -54,7 +54,10 @@ export default function VerifyPage() {
     setResult(null)
 
     try {
-      const res = await fetch(`/api/v1/public/verify/${encodeURIComponent(key)}`)
+      let res = await fetch(`/api/v1/public/verify/${encodeURIComponent(key)}`)
+      if (!res.ok) {
+        res = await fetch(`/api/v1/certificates/public/verify/${encodeURIComponent(key)}`)
+      }
       if (res.ok) {
         const data: VerifyResult = await res.json()
         setResult(data)
@@ -79,18 +82,48 @@ export default function VerifyPage() {
     if (!file) return
 
     setCheckingFile(true)
+    setLoading(true)
+    setHasSearched(true)
+    setResult(null)
+
     try {
+      // 1. Вычисляем SHA-256 хэш файла
       const buffer = await file.arrayBuffer()
       const hashBuffer = await crypto.subtle.digest("SHA-256", buffer)
       const hashArray = Array.from(new Uint8Array(hashBuffer))
       const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("")
       setCalculatedFileHash(hashHex)
       setSearchKey(hashHex)
+
+      // 2. Отправляем на серверную верификацию (включая проверку содержимого PDF-свидетельств)
+      const formData = new FormData()
+      formData.append("file", file)
+      const checkRes = await fetch("/api/v1/public/verify/check-file", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (checkRes.ok) {
+        const fileData = await checkRes.json()
+        if (fileData.matched) {
+          const verifyKey = fileData.certificate_number || fileData.file_sha256 || hashHex
+          const fullRes = await fetch(`/api/v1/public/verify/${encodeURIComponent(verifyKey)}`)
+          if (fullRes.ok) {
+            const data: VerifyResult = await fullRes.json()
+            setResult(data)
+            return
+          }
+        }
+      }
+
+      // 3. Если через check-file не найдено, проверяем по вычисленному хэшу
       await handleVerify(hashHex)
     } catch (err) {
       console.error("SHA-256 computation error:", err)
+      await handleVerify()
     } finally {
       setCheckingFile(false)
+      setLoading(false)
     }
   }
 
