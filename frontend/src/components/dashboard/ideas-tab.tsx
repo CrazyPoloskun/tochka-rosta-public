@@ -14,6 +14,7 @@ import {
   HiOutlineDocumentText,
   HiOutlineExclamationTriangle,
   HiOutlineCheckCircle,
+  HiOutlineCheck,
   HiOutlineXMark,
   HiOutlineArrowPath,
   HiOutlineDocumentArrowDown,
