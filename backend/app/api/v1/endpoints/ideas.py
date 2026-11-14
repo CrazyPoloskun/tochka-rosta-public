@@ -311,13 +311,24 @@ async def order_idea(
     await db.flush()
 
     # Создаем этапы из milestones идеи или одного этапа
-    if idea.milestones and not (data and data.order_type == "donation"):
+    if isinstance(idea.milestones, list) and len(idea.milestones) > 0 and not (data and data.order_type == "donation"):
         for idx, m in enumerate(idea.milestones, 1):
+            if isinstance(m, dict):
+                s_num = m.get("step", idx)
+                s_title = m.get("title", f"Этап {idx}")
+                try:
+                    s_amt = Decimal(str(m.get("amount", 100000)))
+                except Exception:
+                    s_amt = Decimal("100000")
+            else:
+                s_num = idx
+                s_title = f"Этап {idx}"
+                s_amt = Decimal("100000")
             ms = ProjectMilestone(
                 project_id=project.id,
-                step_number=m.get("step", idx),
-                title=m.get("title", f"Этап {idx}"),
-                amount=Decimal(str(m.get("amount", "100000"))),
+                step_number=int(s_num) if str(s_num).isdigit() else idx,
+                title=str(s_title),
+                amount=s_amt,
                 status="pending_funds",
             )
             db.add(ms)
@@ -338,6 +349,13 @@ async def order_idea(
     else:
         c_type = "idea_order"
 
+    budget_formatted = f"{budget:,.2f} ₽".replace(",", " ")
+    intro_content = (
+        f"Здравствуйте! Инициирована новая сделка ({order_type_label}) по разработке «{idea.title}».\n"
+        f"Бюджет: {budget_formatted}.\n"
+        f"Инициатор: {current_user.organization_name or current_user.full_name}."
+    )
+
     # Инициируем чат по проекту с контекстом
     chat, _ = await get_or_create_context_chat(
         db=db,
@@ -350,6 +368,21 @@ async def order_idea(
         initial_message=intro_content,
         sender_id=current_user.id,
     )
+
+    # Системное уведомление для получателя
+    try:
+        recipient_id = lab_id if current_user.id == investor_id else investor_id
+        notif = Notification(
+            recipient_id=recipient_id,
+            type="project_created",
+            title=f"Новая сделка: {order_type_label}",
+            body=f"{current_user.organization_name or current_user.full_name} открыл сделку «{idea.title}» с бюджетом {budget_formatted}.",
+            link_url="/dashboard?tab=projects",
+            severity="info",
+        )
+        db.add(notif)
+    except Exception as e:
+        print(f"[ORDER IDEA] Notification warning: {e}")
 
     await db.commit()
     return {"message": "Проект успешно создан", "project_id": project.id, "chat_id": chat.id}

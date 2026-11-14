@@ -404,7 +404,7 @@ export function IdeasTab({
           order_type: "rnd_order",
         }),
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
       if (res.ok) {
         success("Предложение отправлено инвестору! Создана сделка и открыт чат согласования.", "Предложение отправлено")
         setProposalModal(null)
@@ -412,10 +412,10 @@ export function IdeasTab({
         onRefresh()
         onNavigateToMessages()
       } else {
-        error(data.detail || "Ошибка при отправке предложения", "Ошибка")
+        error(data?.detail || "Ошибка при отправке предложения", "Ошибка")
       }
-    } catch {
-      error("Сетевая ошибка", "Ошибка")
+    } catch (e: any) {
+      error(e?.message || "Сетевая ошибка", "Ошибка")
     } finally {
       setSubmittingProposal(false)
     }
@@ -432,7 +432,7 @@ export function IdeasTab({
           proposed_budget: isDonation ? Number(donationAmount) : undefined,
         }),
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
       if (res.ok) {
         success(
           isDonation
@@ -444,10 +444,10 @@ export function IdeasTab({
         onRefresh()
         onNavigateToProjects()
       } else {
-        error(data.detail || "Ошибка оформления сделки", "Ошибка")
+        error(data?.detail || "Ошибка оформления сделки", "Ошибка")
       }
-    } catch {
-      error("Сетевая ошибка", "Ошибка")
+    } catch (e: any) {
+      error(e?.message || "Сетевая ошибка при оформлении", "Ошибка")
     }
   }
 
