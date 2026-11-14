@@ -107,16 +107,25 @@ export interface TaskBid {
   chat_id?: number
 }
 
+export interface TaskMilestone {
+  step: number
+  title: string
+  amount: number
+}
+
 export interface TaskItem {
   id: number
   creator_id: number
+  investor_id?: number
   title: string
   description: string
   budget: number
   deadline: string
+  milestones?: TaskMilestone[]
   status: "open" | "in_progress" | "completed"
   created_at: string
   creator_name?: string
+  investor_name?: string
   creator_role?: string
   bids?: TaskBid[]
 }

@@ -316,6 +316,7 @@ async def get_or_create_deposit_certificate(
     db: AsyncSession,
     entity_type: str,
     entity_id: int,
+    force_regenerate: bool = False,
 ) -> DepositCertificate:
     """
     Получает существующее или создает новое свидетельство о депонировании РИД,
@@ -328,7 +329,7 @@ async def get_or_create_deposit_certificate(
     )
     res = await db.execute(query)
     cert = res.scalar_one_or_none()
-    if cert and cert.pdf_file_path and os.path.exists(cert.pdf_file_path):
+    if not force_regenerate and cert and cert.pdf_file_path and os.path.exists(cert.pdf_file_path):
         return cert
 
     # 2. Сбор данных сущности

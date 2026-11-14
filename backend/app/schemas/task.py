@@ -1,5 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 from pydantic import BaseModel, Field
 
 
@@ -8,6 +9,15 @@ class TaskCreateRequest(BaseModel):
     description: str = Field(..., min_length=1)
     budget: Decimal = Field(..., ge=0)
     deadline: str = Field(..., min_length=1, max_length=50)
+    milestones: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class TaskUpdateRequest(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    budget: Decimal | None = None
+    deadline: str | None = None
+    milestones: list[dict[str, Any]] | None = None
 
 
 class TaskBidCreateRequest(BaseModel):
@@ -38,6 +48,7 @@ class TaskResponse(BaseModel):
     description: str
     budget: Decimal
     deadline: str
+    milestones: list[Any] = []
     moderation_status: str
     status: str
     created_at: datetime

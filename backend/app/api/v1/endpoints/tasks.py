@@ -10,7 +10,7 @@ from app.models.task import Task, TaskBid
 from app.models.project import Project, ProjectMilestone
 from app.models.chat import Chat, Message
 from app.models.matching import MatchingInvitation
-from app.schemas.task import TaskCreateRequest, TaskBidCreateRequest, TaskResponse, TaskBidResponse
+from app.schemas.task import TaskCreateRequest, TaskUpdateRequest, TaskBidCreateRequest, TaskResponse, TaskBidResponse
 from app.services.chat_service import get_or_create_context_chat
 from app.services.matching_service import run_task_matchmaking
 from app.services.certificate_service import get_or_create_deposit_certificate
@@ -51,6 +51,7 @@ async def list_tasks(
 
         t_res = TaskResponse.model_validate(task)
         t_res.investor_name = investor_name
+        t_res.milestones = task.milestones or []
         t_res.bids_count = len(bids_list)
         t_res.bids = bids_list
         response.append(t_res)
@@ -70,6 +71,7 @@ async def create_task(
         description=data.description.strip(),
         budget=data.budget,
         deadline=data.deadline.strip(),
+        milestones=data.milestones,
         moderation_status="approved",
         status="open",
     )
@@ -94,6 +96,122 @@ async def create_task(
     res.bids_count = 0
     res.bids = []
     return res
+
+
+@router.get("/{task_id}", response_model=TaskResponse)
+async def get_task(
+    task_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_current_user),
+):
+    """Получение детальной информации о задаче/тендере по ее ID."""
+    res = await db.execute(select(Task, User.full_name).join(User, Task.investor_id == User.id).where(Task.id == task_id))
+    row = res.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Задача не найдена")
+
+    task, investor_name = row
+
+    bids_res = await db.execute(
+        select(TaskBid, User.full_name, User.organization_name)
+        .join(User, TaskBid.lab_id == User.id)
+        .where(TaskBid.task_id == task.id)
+        .order_by(TaskBid.id.desc())
+    )
+    bids_rows = bids_res.all()
+
+    bids_list = []
+    for bid, lab_name, org_name in bids_rows:
+        bid_dto = TaskBidResponse.model_validate(bid)
+        bid_dto.lab_name = lab_name
+        bid_dto.organization_name = org_name
+        bids_list.append(bid_dto)
+
+    t_res = TaskResponse.model_validate(task)
+    t_res.investor_name = investor_name
+    t_res.bids_count = len(bids_list)
+    t_res.bids = bids_list
+    return t_res
+
+
+@router.put("/{task_id}", response_model=TaskResponse)
+async def update_task(
+    task_id: int,
+    data: TaskUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Редактирование задачи/тендера автором или администратором."""
+    res = await db.execute(select(Task).where(Task.id == task_id))
+    task = res.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="Задача не найдена")
+
+    if task.investor_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Вы можете редактировать только собственные задачи")
+
+    if data.title is not None:
+        task.title = data.title.strip()
+    if data.description is not None:
+        task.description = data.description.strip()
+    if data.budget is not None:
+        task.budget = data.budget
+    if data.deadline is not None:
+        task.deadline = data.deadline.strip()
+    if data.milestones is not None:
+        clean_milestones = []
+        for idx, m in enumerate(data.milestones, 1):
+            clean_milestones.append({
+                "step": idx,
+                "title": m.get("title", f"Этап {idx}"),
+                "amount": float(m.get("amount", 0)),
+            })
+        task.milestones = clean_milestones
+
+    await db.commit()
+    await db.refresh(task)
+
+    # Обновление сертификата депонирования ТЗ
+    try:
+        await get_or_create_deposit_certificate(db, "task", task.id, force_regenerate=True)
+    except Exception as e:
+        print(f"[TASK UPDATE] Certificate warning: {e}")
+
+    u_res = await db.execute(select(User).where(User.id == task.investor_id))
+    user = u_res.scalar_one_or_none()
+
+    t_res = TaskResponse.model_validate(task)
+    t_res.investor_name = user.full_name if user else None
+    return t_res
+
+
+@router.delete("/{task_id}")
+async def delete_task(
+    task_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Удаление задачи/тендера автором или администратором."""
+    res = await db.execute(select(Task).where(Task.id == task_id))
+    task = res.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="Задача не найдена")
+
+    if task.investor_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Вы можете удалять только собственные задачи")
+
+    from app.models.certificate import DepositCertificate
+    await db.execute(
+        DepositCertificate.__table__.delete().where(
+            DepositCertificate.entity_type == "task",
+            DepositCertificate.entity_id == task_id,
+        )
+    )
+
+    await db.delete(task)
+    await db.commit()
+
+    return {"status": "ok", "message": "Задача успешно удалена"}
 
 
 @router.post("/{task_id}/bids", response_model=TaskBidResponse, status_code=status.HTTP_201_CREATED)

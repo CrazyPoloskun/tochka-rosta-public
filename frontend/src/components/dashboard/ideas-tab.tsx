@@ -17,6 +17,9 @@ import {
   HiOutlineXMark,
   HiOutlineArrowPath,
   HiOutlineDocumentArrowDown,
+  HiOutlinePencilSquare,
+  HiOutlineTrash,
+  HiOutlineEye,
 } from "react-icons/hi2"
 
 import { Button } from "@/components/ui/button"
@@ -31,6 +34,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useToast } from "@/components/ui/toast"
 import { CopyButton } from "@/components/ui/copy-button"
 import { CardGridSkeleton } from "@/components/ui/skeleton-loader"
@@ -38,6 +42,7 @@ import { User } from "@/lib/auth-context"
 import { IdeaItem } from "./dashboard-types"
 import { CounterpartyModal } from "@/components/profile/counterparty-modal"
 import { AiTaskAssistantModal } from "@/components/dashboard/ai-task-assistant-modal"
+import { MilestonesChainView, MilestonesChainEditor, MilestoneItemData } from "./milestones-chain"
 
 interface IdeasTabProps {
   user: User | null
@@ -120,6 +125,103 @@ export function IdeasTab({
   const [aiTzInitialQuery, setAiTzInitialQuery] = React.useState("")
   const [aiTzInitialCategory, setAiTzInitialCategory] = React.useState("Автоопределение")
   const [aiTzTarget, setAiTzTarget] = React.useState<"new_idea" | "standalone">("standalone")
+
+  // View Full Description Modal
+  const [viewIdeaModal, setViewIdeaModal] = React.useState<IdeaItem | null>(null)
+
+  // Edit Idea Modal
+  const [editIdeaModal, setEditIdeaModal] = React.useState<IdeaItem | null>(null)
+  const [editTitle, setEditTitle] = React.useState("")
+  const [editSummary, setEditSummary] = React.useState("")
+  const [editCategory, setEditCategory] = React.useState("Новые материалы")
+  const [editTrl, setEditTrl] = React.useState(4)
+  const [editBudget, setEditBudget] = React.useState("1000000")
+  const [editMilestones, setEditMilestones] = React.useState<MilestoneItemData[]>([])
+  const [savingEdit, setSavingEdit] = React.useState(false)
+
+  // Delete Idea State
+  const [deletingIdeaId, setDeletingIdeaId] = React.useState<number | null>(null)
+  const [deletingIdea, setDeletingIdea] = React.useState(false)
+
+  const handleOpenEdit = (idea: IdeaItem) => {
+    setEditIdeaModal(idea)
+    setEditTitle(idea.title)
+    setEditSummary(idea.summary)
+    setEditCategory(idea.category)
+    setEditTrl(idea.trl_level)
+    setEditBudget(String(idea.budget_total || 0))
+    setEditMilestones(
+      (idea.milestones || []).map((m: any, i: number) => ({
+        step: m.step || i + 1,
+        title: m.title || `Этап ${i + 1}`,
+        amount: Number(m.amount) || 0,
+      }))
+    )
+  }
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editIdeaModal) return
+    setSavingEdit(true)
+    try {
+      const res = await authFetch(`/api/v1/ideas/${editIdeaModal.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editTitle.trim(),
+          summary: editSummary.trim(),
+          category: editCategory,
+          trl_level: editTrl,
+          budget_total: Number(editBudget) || 0,
+          milestones: editMilestones,
+        }),
+      })
+      if (res.ok) {
+        success(
+          "Заявка на разработку успешно обновлена! Свидетельство депонирования и хеш авторства синхронизированы.",
+          "Заявка обновлена"
+        )
+        const updated = await res.json()
+        setEditIdeaModal(null)
+        if (viewIdeaModal?.id === editIdeaModal.id) {
+          setViewIdeaModal(updated)
+        }
+        onRefresh()
+      } else {
+        const data = await res.json()
+        error(data.detail || "Ошибка при обновлении заявки", "Ошибка")
+      }
+    } catch {
+      error("Сетевая ошибка", "Ошибка")
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  const handleDeleteIdea = async () => {
+    if (!deletingIdeaId) return
+    setDeletingIdea(true)
+    try {
+      const res = await authFetch(`/api/v1/ideas/${deletingIdeaId}`, {
+        method: "DELETE",
+      })
+      if (res.ok) {
+        success("Заявка успешно удалена из реестра и каталога платформы.", "Заявка удалена")
+        if (viewIdeaModal?.id === deletingIdeaId) {
+          setViewIdeaModal(null)
+        }
+        setDeletingIdeaId(null)
+        onRefresh()
+      } else {
+        const data = await res.json()
+        error(data.detail || "Ошибка при удалении заявки", "Ошибка")
+      }
+    } catch {
+      error("Сетевая ошибка", "Ошибка")
+    } finally {
+      setDeletingIdea(false)
+    }
+  }
 
   const handleApplyAiTz = (data: {
     title: string
@@ -549,7 +651,11 @@ export function IdeasTab({
 
                   {/* Title & Author */}
                   <div>
-                    <h3 className="text-sm font-bold text-[#111111] line-clamp-2 leading-snug">
+                    <h3
+                      onClick={() => setViewIdeaModal(idea)}
+                      className="text-sm font-bold text-[#111111] line-clamp-2 leading-snug cursor-pointer hover:text-[#F81B00] transition-colors"
+                      title="Нажмите, чтобы посмотреть полное описание и этапы"
+                    >
                       {idea.title}
                     </h3>
                     <div className="flex items-center gap-1.5 mt-1">
@@ -623,6 +729,42 @@ export function IdeasTab({
                     <span className="text-sm font-bold text-[#111111]">
                       {Number(idea.budget_total || 0).toLocaleString("ru-RU")} ₽
                     </span>
+                  </div>
+
+                  {/* Actions Row: Details, Edit, Delete */}
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setViewIdeaModal(idea)}
+                      className="flex-1 text-[11px] font-bold border-[#E2E5EB] text-[#111111] hover:bg-[#F5F6F8] rounded-xl flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <HiOutlineEye className="size-3.5 text-[#6B7280]" />
+                      <span>Подробнее</span>
+                    </Button>
+
+                    {(isAuthor || user?.is_admin) && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleOpenEdit(idea)}
+                          className="px-2.5 text-[11px] font-bold border-[#E2E5EB] text-[#111111] hover:border-[#111111] rounded-xl cursor-pointer"
+                          title="Редактировать заявку и этапы"
+                        >
+                          <HiOutlinePencilSquare className="size-3.5" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setDeletingIdeaId(idea.id)}
+                          className="px-2.5 text-[11px] font-bold border-red-200 text-red-600 hover:bg-red-50 rounded-xl cursor-pointer"
+                          title="Удалить заявку"
+                        >
+                          <HiOutlineTrash className="size-3.5" />
+                        </Button>
+                      </>
+                    )}
                   </div>
 
                   {/* Action Buttons based on Role */}
@@ -850,26 +992,12 @@ export function IdeasTab({
               />
             </div>
 
-            {/* Stages Timeline Chain */}
-            <div className="space-y-2 pt-1">
-              <label className="text-xs font-semibold text-[#111111] block">
-                Календарная цепочка этапов НИОКР ({milestones.length}):
-              </label>
-              <div className="relative pl-7 space-y-2.5 pt-1">
-                <div className="absolute left-[13px] top-3 bottom-3 w-0.5 bg-gradient-to-b from-[#F81B00] to-[#E2E5EB]" />
-                {milestones.map((m, i) => (
-                  <div key={m.step || i} className="relative flex items-center justify-between gap-3 p-2.5 bg-[#F9FAFB] rounded-xl border border-[#E2E5EB] text-xs shadow-2xs">
-                    <div className="absolute -left-7 size-6 rounded-full bg-white border-2 border-[#F81B00] text-[#F81B00] font-bold text-[11px] flex items-center justify-center shadow-xs z-10">
-                      {m.step || i + 1}
-                    </div>
-                    <span className="font-medium text-[#111111] truncate">{m.title}</span>
-                    <span className="font-bold text-[#F81B00] shrink-0 font-mono text-[11px]">
-                      {Number(m.amount).toLocaleString("ru-RU")} ₽
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* Stages Timeline Chain Editor */}
+            <MilestonesChainEditor
+              milestones={milestones}
+              onChange={setMilestones}
+              onSyncBudget={(tot) => setTechBudget(String(tot))}
+            />
 
             {/* Authorship Hash Banner */}
             <div className="p-3 bg-[#F8FAFC] border border-[#E2E5EB] rounded-xl text-[11px] text-[#4B5563] flex items-center gap-2">
@@ -1171,6 +1299,274 @@ export function IdeasTab({
         modalTitle="ИИ-помощник: составление ТЗ на разработку"
         modalDescription="Формирование нормативного академического ТЗ по стандартам ГОСТ 15.016-2016 для каталога разработок"
         applyButtonText="Применить в заявку разработки"
+      />
+
+      {/* View Full Idea Modal */}
+      <Dialog open={!!viewIdeaModal} onOpenChange={(open) => !open && setViewIdeaModal(null)}>
+        <DialogContent className="max-w-2xl bg-white rounded-2xl p-6 max-h-[90vh] overflow-y-auto space-y-4">
+          <DialogHeader>
+            <div className="flex flex-wrap items-center gap-2 mb-1.5">
+              <Badge variant="outline" className="text-[10px] font-bold text-[#F81B00] border-[#F81B00]/30 bg-red-50">
+                {viewIdeaModal?.category}
+              </Badge>
+              <Badge variant="outline" className="text-[10px] font-mono border-[#E2E5EB]">
+                TRL {viewIdeaModal?.trl_level}/9
+              </Badge>
+              <Badge
+                className={`text-[10px] font-bold ${
+                  viewIdeaModal?.moderation_status === "approved"
+                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                    : viewIdeaModal?.moderation_status === "rejected"
+                    ? "bg-red-50 text-red-700 border border-red-200"
+                    : "bg-amber-50 text-amber-800 border border-amber-200"
+                }`}
+              >
+                {viewIdeaModal?.moderation_status === "approved"
+                  ? "Одобрено"
+                  : viewIdeaModal?.moderation_status === "rejected"
+                  ? "Отклонено"
+                  : "На проверке"}
+              </Badge>
+            </div>
+            <DialogTitle className="text-lg sm:text-xl font-extrabold text-[#111111] leading-snug">
+              {viewIdeaModal?.title}
+            </DialogTitle>
+            <div className="flex items-center gap-2 pt-1 text-xs text-[#6B7280]">
+              <span>Автор / Правообладатель:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (viewIdeaModal) setCounterpartyModalId(viewIdeaModal.author_id)
+                }}
+                className="font-bold text-[#111111] hover:text-[#F81B00] hover:underline cursor-pointer flex items-center gap-1"
+              >
+                {viewIdeaModal?.organization_name || viewIdeaModal?.author_name || "Научная организация"}
+                <span className="text-[10px] text-neutral-400">↗</span>
+              </button>
+            </div>
+          </DialogHeader>
+
+          {/* Full Description */}
+          <div className="space-y-1.5">
+            <span className="text-xs font-bold text-[#111111] uppercase tracking-wider block">
+              Полное описание научно-технического решения:
+            </span>
+            <div className="p-4 bg-[#F9FAFB] rounded-xl border border-[#E2E5EB] text-xs text-[#374151] leading-relaxed whitespace-pre-wrap">
+              {viewIdeaModal?.summary}
+            </div>
+          </div>
+
+          {/* Rejection comment if rejected and author */}
+          {viewIdeaModal?.author_id === user?.id && viewIdeaModal?.moderation_status === "rejected" && viewIdeaModal?.moderation_comment && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-900 leading-snug">
+              <strong className="block text-red-700 font-bold mb-1">Замечания модератора:</strong>
+              {viewIdeaModal.moderation_comment}
+            </div>
+          )}
+
+          {/* Budget & Official Certificate */}
+          <div className="p-4 bg-white border border-[#E2E5EB] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280] block">
+                Оценка бюджета разработки
+              </span>
+              <span className="text-lg font-bold text-[#111111] font-mono">
+                {Number(viewIdeaModal?.budget_total || 0).toLocaleString("ru-RU")} ₽
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <a
+                href={`/api/v1/certificates/idea/${viewIdeaModal?.id}/download`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#111111] hover:bg-[#F81B00] text-white text-xs font-bold rounded-xl transition-colors shadow-xs"
+              >
+                <HiOutlineDocumentArrowDown className="size-4" />
+                <span>Свидетельство РИД (PDF)</span>
+              </a>
+              {viewIdeaModal?.file_hash && (
+                <Link
+                  href={`/verify/${viewIdeaModal.file_hash}`}
+                  target="_blank"
+                  className="px-3.5 py-2 border border-[#E2E5EB] hover:bg-[#F5F6F8] text-xs font-semibold rounded-xl transition-colors font-mono"
+                >
+                  Реестр ↗
+                </Link>
+              )}
+            </div>
+          </div>
+
+          {/* Stages Connected Chain */}
+          <div className="space-y-2">
+            <MilestonesChainView milestones={viewIdeaModal?.milestones || []} />
+          </div>
+
+          {/* Footer actions */}
+          <DialogFooter className="gap-2 sm:gap-0 pt-2 border-t border-[#E2E5EB]">
+            {(viewIdeaModal?.author_id === user?.id || user?.is_admin) && (
+              <div className="flex items-center gap-2 w-full justify-between sm:justify-start">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const target = viewIdeaModal
+                    setViewIdeaModal(null)
+                    if (target) handleOpenEdit(target)
+                  }}
+                  className="text-xs font-bold border-[#E2E5EB] rounded-xl hover:border-[#111111] cursor-pointer"
+                >
+                  <HiOutlinePencilSquare className="size-4 mr-1 text-[#111111]" />
+                  Редактировать
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const id = viewIdeaModal?.id
+                    if (id) setDeletingIdeaId(id)
+                  }}
+                  className="text-xs font-bold border-red-200 text-red-600 hover:bg-red-50 rounded-xl cursor-pointer"
+                >
+                  <HiOutlineTrash className="size-4 mr-1 text-red-600" />
+                  Удалить заявку
+                </Button>
+              </div>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setViewIdeaModal(null)}
+              className="text-xs border-[#E2E5EB] rounded-xl cursor-pointer"
+            >
+              Закрыть
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Idea Modal */}
+      <Dialog open={!!editIdeaModal} onOpenChange={(open) => !open && setEditIdeaModal(null)}>
+        <DialogContent className="max-w-xl bg-white rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-[#111111]">
+              Редактирование заявки на разработку
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#6B7280]">
+              Измените параметры, описание или этапы сметы. При сохранении формируется обновленный криптографический отпечаток.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveEdit} className="space-y-3.5 pt-2">
+            <div>
+              <label className="text-xs font-semibold text-[#111111] block mb-1">
+                Название разработки
+              </label>
+              <Input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="Название разработки..."
+                className="h-9 text-xs rounded-xl"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-[#111111] block mb-1">Отрасль</label>
+                <select
+                  value={editCategory}
+                  onChange={(e) => setEditCategory(e.target.value)}
+                  className="w-full h-9 border border-[#E2E5EB] bg-white rounded-xl px-2.5 text-xs text-[#111111] outline-hidden"
+                >
+                  {CATEGORIES.filter((c) => c !== "Все").map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-[#111111] block mb-1">
+                  Уровень готовности (TRL: 1-9)
+                </label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={9}
+                  value={editTrl}
+                  onChange={(e) => setEditTrl(Number(e.target.value))}
+                  className="h-9 text-xs rounded-xl"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-[#111111] block mb-1">
+                Полное описание технологии
+              </label>
+              <textarea
+                value={editSummary}
+                onChange={(e) => setEditSummary(e.target.value)}
+                placeholder="Подробное описание сути решения, результатов испытаний..."
+                className="w-full h-28 border border-[#E2E5EB] rounded-xl p-2.5 text-xs text-[#111111] outline-hidden resize-none leading-relaxed"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-[#111111] block mb-1">
+                Общий бюджет НИОКР (₽)
+              </label>
+              <Input
+                type="number"
+                value={editBudget}
+                onChange={(e) => setEditBudget(e.target.value)}
+                className="h-9 text-xs rounded-xl"
+                required
+              />
+            </div>
+
+            {/* Stages Timeline Chain Editor */}
+            <MilestonesChainEditor
+              milestones={editMilestones}
+              onChange={setEditMilestones}
+              onSyncBudget={(tot) => setEditBudget(String(tot))}
+            />
+
+            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditIdeaModal(null)}
+                className="text-xs border-[#E2E5EB] rounded-xl"
+              >
+                Отмена
+              </Button>
+              <Button
+                type="submit"
+                disabled={savingEdit}
+                className="text-xs font-bold bg-[#F81B00] hover:bg-[#e01800] text-white rounded-xl shadow-xs cursor-pointer"
+              >
+                {savingEdit ? "Сохранение..." : "Сохранить изменения"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Idea Confirmation Dialog */}
+      <ConfirmDialog
+        open={deletingIdeaId !== null}
+        onOpenChange={(open) => !open && setDeletingIdeaId(null)}
+        title="Удалить заявку на разработку?"
+        description="Вы уверены, что хотите удалить эту разработку? Запись будет удалена из каталога и реестра платформы. Это действие необратимо."
+        confirmText="Да, удалить заявку"
+        cancelText="Отмена"
+        onConfirm={handleDeleteIdea}
+        loading={deletingIdea}
+        variant="destructive"
       />
     </div>
   )

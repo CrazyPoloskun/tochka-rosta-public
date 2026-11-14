@@ -1,6 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
-from sqlalchemy import String, DateTime, Integer, Numeric, Text, ForeignKey, func
+from typing import Any
+from sqlalchemy import String, DateTime, Integer, Numeric, Text, JSON, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -17,6 +18,9 @@ class Task(Base):
     budget: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False, default=Decimal("0.00"))
     deadline: Mapped[str] = mapped_column(String(50), nullable=False)
     
+    # Список этапов [{step: 1, title: "...", amount: 100000}]
+    milestones: Mapped[list[Any]] = mapped_column(JSON, default=list, nullable=False)
+
     # "pending" | "approved" | "rejected"
     moderation_status: Mapped[str] = mapped_column(String(50), nullable=False, default="approved", index=True)
     # "open" | "in_progress" | "closed"

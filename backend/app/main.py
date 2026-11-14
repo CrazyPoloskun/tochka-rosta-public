@@ -54,6 +54,7 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS gost_structured_data JSON",
             "ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS gost_docx_path VARCHAR(512)",
             "ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS gost_pdf_path VARCHAR(512)",
+            "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS milestones JSON NOT NULL DEFAULT '[]'::json",
         ]
         for stmt in alter_statements:
             try:

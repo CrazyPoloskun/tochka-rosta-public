@@ -14,6 +14,9 @@ import {
   HiOutlineSparkles,
   HiOutlineDocumentArrowDown,
   HiOutlineChatBubbleLeftRight,
+  HiOutlineEye,
+  HiOutlinePencilSquare,
+  HiOutlineTrash,
 } from "react-icons/hi2"
 
 import { Button } from "@/components/ui/button"
@@ -36,6 +39,7 @@ import { AiTaskAssistantModal } from "./ai-task-assistant-modal"
 import { CounterpartyModal } from "@/components/profile/counterparty-modal"
 import { User } from "@/lib/auth-context"
 import { TaskItem, TaskBid, MatchingInvitationItem, RecommendedLabItem } from "./dashboard-types"
+import { MilestonesChainView, MilestonesChainEditor, MilestoneItemData } from "./milestones-chain"
 
 interface TasksTabProps {
   user: User | null
@@ -115,8 +119,113 @@ export function TasksTab({
   const [taskBudget, setTaskBudget] = React.useState("")
   const [taskDeadline, setTaskDeadline] = React.useState("6 месяцев")
   const [taskDesc, setTaskDesc] = React.useState("")
+  const [taskMilestones, setTaskMilestones] = React.useState<MilestoneItemData[]>([
+    { step: 1, title: "Аналитическое исследование и эскизное проектирование", amount: 300000 },
+    { step: 2, title: "Разработка макета и стендовые испытания", amount: 400000 },
+    { step: 3, title: "Создание опытного образца и приёмочные испытания", amount: 300000 },
+  ])
   const [submittingTask, setSubmittingTask] = React.useState(false)
   const [generatingTz, setGeneratingTz] = React.useState(false)
+
+  // Task View Modal
+  const [viewTaskModal, setViewTaskModal] = React.useState<TaskItem | null>(null)
+
+  // Task Edit Modal
+  const [editTaskModal, setEditTaskModal] = React.useState<TaskItem | null>(null)
+  const [editTaskTitle, setEditTaskTitle] = React.useState("")
+  const [editTaskBudget, setEditTaskBudget] = React.useState("")
+  const [editTaskDeadline, setEditTaskDeadline] = React.useState("6 месяцев")
+  const [editTaskDesc, setEditTaskDesc] = React.useState("")
+  const [editTaskMilestones, setEditTaskMilestones] = React.useState<MilestoneItemData[]>([])
+  const [savingTaskEdit, setSavingTaskEdit] = React.useState(false)
+
+  // Task Delete State
+  const [deletingTaskId, setDeletingTaskId] = React.useState<number | null>(null)
+  const [deletingTask, setDeletingTask] = React.useState(false)
+
+  const handleOpenEditTask = (task: TaskItem) => {
+    setEditTaskModal(task)
+    setEditTaskTitle(task.title)
+    setEditTaskBudget(String(task.budget || 0))
+    setEditTaskDeadline(task.deadline || "6 месяцев")
+    setEditTaskDesc(task.description || "")
+    setEditTaskMilestones(
+      (task.milestones && task.milestones.length > 0)
+        ? task.milestones.map((m: any, i: number) => ({
+            step: m.step || i + 1,
+            title: m.title || `Этап ${i + 1}`,
+            amount: Number(m.amount) || 0,
+          }))
+        : [
+            { step: 1, title: "Аналитическое исследование и эскизное проектирование", amount: Math.round(Number(task.budget) * 0.3) },
+            { step: 2, title: "Разработка макета и стендовые испытания", amount: Math.round(Number(task.budget) * 0.4) },
+            { step: 3, title: "Создание опытного образца и приёмочные испытания", amount: Math.round(Number(task.budget) * 0.3) },
+          ]
+    )
+  }
+
+  const handleSaveTaskEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editTaskModal) return
+    setSavingTaskEdit(true)
+    try {
+      const res = await authFetch(`/api/v1/tasks/${editTaskModal.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editTaskTitle.trim(),
+          description: editTaskDesc.trim(),
+          budget: Number(editTaskBudget) || 0,
+          deadline: editTaskDeadline.trim(),
+          milestones: editTaskMilestones,
+        }),
+      })
+      if (res.ok) {
+        success(
+          "R&D-задача успешно обновлена! Свидетельство депонирования ТЗ синхронизировано.",
+          "Задача обновлена"
+        )
+        const updated = await res.json()
+        setEditTaskModal(null)
+        if (viewTaskModal?.id === editTaskModal.id) {
+          setViewTaskModal(updated)
+        }
+        onRefresh()
+      } else {
+        const data = await res.json()
+        error(data.detail || "Ошибка при обновлении задачи", "Ошибка")
+      }
+    } catch {
+      error("Сетевая ошибка", "Ошибка")
+    } finally {
+      setSavingTaskEdit(false)
+    }
+  }
+
+  const handleDeleteTask = async () => {
+    if (!deletingTaskId) return
+    setDeletingTask(true)
+    try {
+      const res = await authFetch(`/api/v1/tasks/${deletingTaskId}`, {
+        method: "DELETE",
+      })
+      if (res.ok) {
+        success("Задача успешно удалена с биржи R&D.", "Задача удалена")
+        if (viewTaskModal?.id === deletingTaskId) {
+          setViewTaskModal(null)
+        }
+        setDeletingTaskId(null)
+        onRefresh()
+      } else {
+        const data = await res.json()
+        error(data.detail || "Ошибка при удалении задачи", "Ошибка")
+      }
+    } catch {
+      error("Сетевая ошибка", "Ошибка")
+    } finally {
+      setDeletingTask(false)
+    }
+  }
 
   const handleApplyAiTz = (tzData: {
     title: string
@@ -124,11 +233,21 @@ export function TasksTab({
     budget: string
     deadline: string
     description: string
+    stages?: { step?: number; title: string; amount?: number }[]
   }) => {
     setTaskTitle(tzData.title)
     setTaskBudget(tzData.budget)
     setTaskDeadline(tzData.deadline)
     setTaskDesc(tzData.description)
+    if (tzData.stages && tzData.stages.length > 0) {
+      setTaskMilestones(
+        tzData.stages.map((s, i) => ({
+          step: s.step || i + 1,
+          title: s.title || `Этап ${i + 1}`,
+          amount: Number(s.amount) || Math.round(Number(tzData.budget) / tzData.stages.length) || 200000,
+        }))
+      )
+    }
     setIsNewTaskOpen(true)
   }
 
@@ -194,6 +313,7 @@ export function TasksTab({
           budget: Number(taskBudget) || 1000000,
           deadline: taskDeadline.trim(),
           description: taskDesc.trim(),
+          milestones: taskMilestones,
         }),
       })
       const data = await res.json()
@@ -492,7 +612,7 @@ export function TasksTab({
       ) : (
         <div className="space-y-4">
           {tasks.map((task) => {
-            const isCreator = task.creator_id === user?.id
+            const isCreator = task.creator_id === user?.id || task.investor_id === user?.id || user?.is_admin
             const bidsCount = task.bids?.length || 0
             const hasMyBid = isLab && task.bids?.some((b) => b.lab_id === user?.id)
 
@@ -519,18 +639,22 @@ export function TasksTab({
                         Срок: {task.deadline}
                       </span>
                     </div>
-                    <h3 className="text-base font-bold text-[#111111] leading-snug">
+                    <h3
+                      onClick={() => setViewTaskModal(task)}
+                      className="text-base font-bold text-[#111111] leading-snug cursor-pointer hover:text-[#F81B00] transition-colors"
+                      title="Нажмите, чтобы посмотреть полное ТЗ и цепочку этапов"
+                    >
                       {task.title}
                     </h3>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-[11px] text-[#6B7280]">Заказчик:</span>
                       <button
                         type="button"
-                        onClick={() => setCounterpartyModalId(task.creator_id)}
+                        onClick={() => setCounterpartyModalId(task.creator_id || task.investor_id || 0)}
                         className="text-[11px] font-semibold text-[#111111] hover:text-[#F81B00] hover:underline flex items-center gap-0.5 cursor-pointer"
                         title="Посмотреть карточку организации"
                       >
-                        {task.creator_name || "Корпоративный партнёр"}
+                        {task.creator_name || task.investor_name || "Корпоративный партнёр"}
                         <span className="text-[9px] text-neutral-400">↗</span>
                       </button>
                     </div>
@@ -557,9 +681,56 @@ export function TasksTab({
                 </div>
 
                 {/* Description */}
-                <p className="text-xs text-[#4B5563] leading-relaxed">
+                <p className="text-xs text-[#4B5563] leading-relaxed line-clamp-3">
                   {task.description}
                 </p>
+
+                {/* Milestones count and Details button */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#F1F3F5]">
+                  <div className="flex items-center gap-3 text-[11px] text-[#6B7280]">
+                    <span>
+                      Этапов реализации: <strong className="text-[#111111]">{task.milestones?.length || 3}</strong>
+                    </span>
+                    <span>
+                      Откликов НИИ: <strong className="text-[#111111]">{bidsCount}</strong>
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setViewTaskModal(task)}
+                      className="text-xs font-bold border-[#E2E5EB] text-[#111111] hover:bg-[#F5F6F8] rounded-xl flex items-center gap-1 cursor-pointer"
+                    >
+                      <HiOutlineEye className="size-3.5 text-[#6B7280]" />
+                      <span>Подробнее</span>
+                    </Button>
+
+                    {isCreator && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleOpenEditTask(task)}
+                          className="px-2.5 text-xs font-bold border-[#E2E5EB] text-[#111111] hover:border-[#111111] rounded-xl cursor-pointer"
+                          title="Редактировать задачу и этапы"
+                        >
+                          <HiOutlinePencilSquare className="size-3.5" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setDeletingTaskId(task.id)}
+                          className="px-2.5 text-xs font-bold border-red-200 text-red-600 hover:bg-red-50 rounded-xl cursor-pointer"
+                          title="Удалить задачу"
+                        >
+                          <HiOutlineTrash className="size-3.5" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
 
                 {/* Lab Action */}
                 {isLab && task.status === "open" && (
@@ -771,13 +942,13 @@ export function TasksTab({
 
       {/* Investor New Task Modal */}
       <Dialog open={isNewTaskOpen} onOpenChange={setIsNewTaskOpen}>
-        <DialogContent className="max-w-md bg-white rounded-2xl p-6">
+        <DialogContent className="max-w-xl bg-white rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-[#111111]">
               Размещение R&D-задачи (Тендера)
             </DialogTitle>
             <DialogDescription className="text-xs text-[#6B7280]">
-              Опубликуйте требования к НИОКР. Аккредитованные лаборатории предложат смету и план работ.
+              Опубликуйте требования к НИОКР и этапы сметы. Аккредитованные лаборатории предложат решение.
             </DialogDescription>
           </DialogHeader>
 
@@ -841,10 +1012,17 @@ export function TasksTab({
                 value={taskDesc}
                 onChange={(e) => setTaskDesc(e.target.value)}
                 placeholder="Подробно опишите технические условия, ГОСТы, диапазоны температур, требования к протоколам..."
-                className="w-full h-28 border border-[#E2E5EB] rounded-xl p-2.5 text-xs text-[#111111] outline-hidden resize-none leading-relaxed"
+                className="w-full h-24 border border-[#E2E5EB] rounded-xl p-2.5 text-xs text-[#111111] outline-hidden resize-none leading-relaxed"
                 required
               />
             </div>
+
+            {/* Stages Timeline Chain Editor */}
+            <MilestonesChainEditor
+              milestones={taskMilestones}
+              onChange={setTaskMilestones}
+              onSyncBudget={(tot) => setTaskBudget(String(tot))}
+            />
 
             <DialogFooter className="gap-2 sm:gap-0 pt-2">
               <Button
@@ -857,6 +1035,15 @@ export function TasksTab({
               </Button>
               <Button
                 type="submit"
+                disabled={submittingTask}
+                className="text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs"
+              >
+                {submittingTask ? "Публикация..." : "Разместить тендер"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
                 disabled={submittingTask}
                 className="text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs"
               >
@@ -1010,6 +1197,236 @@ export function TasksTab({
         onOpenChat={() => {
           onNavigateToMessages()
         }}
+      />
+
+      {/* View Full Task Modal */}
+      <Dialog open={!!viewTaskModal} onOpenChange={(open) => !open && setViewTaskModal(null)}>
+        <DialogContent className="max-w-2xl bg-white rounded-2xl p-6 max-h-[90vh] overflow-y-auto space-y-4">
+          <DialogHeader>
+            <div className="flex flex-wrap items-center gap-2 mb-1.5">
+              <Badge variant="outline" className="text-[10px] font-bold border-[#E2E5EB]">
+                Тендер #{viewTaskModal?.id}
+              </Badge>
+              <Badge
+                variant={viewTaskModal?.status === "open" ? "default" : "secondary"}
+                className="text-[10px] font-bold uppercase"
+              >
+                {viewTaskModal?.status === "open" ? "Открыт сбор заявок" : "Исполнитель выбран"}
+              </Badge>
+              <span className="text-xs text-[#6B7280] flex items-center gap-1">
+                <HiOutlineCalendar className="size-3.5" />
+                Срок: {viewTaskModal?.deadline}
+              </span>
+            </div>
+            <DialogTitle className="text-lg sm:text-xl font-extrabold text-[#111111] leading-snug">
+              {viewTaskModal?.title}
+            </DialogTitle>
+            <div className="flex items-center gap-2 pt-1 text-xs text-[#6B7280]">
+              <span>Заказчик:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (viewTaskModal) {
+                    setCounterpartyModalId(viewTaskModal.creator_id || viewTaskModal.investor_id || 0)
+                  }
+                }}
+                className="font-bold text-[#111111] hover:text-[#F81B00] hover:underline cursor-pointer flex items-center gap-1"
+              >
+                {viewTaskModal?.creator_name || viewTaskModal?.investor_name || "Корпоративный заказчик"}
+                <span className="text-[10px] text-neutral-400">↗</span>
+              </button>
+            </div>
+          </DialogHeader>
+
+          {/* Full Description */}
+          <div className="space-y-1.5">
+            <span className="text-xs font-bold text-[#111111] uppercase tracking-wider block">
+              Полное техническое задание и требования к результатам:
+            </span>
+            <div className="p-4 bg-[#F9FAFB] rounded-xl border border-[#E2E5EB] text-xs text-[#374151] leading-relaxed whitespace-pre-wrap">
+              {viewTaskModal?.description}
+            </div>
+          </div>
+
+          {/* Budget & Certificate */}
+          <div className="p-4 bg-white border border-[#E2E5EB] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280] block">
+                Максимальный бюджет тендера
+              </span>
+              <span className="text-lg font-bold text-[#111111] font-mono">
+                {Number(viewTaskModal?.budget || 0).toLocaleString("ru-RU")} ₽
+              </span>
+            </div>
+            <div>
+              <a
+                href={`/api/v1/certificates/task/${viewTaskModal?.id}/download`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#111111] hover:bg-[#F81B00] text-white text-xs font-bold rounded-xl transition-colors shadow-xs"
+              >
+                <HiOutlineDocumentArrowDown className="size-4" />
+                <span>Свидетельство ТЗ (PDF)</span>
+              </a>
+            </div>
+          </div>
+
+          {/* Milestones Connected Chain */}
+          <div className="space-y-2">
+            <MilestonesChainView
+              milestones={viewTaskModal?.milestones || []}
+              title="Календарная цепочка этапов ТЗ"
+              emptyText="Этапы ТЗ не были предварительно разбиты заказчиком"
+            />
+          </div>
+
+          {/* Footer actions */}
+          <DialogFooter className="gap-2 sm:gap-0 pt-2 border-t border-[#E2E5EB]">
+            {(viewTaskModal?.creator_id === user?.id || viewTaskModal?.investor_id === user?.id || user?.is_admin) && (
+              <div className="flex items-center gap-2 w-full justify-between sm:justify-start">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const target = viewTaskModal
+                    setViewTaskModal(null)
+                    if (target) handleOpenEditTask(target)
+                  }}
+                  className="text-xs font-bold border-[#E2E5EB] rounded-xl hover:border-[#111111] cursor-pointer"
+                >
+                  <HiOutlinePencilSquare className="size-4 mr-1 text-[#111111]" />
+                  Редактировать
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const id = viewTaskModal?.id
+                    if (id) setDeletingTaskId(id)
+                  }}
+                  className="text-xs font-bold border-red-200 text-red-600 hover:bg-red-50 rounded-xl cursor-pointer"
+                >
+                  <HiOutlineTrash className="size-4 mr-1 text-red-600" />
+                  Удалить задачу
+                </Button>
+              </div>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setViewTaskModal(null)}
+              className="text-xs border-[#E2E5EB] rounded-xl cursor-pointer"
+            >
+              Закрыть
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Task Modal */}
+      <Dialog open={!!editTaskModal} onOpenChange={(open) => !open && setEditTaskModal(null)}>
+        <DialogContent className="max-w-xl bg-white rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-[#111111]">
+              Редактирование R&D-задачи (Тендера)
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#6B7280]">
+              Измените требования, сроки, бюджет или цепочку этапов выполнения.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveTaskEdit} className="space-y-3.5 py-2">
+            <div>
+              <label className="text-xs font-semibold text-[#111111] block mb-1">
+                Название задачи
+              </label>
+              <Input
+                value={editTaskTitle}
+                onChange={(e) => setEditTaskTitle(e.target.value)}
+                placeholder="Название задачи..."
+                className="h-9 text-xs rounded-xl"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-[#111111] block mb-1">
+                  Макс. бюджет (₽)
+                </label>
+                <Input
+                  type="number"
+                  value={editTaskBudget}
+                  onChange={(e) => setEditTaskBudget(e.target.value)}
+                  className="h-9 text-xs rounded-xl"
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-[#111111] block mb-1">
+                  Требуемый дедлайн
+                </label>
+                <Input
+                  value={editTaskDeadline}
+                  onChange={(e) => setEditTaskDeadline(e.target.value)}
+                  className="h-9 text-xs rounded-xl"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-[#111111] block mb-1">
+                Техническое задание и требования
+              </label>
+              <textarea
+                value={editTaskDesc}
+                onChange={(e) => setEditTaskDesc(e.target.value)}
+                placeholder="Подробно опишите технические условия..."
+                className="w-full h-28 border border-[#E2E5EB] rounded-xl p-2.5 text-xs text-[#111111] outline-hidden resize-none leading-relaxed"
+                required
+              />
+            </div>
+
+            {/* Stages Timeline Chain Editor */}
+            <MilestonesChainEditor
+              milestones={editTaskMilestones}
+              onChange={setEditTaskMilestones}
+              onSyncBudget={(tot) => setEditTaskBudget(String(tot))}
+            />
+
+            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditTaskModal(null)}
+                className="text-xs border-[#E2E5EB] rounded-xl"
+              >
+                Отмена
+              </Button>
+              <Button
+                type="submit"
+                disabled={savingTaskEdit}
+                className="text-xs font-bold bg-[#F81B00] hover:bg-[#e01800] text-white rounded-xl shadow-xs cursor-pointer"
+              >
+                {savingTaskEdit ? "Сохранение..." : "Сохранить изменения"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Task Confirmation Dialog */}
+      <ConfirmDialog
+        open={deletingTaskId !== null}
+        onOpenChange={(open) => !open && setDeletingTaskId(null)}
+        title="Удалить R&D-задачу?"
+        description="Вы уверены, что хотите удалить эту задачу? Она будет снята с биржи тендеров. Это действие нельзя отменить."
+        confirmText="Да, удалить задачу"
+        cancelText="Отмена"
+        onConfirm={handleDeleteTask}
+        loading={deletingTask}
+        variant="destructive"
       />
     </div>
   )

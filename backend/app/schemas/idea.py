@@ -20,6 +20,15 @@ class IdeaCreateRequest(BaseModel):
     milestones: list[dict[str, Any]] = Field(default_factory=list)
 
 
+class IdeaUpdateRequest(BaseModel):
+    title: str | None = None
+    summary: str | None = None
+    category: str | None = None
+    trl_level: int | None = Field(None, ge=1, le=9)
+    budget_total: Decimal | None = Field(None, ge=0)
+    milestones: list[dict[str, Any]] | None = None
+
+
 class IdeaOrderRequest(BaseModel):
     proposed_budget: Decimal | None = None
     proposed_timeline: str | None = None

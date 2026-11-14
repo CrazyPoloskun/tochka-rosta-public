@@ -10,7 +10,7 @@ from app.models.user import User
 from app.models.idea import Idea
 from app.models.project import Project, ProjectMilestone
 from app.models.chat import Chat, Message
-from app.schemas.idea import IdeaCreateRequest, IdeaResponse, IdeaOrderRequest
+from app.schemas.idea import IdeaCreateRequest, IdeaUpdateRequest, IdeaResponse, IdeaOrderRequest
 from app.services.chat_service import get_or_create_context_chat
 from app.services.certificate_service import get_or_create_deposit_certificate
 
@@ -101,6 +101,122 @@ async def create_idea(
     res.author_name = current_user.full_name
     res.organization_name = current_user.organization_name
     return res
+
+
+@router.get("/{idea_id}", response_model=IdeaResponse)
+async def get_idea(
+    idea_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_current_user),
+):
+    """Получение полных данных о разработке по ее ID."""
+    query = select(Idea, User.full_name, User.organization_name).join(User, Idea.author_id == User.id).where(Idea.id == idea_id)
+    res = await db.execute(query)
+    row = res.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Разработка не найдена")
+
+    idea, author_name, org_name = row
+    if idea.moderation_status != "approved":
+        if not current_user or (current_user.id != idea.author_id and not current_user.is_admin):
+            raise HTTPException(status_code=403, detail="Разработка находится на модерации")
+
+    res_dto = IdeaResponse.model_validate(idea)
+    res_dto.author_name = author_name
+    res_dto.organization_name = org_name
+    return res_dto
+
+
+@router.put("/{idea_id}", response_model=IdeaResponse)
+async def update_idea(
+    idea_id: int,
+    data: IdeaUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Редактирование параметров и этапов разработки автором или администратором."""
+    res = await db.execute(select(Idea).where(Idea.id == idea_id))
+    idea = res.scalar_one_or_none()
+    if not idea:
+        raise HTTPException(status_code=404, detail="Разработка не найдена")
+
+    if idea.author_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Вы можете редактировать только собственные заявки")
+
+    if data.title is not None:
+        idea.title = data.title.strip()
+    if data.summary is not None:
+        idea.summary = data.summary.strip()
+    if data.category is not None:
+        idea.category = data.category.strip()
+    if data.trl_level is not None:
+        idea.trl_level = data.trl_level
+    if data.budget_total is not None:
+        idea.budget_total = data.budget_total
+    if data.milestones is not None:
+        clean_milestones = []
+        for idx, m in enumerate(data.milestones, 1):
+            clean_milestones.append({
+                "step": idx,
+                "title": m.get("title", f"Этап {idx}"),
+                "amount": float(m.get("amount", 0)),
+            })
+        idea.milestones = clean_milestones
+
+    # Пересчет хеша авторства РИД
+    content_to_hash = f"{idea.title}:{idea.summary}:{idea.author_id}".encode("utf-8")
+    idea.file_hash = hashlib.sha256(content_to_hash).hexdigest()
+
+    # При редактировании отклоненной заявки переводим обратно на проверку
+    if idea.moderation_status == "rejected":
+        idea.moderation_status = "pending"
+        idea.moderation_comment = None
+
+    await db.commit()
+    await db.refresh(idea)
+
+    # Обновление официального свидетельства депонирования
+    try:
+        await get_or_create_deposit_certificate(db, "idea", idea.id, force_regenerate=True)
+    except Exception as e:
+        print(f"[IDEA UPDATE] Certificate update warning: {e}")
+
+    u_res = await db.execute(select(User).where(User.id == idea.author_id))
+    user = u_res.scalar_one_or_none()
+
+    res_dto = IdeaResponse.model_validate(idea)
+    res_dto.author_name = user.full_name if user else None
+    res_dto.organization_name = user.organization_name if user else None
+    return res_dto
+
+
+@router.delete("/{idea_id}")
+async def delete_idea(
+    idea_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Удаление заявки на разработку автором или администратором."""
+    res = await db.execute(select(Idea).where(Idea.id == idea_id))
+    idea = res.scalar_one_or_none()
+    if not idea:
+        raise HTTPException(status_code=404, detail="Разработка не найдена")
+
+    if idea.author_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Вы можете удалять только собственные заявки")
+
+    from app.models.certificate import DepositCertificate
+    await db.execute(
+        DepositCertificate.__table__.delete().where(
+            DepositCertificate.entity_type == "idea",
+            DepositCertificate.entity_id == idea_id,
+        )
+    )
+
+    await db.delete(idea)
+    await db.commit()
+
+    return {"status": "ok", "message": "Заявка успешно удалена"}
 
 
 @router.post("/{idea_id}/order", status_code=status.HTTP_201_CREATED)
