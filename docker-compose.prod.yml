@@ -1,0 +1,83 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: tochka_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-tochka_rosta}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-tochka_rosta}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tochka_backend
+    restart: unless-stopped
+    environment:
+      POSTGRES_SERVER: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-tochka_rosta}
+      SECRET_KEY: ${SECRET_KEY:-tochka-rosta-prod-secret-key-change-me}
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      REFRESH_TOKEN_EXPIRE_DAYS: 7
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: tochka_frontend
+    restart: unless-stopped
+    environment:
+      INTERNAL_BACKEND_URL: http://backend:8000
+      NEXT_PUBLIC_API_URL: ""
+      BETA_MODE: ${BETA_MODE:-true}
+      BETA_CODE: ${BETA_CODE:-tochka2026}
+      SECRET_KEY: ${SECRET_KEY:-tochka-rosta-prod-secret-key-change-me}
+    depends_on:
+      - backend
+
+  nginx:
+    image: nginx:alpine
+    container_name: tochka_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    command: '/bin/sh -c "while :; do sleep 24h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\""'
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - certbot_www:/var/www/certbot:ro
+      - certbot_conf:/etc/letsencrypt:ro
+    depends_on:
+      - frontend
+      - backend
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: tochka_certbot
+    restart: unless-stopped
+    volumes:
+      - certbot_www:/var/www/certbot:rw
+      - certbot_conf:/etc/letsencrypt:rw
+    entrypoint: ""
+    command: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot; sleep 12h & wait $${!}; done;'"
+
+volumes:
+  postgres_data:
+  certbot_www:
+  certbot_conf:

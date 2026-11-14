@@ -1,0 +1,221 @@
+import hashlib
+from decimal import Decimal
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select, or_
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_db
+from app.core.deps import get_current_user
+from app.models.user import User
+from app.models.idea import Idea
+from app.models.project import Project, ProjectMilestone
+from app.models.chat import Chat, Message
+from app.schemas.idea import IdeaCreateRequest, IdeaResponse, IdeaOrderRequest
+from app.services.chat_service import get_or_create_context_chat
+from app.services.certificate_service import get_or_create_deposit_certificate
+
+router = APIRouter()
+
+
+@router.get("", response_model=list[IdeaResponse])
+async def list_ideas(
+    category: str | None = Query(None),
+    trl: int | None = Query(None),
+    type: str | None = Query(None),
+    search: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_current_user),
+):
+    query = select(Idea, User.full_name, User.organization_name).join(User, Idea.author_id == User.id)
+
+    # Обычным пользователям показываем только одобренные модератором + их собственные карточки
+    if not current_user or not current_user.is_admin:
+        if current_user:
+            query = query.where(or_(Idea.moderation_status == "approved", Idea.author_id == current_user.id))
+        else:
+            query = query.where(Idea.moderation_status == "approved")
+
+    if category and category != "Все":
+        query = query.where(Idea.category == category)
+    if trl:
+        query = query.where(Idea.trl_level >= trl)
+    if type:
+        query = query.where(Idea.type == type)
+    if search:
+        s = f"%{search.lower()}%"
+        query = query.where(or_(Idea.title.ilike(s), Idea.summary.ilike(s), Idea.category.ilike(s)))
+
+    query = query.order_by(Idea.id.desc())
+    result = await db.execute(query)
+    rows = result.all()
+
+    response = []
+    for idea, author_name, org_name in rows:
+        item = IdeaResponse.model_validate(idea)
+        item.author_name = author_name
+        item.organization_name = org_name
+        response.append(item)
+    return response
+
+
+@router.post("", response_model=IdeaResponse, status_code=status.HTTP_201_CREATED)
+async def create_idea(
+    data: IdeaCreateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    # Если публикует НИИ — проверяем верификацию
+    if current_user.role == "lab" and current_user.verification_status != "verified":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Публикация разработок доступна только после подтверждения верификации НИИ администратором.",
+        )
+
+    # Вычисление SHA-256 хеша для фиксации авторского права
+    content_to_hash = f"{data.title}:{data.summary}:{current_user.id}".encode("utf-8")
+    file_hash = hashlib.sha256(content_to_hash).hexdigest()
+
+    idea = Idea(
+        author_id=current_user.id,
+        type=data.type,
+        title=data.title.strip(),
+        summary=data.summary.strip(),
+        category=data.category.strip(),
+        trl_level=data.trl_level,
+        budget_total=data.budget_total,
+        milestones=data.milestones,
+        file_hash=file_hash,
+        moderation_status="approved" if current_user.is_admin else "pending",
+    )
+    db.add(idea)
+    await db.commit()
+    await db.refresh(idea)
+
+    # Автоматическое формирование свидетельства о депонировании РИД
+    try:
+        await get_or_create_deposit_certificate(db, "idea", idea.id)
+    except Exception as e:
+        print(f"[IDEA CREATE] Certificate error: {e}")
+
+    res = IdeaResponse.model_validate(idea)
+    res.author_name = current_user.full_name
+    res.organization_name = current_user.organization_name
+    return res
+
+
+@router.post("/{idea_id}/order", status_code=status.HTTP_201_CREATED)
+async def order_idea(
+    idea_id: int,
+    data: IdeaOrderRequest | None = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Idea).where(Idea.id == idea_id))
+    idea = result.scalar_one_or_none()
+    if not idea:
+        raise HTTPException(status_code=404, detail="Разработка не найдена")
+
+    if idea.author_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Нельзя заказать собственную разработку")
+
+    # Создаем проект
+    investor_id = current_user.id if current_user.role == "investor" else idea.author_id
+    lab_id = idea.author_id if current_user.role == "investor" else current_user.id
+
+    budget = (data.proposed_budget if data and data.proposed_budget else idea.budget_total) or Decimal("100000")
+    order_type_label = "Пожертвование на исследование" if (data and data.order_type == "donation") else "Заказ R&D"
+
+    project = Project(
+        title=f"{order_type_label}: {idea.title}",
+        investor_id=investor_id,
+        lab_id=lab_id,
+        total_budget=budget,
+        status="active",
+    )
+    db.add(project)
+    await db.flush()
+
+    # Создаем этапы из milestones идеи или одного этапа
+    if idea.milestones and not (data and data.order_type == "donation"):
+        for idx, m in enumerate(idea.milestones, 1):
+            ms = ProjectMilestone(
+                project_id=project.id,
+                step_number=m.get("step", idx),
+                title=m.get("title", f"Этап {idx}"),
+                amount=Decimal(str(m.get("amount", "100000"))),
+                status="pending_funds",
+            )
+            db.add(ms)
+    else:
+        db.add(ProjectMilestone(
+            project_id=project.id,
+            step_number=1,
+            title="Целевое финансирование" if (data and data.order_type == "donation") else "Базовый этап разработки",
+            amount=budget,
+            status="pending_funds",
+        ))
+
+    # Контекстный тип
+    if current_user.role == "lab":
+        c_type = "idea_proposal"
+    elif data and data.order_type == "donation":
+        c_type = "donation"
+    else:
+        c_type = "idea_order"
+
+    # Инициируем чат по проекту с контекстом
+    chat, _ = await get_or_create_context_chat(
+        db=db,
+        investor_id=investor_id,
+        lab_id=lab_id,
+        context_type=c_type,
+        context_id=idea.id,
+        project_id=project.id,
+        title=f"Сделка: {idea.title[:40]}",
+        initial_message=intro_content,
+        sender_id=current_user.id,
+    )
+
+    await db.commit()
+    return {"message": "Проект успешно создан", "project_id": project.id, "chat_id": chat.id}
+
+
+@router.post("/{idea_id}/propose", status_code=status.HTTP_201_CREATED)
+async def propose_idea(
+    idea_id: int,
+    data: IdeaOrderRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Лаборатория отправляет встречное предложение по реализации идеи заказчика."""
+    result = await db.execute(select(Idea).where(Idea.id == idea_id))
+    idea = result.scalar_one_or_none()
+    if not idea:
+        raise HTTPException(status_code=404, detail="Идея не найдена")
+
+    if idea.author_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Нельзя предлагать реализацию собственной идеи")
+
+    budget_text = f"{data.proposed_budget:,.2f} ₽" if data.proposed_budget else "По договоренности"
+    timeline_str = f"Сроки: {data.proposed_timeline}.\n" if data.proposed_timeline else ""
+    comment_str = f"Комментарий: {data.proposal_message}" if data.proposal_message else ""
+    intro_content = (
+        f"Здравствуйте! НИИ «{current_user.organization_name or current_user.full_name}» предлагает реализацию вашей идеи «{idea.title}».\n"
+        f"Ориентировочный бюджет: {budget_text}.\n"
+        f"{timeline_str}"
+        f"{comment_str}"
+    )
+
+    chat, is_new = await get_or_create_context_chat(
+        db=db,
+        investor_id=idea.author_id,
+        lab_id=current_user.id,
+        context_type="idea_proposal",
+        context_id=idea.id,
+        title=f"Предложение: {idea.title[:40]}",
+        initial_message=intro_content,
+        sender_id=current_user.id,
+    )
+
+    await db.commit()
+    return {"message": "Предложение отправлено, контекстный чат открыт", "chat_id": chat.id}

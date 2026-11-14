@@ -1,0 +1,282 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-heading: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: 1rem;
+  --radius-2xl: 1rem;
+}
+
+:root {
+  /* Палитра бренда «Точка Роста» (Yandex Gravity UI / Yandex Cloud) */
+  --background: #F5F6F8;
+  --foreground: #111111;
+  --card: #FFFFFF;
+  --card-foreground: #111111;
+  --popover: #FFFFFF;
+  --popover-foreground: #111111;
+  
+  /* Фирменный киноварно-красный из стрелки логотипа */
+  --primary: #F81B00;
+  --primary-hover: #D91700;
+  --primary-foreground: #FFFFFF;
+  
+  /* Угольно-черный акцент из логотипа */
+  --secondary: #111111;
+  --secondary-foreground: #FFFFFF;
+  
+  --muted: #ECEEF2;
+  --muted-foreground: #6B7280;
+  --accent: #ECEEF2;
+  --accent-foreground: #111111;
+  
+  --destructive: #F81B00;
+  --destructive-foreground: #FFFFFF;
+  
+  --border: #E2E5EB;
+  --input: #E2E5EB;
+  --ring: #F81B00;
+  
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: #0E0E10;
+  --foreground: #FAFAFA;
+  --card: #18181B;
+  --card-foreground: #FAFAFA;
+  --popover: #18181B;
+  --popover-foreground: #FAFAFA;
+  
+  --primary: #FF2E14;
+  --primary-hover: #E62309;
+  --primary-foreground: #FFFFFF;
+  
+  --secondary: #27272A;
+  --secondary-foreground: #FAFAFA;
+  
+  --muted: #1E1E22;
+  --muted-foreground: #A1A1AA;
+  --accent: #27272A;
+  --accent-foreground: #FAFAFA;
+  
+  --border: #27272A;
+  --input: #27272A;
+  --ring: #FF2E14;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+    scroll-behavior: smooth;
+  }
+}
+
+/* ==========================================================================
+   Плавная анимация появления со спуском (Descending fade-in animation)
+   ========================================================================== */
+
+@keyframes slideDownFade {
+  0% {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-down {
+  animation: slideDownFade 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.animate-slide-down-delay-1 {
+  animation: slideDownFade 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.09s forwards;
+  opacity: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.animate-slide-down-delay-2 {
+  animation: slideDownFade 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.18s forwards;
+  opacity: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.animate-slide-down-delay-3 {
+  animation: slideDownFade 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.27s forwards;
+  opacity: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* ==========================================================================
+   Анимация контура кнопки: две бегущие красные полоски (без розового и без свечения)
+   ========================================================================== */
+
+@property --ai-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes ai-spin {
+  0% {
+    --ai-angle: 0deg;
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  100% {
+    --ai-angle: 360deg;
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+.ai-button-track {
+  position: relative;
+  isolation: isolate;
+  background-color: #E2E5EB;
+  box-shadow: none;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  padding: 1.5px;
+}
+
+.ai-two-beams-spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 350%;
+  height: 350%;
+  transform: translate(-50%, -50%) rotate(0deg);
+  background: conic-gradient(
+    from var(--ai-angle, 0deg),
+    #F81B00 0deg,
+    #FF3B1D 24deg,
+    transparent 48deg,
+    transparent 180deg,
+    #F81B00 180deg,
+    #FF3B1D 204deg,
+    transparent 228deg,
+    transparent 360deg
+  );
+  animation: ai-spin 4s linear infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ai-button-track:hover .ai-two-beams-spinner {
+  animation-duration: 2s;
+}
+
+.ai-button-inner {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  height: 100%;
+  border-radius: calc(0.5rem - 1.5px);
+  background-color: #FFFFFF;
+  color: #111111;
+  transition: background-color 0.15s ease;
+}
+
+.ai-button-track:hover .ai-button-inner {
+  background-color: #FFFFFF !important;
+}
+
+.dark .ai-button-inner {
+  background-color: #18181B;
+  color: #FAFAFA;
+}
+.dark .ai-button-track:hover .ai-button-inner {
+  background-color: #18181B !important;
+}
+
+/* Пункт Dropdown: градиент справа налево, без полоски и БЕЗ скруглений */
+.ai-item-tint {
+  background: linear-gradient(270deg, rgba(248, 27, 0, 0.10) 0%, rgba(248, 27, 0, 0.03) 65%, transparent 100%) !important;
+  border: none !important;
+  border-left: none !important;
+  border-radius: 0 !important;
+  color: #111111 !important;
+  transition: all 0.15s ease !important;
+}
+
+.ai-item-tint:hover,
+.ai-item-tint:focus,
+.ai-item-tint[data-highlighted] {
+  background: linear-gradient(270deg, rgba(248, 27, 0, 0.16) 0%, rgba(248, 27, 0, 0.06) 65%, transparent 100%) !important;
+  color: #111111 !important;
+  border-radius: 0 !important;
+}
+
+.ai-item-cta {
+  background: linear-gradient(135deg, #F81B00 0%, #D91700 70%, #111111 100%) !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  border-radius: 0 !important;
+  transition: opacity 0.15s ease !important;
+}
+
+.ai-item-cta * {
+  color: #FFFFFF !important;
+}
+
+.ai-item-cta:hover,
+.ai-item-cta:focus,
+.ai-item-cta[data-highlighted] {
+  opacity: 0.94 !important;
+  border-radius: 0 !important;
+}
+
+.ai-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background-color: rgba(248, 27, 0, 0.1);
+  color: #F81B00;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  line-height: 1.2;
+}
