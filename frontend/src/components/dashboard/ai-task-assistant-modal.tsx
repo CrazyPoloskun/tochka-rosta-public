@@ -67,7 +67,7 @@ export interface AppliedTzData {
   budget: string
   deadline: string
   description: string
-  stages?: { step?: number; title: string; amount?: number }[]
+  stages?: { step?: number; title: string; amount?: number; duration?: string }[]
 }
 
 interface AiTaskAssistantModalProps {
@@ -254,11 +254,12 @@ export function AiTaskAssistantModal({
             step: idx + 1,
             title: s.replace(/^Этап\s*\d+[:.]?\s*/i, "").trim() || `Этап ${idx + 1}`,
             amount: Math.round(totalBudget / rawStages.length),
+            duration: result.suggested_deadline ? `~${Math.max(1, Math.round(6 / rawStages.length))} мес.` : "2 мес.",
           }))
         : [
-            { step: 1, title: "Аналитическое исследование и эскизное проектирование", amount: Math.round(totalBudget * 0.3) },
-            { step: 2, title: "Разработка лабораторного образца и стендовые испытания", amount: Math.round(totalBudget * 0.4) },
-            { step: 3, title: "Приёмочные испытания и регистрация РИД", amount: Math.round(totalBudget * 0.3) },
+            { step: 1, title: "Аналитическое исследование и эскизное проектирование", amount: Math.round(totalBudget * 0.3), duration: "2 мес." },
+            { step: 2, title: "Разработка лабораторного образца и стендовые испытания", amount: Math.round(totalBudget * 0.4), duration: "3 мес." },
+            { step: 3, title: "Приёмочные испытания и регистрация РИД", amount: Math.round(totalBudget * 0.3), duration: "1 мес." },
           ]
 
     onApplyTz({

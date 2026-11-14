@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import {
   HiOutlineBriefcase,
   HiOutlinePlusCircle,
@@ -40,6 +41,7 @@ import { CounterpartyModal } from "@/components/profile/counterparty-modal"
 import { User } from "@/lib/auth-context"
 import { TaskItem, TaskBid, MatchingInvitationItem, RecommendedLabItem } from "./dashboard-types"
 import { MilestonesChainView, MilestonesChainEditor, MilestoneItemData } from "./milestones-chain"
+import { PlanEditor } from "./plan-editor"
 
 interface TasksTabProps {
   user: User | null
@@ -60,6 +62,7 @@ export function TasksTab({
   onNavigateToProjects,
   onNavigateToMessages,
 }: TasksTabProps) {
+  const router = useRouter()
   const { success, error, info } = useToast()
   const isLab = user?.role === "lab"
   const isVerifiedLab = isLab && user?.verification_status === "verified"
@@ -462,7 +465,7 @@ export function TasksTab({
               className="text-xs font-bold border-[#F81B00]/30 hover:border-[#F81B00] bg-[#FFF5F5] hover:bg-[#FFEBEB] text-[#F81B00] rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 h-9 px-3.5"
             >
               <HiOutlineSparkles className="size-4 text-[#F81B00]" />
-              <span>ИИ-помощник ТЗ</span>
+              <span>Сформировать R&D-план (Plan)</span>
             </Button>
             <Button
               onClick={() => setIsNewTaskOpen(true)}
@@ -968,7 +971,10 @@ export function TasksTab({
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={onNavigateToMessages}
+                                onClick={() => {
+                                  onNavigateToMessages()
+                                  router.push('/dashboard?tab=messages')
+                                }}
                                 className="text-xs border-[#E2E5EB] hover:bg-neutral-100 flex items-center gap-1"
                               >
                                 <HiOutlineChatBubbleLeftRight className="size-3.5 text-[#F81B00]" />
@@ -1072,7 +1078,7 @@ export function TasksTab({
                   className="flex items-center gap-1.5 text-[11px] font-bold text-[#F81B00] hover:text-[#d01700] transition-colors cursor-pointer"
                 >
                   <HiOutlineSparkles className="size-3.5" />
-                  <span>ИИ-помощник ТЗ</span>
+                  <span>Сформировать R&D-план (Plan)</span>
                 </button>
               </div>
               <textarea
@@ -1084,11 +1090,14 @@ export function TasksTab({
               />
             </div>
 
-            {/* Stages Timeline Chain Editor */}
-            <MilestonesChainEditor
-              milestones={taskMilestones}
+            {/* shadcn AI: PLAN COMPONENT */}
+            <PlanEditor
+              stages={taskMilestones}
               onChange={setTaskMilestones}
               onSyncBudget={(tot) => setTaskBudget(String(tot))}
+              onOpenAiGenerator={() => setIsAiAssistantOpen(true)}
+              title="Календарный план и этапы реализации задачи (Plan)"
+              description="Этапы финансирования по ГОСТ 15.016-2016 с разбивкой траншей и дедлайнов"
             />
 
             <DialogFooter className="gap-3 pt-3">
@@ -1257,6 +1266,7 @@ export function TasksTab({
         onClose={() => setCounterpartyModalId(null)}
         onOpenChat={() => {
           onNavigateToMessages()
+          router.push('/dashboard?tab=messages')
         }}
       />
 
@@ -1332,12 +1342,14 @@ export function TasksTab({
             </div>
           </div>
 
-          {/* Milestones Connected Chain */}
+          {/* shadcn AI: PLAN COMPONENT */}
           <div className="space-y-2">
-            <MilestonesChainView
-              milestones={viewTaskModal?.milestones || []}
-              title="Календарная цепочка этапов ТЗ"
-              emptyText="Этапы ТЗ не были предварительно разбиты заказчиком"
+            <PlanEditor
+              stages={viewTaskModal?.milestones || []}
+              onChange={() => {}}
+              title="Календарный план и этапы реализации задачи (Plan)"
+              description="Этапы выполнения работ, суммы траншей и ожидаемые результаты"
+              readOnly={true}
             />
           </div>
 
@@ -1466,11 +1478,14 @@ export function TasksTab({
               />
             </div>
 
-            {/* Stages Timeline Chain Editor */}
-            <MilestonesChainEditor
-              milestones={editTaskMilestones}
+            {/* shadcn AI: PLAN COMPONENT */}
+            <PlanEditor
+              stages={editTaskMilestones}
               onChange={setEditTaskMilestones}
               onSyncBudget={(tot) => setEditTaskBudget(String(tot))}
+              onOpenAiGenerator={() => setIsAiAssistantOpen(true)}
+              title="Календарный план и этапы реализации задачи (Plan)"
+              description="Редактирование этапов, сроков и траншей финансирования"
             />
 
             <DialogFooter className="gap-3 pt-3">

@@ -114,9 +114,7 @@ function DashboardContent() {
   const handleSelectTab = (tab: TabType) => {
     setActiveTab(tab)
     setMobileMenuOpen(false)
-    if (typeof window !== "undefined") {
-      window.history.pushState(null, "", `/dashboard/${tab}`)
-    }
+    router.push(`/dashboard?tab=${tab}`, { scroll: false })
   }
 
   // Fetch Projects
