@@ -470,6 +470,18 @@ function AuthForm() {
                ============================================================= */}
             {mode === "investor" && (
               <form onSubmit={handleInvestorSubmit} noValidate autoComplete="off" className="space-y-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 py-1">
+                  <span className="text-xs text-[#6B7280]">Тестовые данные:</span>
+                  <InnViewExample
+                    currentRole="investor"
+                    onSelect={(ex) => {
+                      setFullName(ex.name)
+                      setErrors((prev) => ({ ...prev, fullName: undefined }))
+                      toastSuccess(`Данные «${ex.name}» подставлены в форму!`, "Пример применён")
+                    }}
+                  />
+                </div>
+
                 <div className="space-y-1.5">
                   <Label htmlFor="investor-name" className="text-[11px] font-bold uppercase text-[#374151]">
                     Имя инвестора или наименование компании <span className="text-[#F81B00] font-bold ml-0.5">*</span>
@@ -624,8 +636,8 @@ function AuthForm() {
                ============================================================= */}
             {mode === "lab" && (
               <form onSubmit={handleLabSubmit} noValidate autoComplete="off" className="space-y-3">
-                <div className="flex items-center justify-between py-1">
-                  <span className="text-[11px] text-[#6B7280]">Для быстрой проверки:</span>
+                <div className="flex flex-wrap items-center justify-between gap-2 py-1">
+                  <span className="text-xs text-[#6B7280]">Тестовые данные:</span>
                   <InnViewExample
                     currentRole="lab"
                     onSelect={(ex) => {
@@ -633,6 +645,13 @@ function AuthForm() {
                       setInn(ex.inn)
                       setOgrn(ex.ogrn)
                       setRepName(ex.representative)
+                      setErrors((prev) => ({
+                        ...prev,
+                        orgName: undefined,
+                        inn: undefined,
+                        ogrn: undefined,
+                        repName: undefined,
+                      }))
                       toastSuccess(`Реквизиты «${ex.name}» подставлены в форму!`, "Пример применён")
                     }}
                   />

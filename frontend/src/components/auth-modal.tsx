@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAuth, AuthModalMode } from "@/lib/auth-context"
+import { InnViewExample } from "@/components/dashboard/inn-view-example"
 
 export function AuthModal() {
   const { isModalOpen, modalMode, openModal, closeModal, login, registerInvestor, registerLab } = useAuth()
@@ -300,6 +301,17 @@ export function AuthModal() {
           {/* TAB 2: INVESTOR REGISTRATION */}
           {modalMode === "register-investor" && (
             <form onSubmit={handleInvestorRegister} className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 py-0.5">
+                <span className="text-xs text-[#6B7280]">Тестовые данные:</span>
+                <InnViewExample
+                  currentRole="investor"
+                  onSelect={(ex) => {
+                    setFullName(ex.name)
+                    setError(null)
+                  }}
+                />
+              </div>
+
               <div className="p-3 bg-[#F5F6F8] rounded-xl text-xs text-[#4B5563] border border-[#E2E5EB]">
                 Регистрация для физических лиц, спонсоров науки и представителей коммерческих компаний, ищущих R&D разработки.
               </div>
@@ -386,6 +398,20 @@ export function AuthModal() {
           {/* TAB 3: LAB / RESEARCH INSTITUTE REGISTRATION */}
           {modalMode === "register-lab" && (
             <form onSubmit={handleLabRegister} className="space-y-3.5 max-h-[70vh] overflow-y-auto pr-1">
+              <div className="flex flex-wrap items-center justify-between gap-2 py-0.5">
+                <span className="text-xs text-[#6B7280]">Тестовые данные:</span>
+                <InnViewExample
+                  currentRole="lab"
+                  onSelect={(ex) => {
+                    setOrgName(ex.name)
+                    setInn(ex.inn)
+                    setOgrn(ex.ogrn)
+                    setRepName(ex.representative)
+                    setError(null)
+                  }}
+                />
+              </div>
+
               <div className="p-3 bg-amber-50/80 rounded-xl text-xs text-amber-900 border border-amber-200">
                 <span className="font-bold">Верификация научной организации:</span> аккаунт создаётся для НИИ, лабораторий и вузов. После регистрации реквизиты проверяются модерацией.
               </div>

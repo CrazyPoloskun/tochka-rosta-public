@@ -408,12 +408,12 @@ export function SettingsTab({ user, onUpdateProfile, onRefresh, authFetch }: Set
       <form onSubmit={handleSaveProfile} className="space-y-6">
         {/* Organization / User Profile Form */}
         <Card className="rounded-2xl border-[#E2E5EB] p-5 sm:p-6 bg-white space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[#F1F3F5]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#F1F3F5]">
             <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111]">
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#111111]">
                 {isLab ? "Реквизиты научной организации" : "Реквизиты инвестора"}
               </h3>
-              <span className="text-[10px] text-[#6B7280]">
+              <span className="text-[11px] text-[#6B7280]">
                 Указываются в официальных договорах и актах
               </span>
             </div>
