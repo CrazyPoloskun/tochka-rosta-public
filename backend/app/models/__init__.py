@@ -1,9 +1,9 @@
 from app.models.user import User
-from app.models.finance import Account, Transaction
+from app.models.finance import Account, Transaction, ProfitDistribution, ProfitPayoutItem
 from app.models.idea import Idea
 from app.models.task import Task, TaskBid
 from app.models.project import Project, ProjectMilestone, ProjectFile, ProjectSyndicateMember
-from app.models.chat import Chat, Message
+from app.models.chat import Chat, Message, ChatMember, MessageAttachment
 from app.models.support import SupportTicket, TicketMessage
 from app.models.notification import Notification
 from app.models.audit import AdminAuditLog
@@ -14,6 +14,8 @@ __all__ = [
     "User",
     "Account",
     "Transaction",
+    "ProfitDistribution",
+    "ProfitPayoutItem",
     "Idea",
     "Task",
     "TaskBid",
@@ -23,6 +25,8 @@ __all__ = [
     "ProjectSyndicateMember",
     "Chat",
     "Message",
+    "ChatMember",
+    "MessageAttachment",
     "SupportTicket",
     "TicketMessage",
     "Notification",

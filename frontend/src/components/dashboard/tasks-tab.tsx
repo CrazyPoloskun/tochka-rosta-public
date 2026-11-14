@@ -1044,15 +1044,6 @@ export function TasksTab({
           </form>
         </DialogContent>
       </Dialog>
-                disabled={submittingTask}
-                className="text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs"
-              >
-                {submittingTask ? "Публикация..." : "Разместить тендер"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       {/* Lab Bid Modal */}
       <Dialog open={!!bidModalTask} onOpenChange={(open) => !open && setBidModalTask(null)}>

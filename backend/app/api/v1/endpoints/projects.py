@@ -10,8 +10,9 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.user import User
 from app.models.project import Project, ProjectMilestone, ProjectFile, ProjectSyndicateMember
-from app.models.finance import Account, Transaction
+from app.models.finance import Account, Transaction, ProfitDistribution, ProfitPayoutItem
 from app.models.notification import Notification
+from app.models.chat import Chat, Message, ChatMember
 from app.schemas.project import (
     ProjectResponse,
     MilestoneResponse,
@@ -22,9 +23,16 @@ from app.schemas.project import (
     SyndicateJoinRequest,
     SyndicateMemberResponse,
     SyndicateCapTableResponse,
+    ProfitCalculatePreviewRequest,
+    ProfitCalculatePreviewResponse,
+    ProfitPreviewItemResponse,
+    ProfitDistributeRequest,
+    ProfitDistributionResponse,
+    ProfitDistributionItemResponse,
 )
 from app.services.ai_service import generate_report_ai_summary
 from app.services.gost_report_service import build_gost_docx, build_gost_pdf
+from app.api.v1.endpoints.realtime import manager
 
 router = APIRouter()
 
@@ -477,6 +485,50 @@ async def join_syndicate(
     if project.syndication_soft_cap > 0 and total_raised >= project.syndication_soft_cap:
         project.syndication_status = "funded"
 
+    # 5. Автоматическая синхронизация с групповым чатом проекта
+    c_res = await db.execute(
+        select(Chat).where(and_(Chat.project_id == project.id, Chat.chat_type == "project"))
+    )
+    chat = c_res.scalars().first()
+    if not chat:
+        chat = Chat(
+            chat_type="project",
+            project_id=project.id,
+            investor_id=project.investor_id,
+            lab_id=project.lab_id,
+            title=f"Группа: {project.title}",
+            context_type="project",
+            context_id=project.id,
+        )
+        db.add(chat)
+        await db.flush()
+
+    # Проверяем членство в чате
+    cm_res = await db.execute(
+        select(ChatMember).where(
+            and_(ChatMember.chat_id == chat.id, ChatMember.user_id == current_user.id)
+        )
+    )
+    c_member = cm_res.scalar_one_or_none()
+    if not c_member:
+        c_member = ChatMember(
+            chat_id=chat.id,
+            user_id=current_user.id,
+            role="lead_investor" if member.is_lead else "co_investor",
+        )
+        db.add(c_member)
+
+    # Системное сообщение в групповой чат
+    inv_label = current_user.organization_name or current_user.full_name or "Инвестор"
+    sys_msg = Message(
+        chat_id=chat.id,
+        sender_id=current_user.id,
+        content=f"👋 {inv_label} присоединился к синдикату проекта со взносом {data.amount:,.2f} ₽ (доля в проекте: {member.share_percent}%).",
+        is_read=False,
+        is_system=True,
+    )
+    db.add(sys_msg)
+
     # Уведомление лид-инвестору
     if project.investor_id != current_user.id:
         notif = Notification(
@@ -490,6 +542,24 @@ async def join_syndicate(
         db.add(notif)
 
     await db.commit()
+
+    try:
+        await manager.broadcast_chat(chat.id, {
+            "type": "message",
+            "id": sys_msg.id,
+            "chat_id": chat.id,
+            "sender_id": current_user.id,
+            "sender_name": "Система",
+            "sender_role": "system",
+            "content": sys_msg.content,
+            "is_system": True,
+            "attachments": [],
+            "created_at": sys_msg.created_at.isoformat() if sys_msg.created_at else None,
+            "is_mine": False,
+        })
+    except Exception:
+        pass
+
     return {
         "success": True,
         "invested_amount": member.invested_amount,
@@ -622,7 +692,52 @@ async def leave_syndicate(
         for m in all_members:
             m.share_percent = round((m.invested_amount / total_raised) * Decimal("100.00"), 2)
 
+    # Удаление из участников группового чата проекта
+    c_res = await db.execute(
+        select(Chat).where(and_(Chat.project_id == project.id, Chat.chat_type == "project"))
+    )
+    chat = c_res.scalars().first()
+    sys_msg = None
+    if chat:
+        cm_res = await db.execute(
+            select(ChatMember).where(
+                and_(ChatMember.chat_id == chat.id, ChatMember.user_id == current_user.id)
+            )
+        )
+        c_mem = cm_res.scalar_one_or_none()
+        if c_mem:
+            await db.delete(c_mem)
+
+        inv_label = current_user.organization_name or current_user.full_name or "Инвестор"
+        sys_msg = Message(
+            chat_id=chat.id,
+            sender_id=current_user.id,
+            content=f"🚪 {inv_label} отозвал взнос и покинул синдикат проекта.",
+            is_read=False,
+            is_system=True,
+        )
+        db.add(sys_msg)
+
     await db.commit()
+
+    if chat and sys_msg:
+        try:
+            await manager.broadcast_chat(chat.id, {
+                "type": "message",
+                "id": sys_msg.id,
+                "chat_id": chat.id,
+                "sender_id": current_user.id,
+                "sender_name": "Система",
+                "sender_role": "system",
+                "content": sys_msg.content,
+                "is_system": True,
+                "attachments": [],
+                "created_at": sys_msg.created_at.isoformat() if sys_msg.created_at else None,
+                "is_mine": False,
+            })
+        except Exception:
+            pass
+
     return {"success": True, "refunded_amount": refund_amount}
 
 
@@ -781,3 +896,393 @@ async def download_gost_report(
 
     return FileResponse(file_path, media_type=media_type, filename=download_name)
 
+
+
+# ==============================================================================
+# Распределение прибыли по проекту (Profit Share Distribution)
+# ==============================================================================
+
+@router.post("/{project_id}/profit/calculate-preview", response_model=ProfitCalculatePreviewResponse)
+async def calculate_profit_preview(
+    project_id: int,
+    data: ProfitCalculatePreviewRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Рассчитывает предварительную таблицу пропорционального распределения прибыли между соинвесторами.
+    Доступно исполнителю (Лаборатории/НИИ) или Администратору платформы.
+    """
+    p_res = await db.execute(select(Project).where(Project.id == project_id))
+    project = p_res.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Проект не найден")
+
+    if project.lab_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Только исполнитель проекта (Лаборатория) или Администратор могут рассчитывать распределение прибыли")
+
+    if data.amount <= 0:
+        raise HTTPException(status_code=400, detail="Сумма прибыли должна быть положительным числом")
+
+    # Получаем всех участников синдиката с положительными вложениями
+    mem_res = await db.execute(
+        select(ProjectSyndicateMember, User)
+        .join(User, ProjectSyndicateMember.investor_id == User.id)
+        .where(
+            and_(
+                ProjectSyndicateMember.project_id == project.id,
+                ProjectSyndicateMember.invested_amount > 0,
+            )
+        )
+        .order_by(ProjectSyndicateMember.invested_amount.desc())
+    )
+    rows = mem_res.all()
+
+    # Если синдикат не зарегистрирован, проверяем прямого инвестора
+    if not rows and project.investor_id:
+        inv_res = await db.execute(select(User).where(User.id == project.investor_id))
+        inv_user = inv_res.scalar_one_or_none()
+        if inv_user:
+            return ProfitCalculatePreviewResponse(
+                project_id=project.id,
+                project_title=project.title,
+                total_profit=data.amount,
+                total_invested=project.total_budget,
+                investors_count=1,
+                items=[
+                    ProfitPreviewItemResponse(
+                        investor_id=inv_user.id,
+                        investor_name=inv_user.full_name or inv_user.organization_name,
+                        organization_name=inv_user.organization_name,
+                        invested_amount=project.total_budget,
+                        share_percent=Decimal("100.0000"),
+                        payout_amount=data.amount,
+                    )
+                ],
+            )
+
+    if not rows:
+        raise HTTPException(status_code=400, detail="В проекте нет инвесторов с подтверждённым финансированием")
+
+    total_invested = sum((m.invested_amount for m, _ in rows), Decimal("0.00"))
+    if total_invested <= 0:
+        raise HTTPException(status_code=400, detail="Сумма инвестиций в проект равна нулю")
+
+    items = []
+    allocated_total = Decimal("0.00")
+
+    for m, user in rows:
+        share_ratio = m.invested_amount / total_invested
+        share_percent = round(share_ratio * Decimal("100.0000"), 4)
+        payout = round(data.amount * share_ratio, 2)
+        allocated_total += payout
+
+        items.append(
+            ProfitPreviewItemResponse(
+                investor_id=user.id,
+                investor_name=user.full_name or user.organization_name,
+                organization_name=user.organization_name,
+                invested_amount=m.invested_amount,
+                share_percent=share_percent,
+                payout_amount=payout,
+            )
+        )
+
+    # Коррекция копеечного округления на наибольшего инвестора
+    cents_diff = data.amount - allocated_total
+    if cents_diff != Decimal("0.00") and items:
+        items[0].payout_amount += cents_diff
+
+    return ProfitCalculatePreviewResponse(
+        project_id=project.id,
+        project_title=project.title,
+        total_profit=data.amount,
+        total_invested=total_invested,
+        investors_count=len(items),
+        items=items,
+    )
+
+
+@router.post("/{project_id}/profit/distribute", response_model=ProfitDistributionResponse)
+async def distribute_profit(
+    project_id: int,
+    data: ProfitDistributeRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Выполняет фактическое начисление прибыли/дивидендов на баланс соинвесторов пропорционально их долям.
+    Доступно исполнителю (Лаборатории/НИИ) или Администратору платформы.
+    """
+    p_res = await db.execute(select(Project).where(Project.id == project_id))
+    project = p_res.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Проект не найден")
+
+    if project.lab_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Только исполнитель проекта (Лаборатория) или Администратор могут производить распределение прибыли")
+
+    if data.amount <= 0:
+        raise HTTPException(status_code=400, detail="Сумма прибыли должна быть больше нуля")
+
+    # Получаем участников синдиката
+    mem_res = await db.execute(
+        select(ProjectSyndicateMember, User)
+        .join(User, ProjectSyndicateMember.investor_id == User.id)
+        .where(
+            and_(
+                ProjectSyndicateMember.project_id == project.id,
+                ProjectSyndicateMember.invested_amount > 0,
+            )
+        )
+        .order_by(ProjectSyndicateMember.invested_amount.desc())
+    )
+    rows = mem_res.all()
+
+    # Если синдикат пуст, но есть одиночный инвестор
+    if not rows and project.investor_id:
+        inv_res = await db.execute(select(User).where(User.id == project.investor_id))
+        inv_user = inv_res.scalar_one_or_none()
+        if inv_user:
+            rows = [(None, inv_user)]
+
+    if not rows:
+        raise HTTPException(status_code=400, detail="В проекте нет инвесторов для выплаты прибыли")
+
+    total_invested = sum((m.invested_amount for m, _ in rows if m), Decimal("0.00")) or project.total_budget
+    if total_invested <= 0:
+        total_invested = Decimal("1.00")
+
+    # 1. Создаем мастер-запись распределения прибыли
+    distribution = ProfitDistribution(
+        project_id=project.id,
+        initiator_id=current_user.id,
+        total_amount=data.amount,
+        description=data.description.strip(),
+        status="completed",
+    )
+    db.add(distribution)
+    await db.flush()
+
+    # 2. Рассчитываем и зачисляем суммы каждому инвестору
+    allocated_total = Decimal("0.00")
+    items_to_save = []
+
+    for m, user in rows:
+        invested = m.invested_amount if m else project.total_budget
+        share_ratio = invested / total_invested
+        share_percent = round(share_ratio * Decimal("100.0000"), 4)
+        payout = round(data.amount * share_ratio, 2)
+        allocated_total += payout
+
+        items_to_save.append({
+            "user": user,
+            "invested_amount": invested,
+            "share_percent": share_percent,
+            "payout_amount": payout,
+        })
+
+    # Коррекция копеечного округления
+    cents_diff = data.amount - allocated_total
+    if cents_diff != Decimal("0.00") and items_to_save:
+        items_to_save[0]["payout_amount"] += cents_diff
+
+    # 3. Финансовые проводки и начисление на кошельки
+    payout_dtos = []
+    for item in items_to_save:
+        target_user = item["user"]
+        payout_amt = item["payout_amount"]
+
+        # Пополнение счета инвестора
+        acc_res = await db.execute(select(Account).where(Account.user_id == target_user.id))
+        account = acc_res.scalar_one_or_none()
+        if not account:
+            account = Account(
+                user_id=target_user.id,
+                available_balance=Decimal("0.00"),
+                frozen_balance=Decimal("0.00"),
+            )
+            db.add(account)
+            await db.flush()
+
+        account.available_balance += payout_amt
+
+        # Запись транзакции
+        tx = Transaction(
+            from_user_id=current_user.id,
+            to_user_id=target_user.id,
+            project_id=project.id,
+            amount=payout_amt,
+            type="profit_payout",
+            status="completed",
+            description=f"Начисление инвестиционного дохода по проекту «{project.title}»: {data.description}",
+        )
+        db.add(tx)
+        await db.flush()
+
+        # Элемент распределения
+        payout_item = ProfitPayoutItem(
+            distribution_id=distribution.id,
+            investor_id=target_user.id,
+            invested_amount=item["invested_amount"],
+            share_percent=item["share_percent"],
+            payout_amount=payout_amt,
+            transaction_id=tx.id,
+        )
+        db.add(payout_item)
+        await db.flush()
+
+        # Уведомление в колокольчик
+        notif = Notification(
+            recipient_id=target_user.id,
+            type="profit_payout",
+            title="💰 Начисление прибыли по проекту",
+            body=f"Вам зачислено {payout_amt:,.2f} ₽ (доля {item['share_percent']}%) по проекту «{project.title}».",
+            link_url="/dashboard?tab=finances",
+            severity="success",
+        )
+        db.add(notif)
+
+        payout_dtos.append(
+            ProfitDistributionItemResponse(
+                id=payout_item.id,
+                investor_id=target_user.id,
+                investor_name=target_user.full_name or target_user.organization_name,
+                organization_name=target_user.organization_name,
+                invested_amount=item["invested_amount"],
+                share_percent=item["share_percent"],
+                payout_amount=payout_amt,
+                transaction_id=tx.id,
+            )
+        )
+
+    # 4. Системное сообщение в групповой чат проекта
+    c_res = await db.execute(
+        select(Chat).where(and_(Chat.project_id == project.id, Chat.chat_type == "project"))
+    )
+    chat = c_res.scalars().first()
+    if chat:
+        sys_msg = Message(
+            chat_id=chat.id,
+            sender_id=current_user.id,
+            content=f"💸 Произведено распределение прибыли по проекту: общая сумма {data.amount:,.2f} ₽ выплачена инвесторам пропорционально долям. Основание: {data.description}",
+            is_read=False,
+            is_system=True,
+        )
+        db.add(sys_msg)
+
+    await db.commit()
+
+    if chat:
+        try:
+            await manager.broadcast_chat(chat.id, {
+                "type": "message",
+                "id": sys_msg.id,
+                "chat_id": chat.id,
+                "sender_id": current_user.id,
+                "sender_name": "Финансовый шлюз",
+                "sender_role": "system",
+                "content": sys_msg.content,
+                "is_system": True,
+                "attachments": [],
+                "created_at": sys_msg.created_at.isoformat() if sys_msg.created_at else None,
+                "is_mine": False,
+            })
+        except Exception:
+            pass
+
+    return ProfitDistributionResponse(
+        id=distribution.id,
+        project_id=project.id,
+        initiator_id=current_user.id,
+        initiator_name=current_user.full_name or current_user.organization_name,
+        total_amount=distribution.total_amount,
+        distribution_date=distribution.distribution_date,
+        description=distribution.description,
+        status=distribution.status,
+        items=payout_dtos,
+    )
+
+
+@router.get("/{project_id}/profit/history", response_model=list[ProfitDistributionResponse])
+async def get_profit_distribution_history(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Возвращает историю всех распределений прибыли по проекту.
+    Доступно сторонам проекта (лаборатория, лид-инвестор, соинвесторы) и администратору.
+    """
+    p_res = await db.execute(select(Project).where(Project.id == project_id))
+    project = p_res.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Проект не найден")
+
+    # Проверка доступа к истории
+    is_allowed = False
+    if current_user.is_admin or project.lab_id == current_user.id or project.investor_id == current_user.id:
+        is_allowed = True
+    else:
+        sm_res = await db.execute(
+            select(ProjectSyndicateMember.id).where(
+                and_(
+                    ProjectSyndicateMember.project_id == project.id,
+                    ProjectSyndicateMember.investor_id == current_user.id,
+                    ProjectSyndicateMember.invested_amount > 0,
+                )
+            )
+        )
+        if sm_res.scalar_one_or_none():
+            is_allowed = True
+
+    if not is_allowed:
+        raise HTTPException(status_code=403, detail="Доступ к истории финансовых выплат проекта запрещён")
+
+    d_res = await db.execute(
+        select(ProfitDistribution, User.full_name)
+        .join(User, ProfitDistribution.initiator_id == User.id)
+        .where(ProfitDistribution.project_id == project.id)
+        .order_by(ProfitDistribution.distribution_date.desc())
+    )
+    dist_rows = d_res.all()
+
+    response = []
+    for dist, init_name in dist_rows:
+        items_res = await db.execute(
+            select(ProfitPayoutItem, User.full_name, User.organization_name)
+            .join(User, ProfitPayoutItem.investor_id == User.id)
+            .where(ProfitPayoutItem.distribution_id == dist.id)
+            .order_by(ProfitPayoutItem.payout_amount.desc())
+        )
+        item_rows = items_res.all()
+
+        item_dtos = [
+            ProfitDistributionItemResponse(
+                id=item.id,
+                investor_id=item.investor_id,
+                investor_name=user_name or org_name or "Инвестор",
+                organization_name=org_name,
+                invested_amount=item.invested_amount,
+                share_percent=item.share_percent,
+                payout_amount=item.payout_amount,
+                transaction_id=item.transaction_id,
+            )
+            for item, user_name, org_name in item_rows
+        ]
+
+        response.append(
+            ProfitDistributionResponse(
+                id=dist.id,
+                project_id=dist.project_id,
+                initiator_id=dist.initiator_id,
+                initiator_name=init_name,
+                total_amount=dist.total_amount,
+                distribution_date=dist.distribution_date,
+                description=dist.description,
+                status=dist.status,
+                items=item_dtos,
+            )
+        )
+
+    return response

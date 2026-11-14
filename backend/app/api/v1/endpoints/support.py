@@ -205,3 +205,89 @@ async def reopen_ticket(
     await db.commit()
     await db.refresh(ticket)
     return SupportTicketResponse.model_validate(ticket)
+
+
+# ==============================================================================
+# Вложения файлов в тикетах поддержки (Support File Attachments)
+# ==============================================================================
+import os
+import uuid
+from fastapi import UploadFile, File
+from fastapi.responses import FileResponse
+
+UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "/app/uploads")
+SUPPORT_ATTACHMENTS_DIR = os.path.join(UPLOAD_DIR, "support_attachments")
+os.makedirs(SUPPORT_ATTACHMENTS_DIR, exist_ok=True)
+
+
+@router.post("/tickets/{ticket_id}/upload-attachment")
+async def upload_support_attachment(
+    ticket_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Загрузка файла-вложения в тикет поддержки."""
+    t_res = await db.execute(select(SupportTicket).where(SupportTicket.id == ticket_id))
+    ticket = t_res.scalar_one_or_none()
+    if not ticket or (ticket.user_id != current_user.id and not current_user.is_admin):
+        raise HTTPException(status_code=403, detail="Доступ к тикету запрещён")
+
+    file_bytes = await file.read()
+    if len(file_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Файл пуст")
+    if len(file_bytes) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Файл превышает 50 МБ")
+
+    orig_name = os.path.basename(file.filename or "attachment")
+    ext = os.path.splitext(orig_name)[1]
+    safe_name = f"{uuid.uuid4().hex}{ext}"
+    target_path = os.path.join(SUPPORT_ATTACHMENTS_DIR, safe_name)
+
+    with open(target_path, "wb") as f:
+        f.write(file_bytes)
+
+    # Публикуем сообщение со ссылкой на скачивание
+    file_msg = TicketMessage(
+        ticket_id=ticket.id,
+        sender_id=current_user.id,
+        is_admin_reply=current_user.is_admin,
+        content=f"[Файл: {orig_name}](/api/v1/support/files/{safe_name}?filename={orig_name})",
+    )
+    db.add(file_msg)
+    await db.commit()
+    await db.refresh(file_msg)
+
+    # Оповещаем через WS
+    try:
+        await manager.broadcast_ticket(ticket.id, {
+            "type": "ticket_message",
+            "id": file_msg.id,
+            "ticket_id": ticket.id,
+            "sender_id": current_user.id,
+            "sender_name": "Служба заботы" if current_user.is_admin else current_user.full_name,
+            "is_admin_reply": current_user.is_admin,
+            "content": file_msg.content,
+            "created_at": file_msg.created_at.isoformat() if file_msg.created_at else None,
+        })
+    except Exception:
+        pass
+
+    return {
+        "success": True,
+        "file_name": orig_name,
+        "download_url": f"/api/v1/support/files/{safe_name}?filename={orig_name}",
+    }
+
+
+@router.get("/files/{safe_name}")
+async def download_support_file(
+    safe_name: str,
+    filename: str = "attachment",
+    current_user: User = Depends(get_current_user),
+):
+    """Скачивание файла вложения из тикета поддержки."""
+    file_path = os.path.join(SUPPORT_ATTACHMENTS_DIR, os.path.basename(safe_name))
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Файл не найден")
+    return FileResponse(file_path, filename=filename)

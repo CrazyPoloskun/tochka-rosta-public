@@ -111,3 +111,64 @@ class SyndicateCapTableResponse(BaseModel):
     current_user_share: Decimal = Decimal("0.00")
     current_user_invested: Decimal = Decimal("0.00")
     members: list[SyndicateMemberResponse] = []
+
+
+# ==============================================================================
+# Схемы для распределения прибыли (Profit Share Distribution)
+# ==============================================================================
+
+class ProfitPreviewItemResponse(BaseModel):
+    investor_id: int
+    investor_name: str
+    organization_name: str | None = None
+    invested_amount: Decimal
+    share_percent: Decimal
+    payout_amount: Decimal
+
+
+class ProfitCalculatePreviewRequest(BaseModel):
+    amount: Decimal = Field(..., gt=0, description="Сумма прибыли/дивидендов для распределения")
+    description: str = Field("Выплата инвестиционного дохода", min_length=3, max_length=500)
+
+
+class ProfitCalculatePreviewResponse(BaseModel):
+    project_id: int
+    project_title: str
+    total_profit: Decimal
+    total_invested: Decimal
+    investors_count: int
+    items: list[ProfitPreviewItemResponse]
+
+
+class ProfitDistributeRequest(BaseModel):
+    amount: Decimal = Field(..., gt=0, description="Сумма прибыли/дивидендов для распределения")
+    description: str = Field(..., min_length=3, max_length=500)
+
+
+class ProfitDistributionItemResponse(BaseModel):
+    id: int
+    investor_id: int
+    investor_name: str
+    organization_name: str | None = None
+    invested_amount: Decimal
+    share_percent: Decimal
+    payout_amount: Decimal
+    transaction_id: int | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class ProfitDistributionResponse(BaseModel):
+    id: int
+    project_id: int
+    initiator_id: int
+    initiator_name: str | None = None
+    total_amount: Decimal
+    distribution_date: datetime
+    description: str
+    status: str
+    items: list[ProfitDistributionItemResponse] = []
+
+    class Config:
+        from_attributes = True

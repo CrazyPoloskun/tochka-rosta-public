@@ -13,6 +13,9 @@ import {
   HiOutlinePencilSquare,
   HiOutlineArrowPath,
   HiOutlineXCircle,
+  HiOutlinePaperClip,
+  HiOutlineDocumentText,
+  HiOutlineArrowDownTray,
 } from "react-icons/hi2"
 
 import { Button } from "@/components/ui/button"
@@ -75,8 +78,10 @@ export function SupportTab({
   const [editDesc, setEditDesc] = React.useState("")
   const [submittingEdit, setSubmittingEdit] = React.useState(false)
   const [togglingStatus, setTogglingStatus] = React.useState(false)
+  const [uploadingSupportFile, setUploadingSupportFile] = React.useState(false)
 
   const messagesEndRef = React.useRef<HTMLDivElement | null>(null)
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null)
   const typingTimerRef = React.useRef<NodeJS.Timeout | null>(null)
   const wsRef = React.useRef<WebSocket | null>(null)
 
@@ -301,6 +306,36 @@ export function SupportTab({
       } catch {
         error("Не удалось отправить сообщение куратору", "Ошибка")
       }
+    }
+  }
+
+  // Attach file to support ticket
+  const handleAttachSupportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !activeTicketId || uploadingSupportFile) return
+
+    setUploadingSupportFile(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const res = await authFetch(`/api/v1/support/tickets/${activeTicketId}/upload-attachment`, {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}))
+        throw new Error(errJson.detail || "Ошибка загрузки файла")
+      }
+
+      success(`Файл ${file.name} прикреплён к обращению`, "Файл отправлен")
+      fetchTicketMessages(activeTicketId)
+    } catch (err: any) {
+      error(err.message || "Не удалось прикрепить файл", "Ошибка")
+    } finally {
+      setUploadingSupportFile(false)
+      if (fileInputRef.current) fileInputRef.current.value = ""
     }
   }
 
@@ -568,7 +603,28 @@ export function SupportTab({
                         >
                           {isAdmin ? "Служба заботы / Куратор" : "Вы"}
                         </div>
-                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                        {msg.content.startsWith("[Файл:") ? (
+                          <div className="py-1">
+                            <a
+                              href={msg.content.match(/\((.*?)\)/)?.[1] || "#"}
+                              target="_blank"
+                              rel="noreferrer"
+                              className={`flex items-center gap-2 p-2 rounded-xl text-xs font-semibold ${
+                                isAdmin
+                                  ? "bg-white border border-red-200 text-[#111111] hover:bg-red-50"
+                                  : "bg-white/10 hover:bg-white/20 text-white"
+                              }`}
+                            >
+                              <HiOutlineDocumentText className="size-4 text-[#F81B00]" />
+                              <span className="truncate">
+                                {msg.content.match(/\[Файл:\s*(.*?)\]/)?.[1] || "Вложение"}
+                              </span>
+                              <HiOutlineArrowDownTray className="size-3.5 ml-auto opacity-70" />
+                            </a>
+                          </div>
+                        ) : (
+                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                        )}
                         <span
                           className={`block text-[9px] mt-1 text-right ${
                             isAdmin ? "text-[#6B7280]" : "text-white/60"
@@ -599,6 +655,23 @@ export function SupportTab({
                 onSubmit={handleSendReply}
                 className="p-3 border-t border-[#E2E5EB] bg-white flex items-center gap-2"
               >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  disabled={uploadingSupportFile}
+                  onChange={handleAttachSupportFile}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingSupportFile}
+                  className="p-2 text-[#6B7280] hover:text-[#111111] hover:bg-[#F5F6F8] rounded-xl transition-colors cursor-pointer shrink-0"
+                  title="Прикрепить файл к обращению (скриншот, документ, акт)"
+                >
+                  <HiOutlinePaperClip className="size-4" />
+                </button>
+
                 <Input
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
@@ -607,7 +680,7 @@ export function SupportTab({
                 />
                 <Button
                   type="submit"
-                  disabled={!replyText.trim()}
+                  disabled={!replyText.trim() || uploadingSupportFile}
                   className="size-9 p-0 rounded-xl bg-[#111111] hover:bg-black text-white shrink-0 shadow-xs"
                 >
                   <HiOutlinePaperAirplane className="size-4" />

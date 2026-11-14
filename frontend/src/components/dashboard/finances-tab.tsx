@@ -177,7 +177,7 @@ export function FinancesTab({
     if (txFilter === "all") return true
     if (txFilter === "deposits") return tx.type === "deposit"
     if (txFilter === "escrow") return tx.type === "escrow_lock" || tx.type === "escrow_release"
-    if (txFilter === "payouts") return tx.type === "payout"
+    if (txFilter === "payouts") return tx.type === "payout" || tx.type === "profit_payout"
     return true
   })
 
@@ -340,6 +340,7 @@ export function FinancesTab({
                 {filteredTxs.map((tx) => {
                   const isPositive =
                     tx.type === "deposit" ||
+                    tx.type === "profit_payout" ||
                     (isLab && (tx.type === "escrow_release" || tx.type === "payout"))
                   const isNegative =
                     tx.type === "escrow_lock" || (!isLab && tx.type === "escrow_release")
@@ -363,6 +364,8 @@ export function FinancesTab({
                             className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full ${
                               tx.type === "deposit"
                                 ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : tx.type === "profit_payout"
+                                ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
                                 : tx.type === "escrow_lock"
                                 ? "bg-amber-50 text-amber-800 border border-amber-200"
                                 : tx.type === "escrow_release"
@@ -372,6 +375,8 @@ export function FinancesTab({
                           >
                             {tx.type === "deposit"
                               ? "Пополнение"
+                              : tx.type === "profit_payout"
+                              ? "Прибыль синдиката"
                               : tx.type === "escrow_lock"
                               ? "Блокировка на эскроу"
                               : tx.type === "escrow_release"

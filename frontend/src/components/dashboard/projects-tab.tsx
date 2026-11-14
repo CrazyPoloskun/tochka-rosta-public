@@ -15,6 +15,8 @@ import {
   HiOutlineScale,
   HiOutlineCheck,
   HiOutlineUserGroup,
+  HiOutlineBanknotes,
+  HiOutlineChatBubbleLeftRight,
 } from "react-icons/hi2"
 
 import { Button } from "@/components/ui/button"
@@ -31,9 +33,10 @@ import {
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useToast } from "@/components/ui/toast"
 import { CopyButton } from "@/components/ui/copy-button"
-import { TableSkeleton } from "@/components/ui/skeleton-loader"
+import { TableSkeleton, AiShineSkeleton } from "@/components/ui/skeleton-loader"
 import { SyndicateModal } from "./syndicate-modal"
 import { EnableSyndicateModal } from "./enable-syndicate-modal"
+import { ProfitDistributionModal } from "./profit-distribution-modal"
 import { CounterpartyModal } from "@/components/profile/counterparty-modal"
 import { User } from "@/lib/auth-context"
 import { Project, ProjectMilestone, ProjectFile } from "./dashboard-types"
@@ -62,10 +65,11 @@ export function ProjectsTab({
     projects.length > 0 ? projects[0].id : null
   )
 
-  // Syndication Modals
+  // Syndication & Profit Modals
   const [userAvailableBalance, setUserAvailableBalance] = React.useState<number>(0)
   const [syndicateModalProject, setSyndicateModalProject] = React.useState<Project | null>(null)
   const [enableSyndicateProject, setEnableSyndicateProject] = React.useState<Project | null>(null)
+  const [profitModalProject, setProfitModalProject] = React.useState<Project | null>(null)
 
   React.useEffect(() => {
     const fetchBalance = async () => {
@@ -515,14 +519,42 @@ export function ProjectsTab({
                         </div>
                       </div>
 
-                      <Button
-                        size="sm"
-                        onClick={() => setSyndicateModalProject(activeProject)}
-                        className="text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs gap-1.5 h-8 px-3.5 cursor-pointer self-start sm:self-auto"
-                      >
-                        <HiOutlineUserGroup className="size-3.5 text-[#F81B00]" />
-                        <span>Cap Table / Соинвестировать</span>
-                      </Button>
+                      <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+                        <Button
+                          size="sm"
+                          onClick={() => setSyndicateModalProject(activeProject)}
+                          className="text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs gap-1.5 h-8 px-3.5 cursor-pointer"
+                        >
+                          <HiOutlineUserGroup className="size-3.5 text-[#F81B00]" />
+                          <span>Cap Table / Соинвестировать</span>
+                        </Button>
+
+                        {(activeProject.lab_id === user?.id || user?.is_admin) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setProfitModalProject(activeProject)}
+                            className="text-xs font-bold border-[#E2E5EB] bg-white hover:bg-[#F5F6F8] text-[#111111] rounded-xl shadow-xs gap-1.5 h-8 px-3 cursor-pointer"
+                            title="Выплатить прибыль соинвесторам пропорционально долям"
+                          >
+                            <HiOutlineBanknotes className="size-3.5 text-emerald-600" />
+                            <span>Распределить прибыль</span>
+                          </Button>
+                        )}
+
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            window.location.href = `/dashboard?tab=messages`
+                          }}
+                          className="text-xs font-semibold text-[#4B5563] hover:text-[#111111] h-8 px-2.5 rounded-xl gap-1"
+                          title="Открыть групповой чат проекта"
+                        >
+                          <HiOutlineChatBubbleLeftRight className="size-3.5 text-[#6B7280]" />
+                          <span>Чат</span>
+                        </Button>
+                      </div>
                     </div>
 
                     {/* Progress Bar of Syndication */}
@@ -1155,6 +1187,17 @@ export function ProjectsTab({
         authFetch={authFetch}
       />
 
+      {/* Profit Distribution Modal (Lab / Admin) */}
+      <ProfitDistributionModal
+        project={profitModalProject}
+        open={!!profitModalProject}
+        onOpenChange={(open) => !open && setProfitModalProject(null)}
+        onSuccess={() => {
+          onRefresh()
+        }}
+        authFetch={authFetch}
+      />
+
       {/* GOST 7.32 R&D Report Modal (Lab) */}
       <Dialog open={!!gostModal} onOpenChange={(open) => !open && setGostModal(null)}>
         <DialogContent className="max-w-2xl bg-white rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
@@ -1169,7 +1212,16 @@ export function ProjectsTab({
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleGenerateGostReport} className="space-y-4 py-2">
+          {generatingGost ? (
+            <div className="py-4 space-y-4">
+              <AiShineSkeleton
+                title="Нейросетевая вёрстка отчёта по ГОСТ 7.32-2017"
+                subtitle="Формирование нормативной структуры документа, таблиц сметы, реферата и компиляция файлов DOCX и PDF"
+              />
+              <p className="text-center text-xs text-[#6B7280]">Пожалуйста, подождите. Это может занять несколько секунд...</p>
+            </div>
+          ) : (
+            <form onSubmit={handleGenerateGostReport} className="space-y-4 py-2">
             <div>
               <label className="text-xs font-semibold text-[#111111] block mb-1">
                 Реферат этапа
@@ -1254,6 +1306,7 @@ export function ProjectsTab({
               </Button>
             </DialogFooter>
           </form>
+          )}
         </DialogContent>
       </Dialog>
 

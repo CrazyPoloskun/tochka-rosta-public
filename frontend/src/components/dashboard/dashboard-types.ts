@@ -143,11 +143,26 @@ export interface TransactionItem {
   created_at: string
 }
 
+export interface ChatMemberItem {
+  id: number
+  chat_id: number
+  user_id: number
+  role: string
+  full_name: string
+  organization_name?: string | null
+  user_role: string
+  invested_amount?: number | null
+  share_percent?: number | null
+  joined_at: string
+  is_online?: boolean
+}
+
 export interface ChatItem {
   id: number
   title: string
-  investor_id: number
-  lab_id: number
+  chat_type?: "direct" | "project" | "support"
+  investor_id?: number | null
+  lab_id?: number | null
   project_id?: number | null
   context_type?: string | null
   context_id?: number | null
@@ -156,6 +171,30 @@ export interface ChatItem {
   other_party_role?: string
   unread_count: number
   last_message?: string | null
+  members_count?: number
+}
+
+export interface MessageAttachmentItem {
+  id: number
+  message_id: number
+  file_name: string
+  file_path: string
+  file_size: number
+  mime_type: string
+  created_at: string
+}
+
+export interface MessageItem {
+  id: number
+  chat_id: number
+  sender_id: number
+  content: string
+  is_read: boolean
+  is_system?: boolean
+  created_at: string
+  sender_name?: string
+  sender_role?: string
+  attachments?: MessageAttachmentItem[]
 }
 
 export interface PublicUserProfile {
@@ -209,14 +248,43 @@ export interface RecommendedLabItem {
   patents_count: number
 }
 
-export interface MessageItem {
+export interface ProfitPreviewItem {
+  investor_id: number
+  investor_name: string
+  organization_name?: string | null
+  invested_amount: number
+  share_percent: number
+  payout_amount: number
+}
+
+export interface ProfitPreviewData {
+  project_id: number
+  project_title: string
+  total_profit: number
+  total_invested: number
+  investors_count: number
+  items: ProfitPreviewItem[]
+}
+
+export interface ProfitDistributionHistoryItem {
   id: number
-  chat_id: number
-  sender_id: number
-  content: string
-  is_read: boolean
-  created_at: string
-  sender_name?: string
+  project_id: number
+  initiator_id: number
+  initiator_name?: string | null
+  total_amount: number
+  distribution_date: string
+  description: string
+  status: string
+  items: {
+    id: number
+    investor_id: number
+    investor_name: string
+    organization_name?: string | null
+    invested_amount: number
+    share_percent: number
+    payout_amount: number
+    transaction_id?: number | null
+  }[]
 }
 
 export interface TicketMessageItem {

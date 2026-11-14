@@ -19,6 +19,7 @@ async def lifespan(app: FastAPI):
     # 1. Создание папки загрузок
     upload_dir = os.environ.get("UPLOAD_DIR", "/app/uploads")
     os.makedirs(upload_dir, exist_ok=True)
+    os.makedirs(os.path.join(upload_dir, "chat_attachments"), exist_ok=True)
 
     # 2. Инициализация таблиц БД
     async with engine.begin() as conn:
@@ -51,6 +52,10 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_embedding JSON",
             "ALTER TABLE chats ADD COLUMN IF NOT EXISTS context_type VARCHAR(50)",
             "ALTER TABLE chats ADD COLUMN IF NOT EXISTS context_id INTEGER",
+            "ALTER TABLE chats ADD COLUMN IF NOT EXISTS chat_type VARCHAR(50) NOT NULL DEFAULT 'direct'",
+            "ALTER TABLE chats ALTER COLUMN investor_id DROP NOT NULL",
+            "ALTER TABLE chats ALTER COLUMN lab_id DROP NOT NULL",
+            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_system BOOLEAN NOT NULL DEFAULT FALSE",
             "ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS gost_structured_data JSON",
             "ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS gost_docx_path VARCHAR(512)",
             "ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS gost_pdf_path VARCHAR(512)",
