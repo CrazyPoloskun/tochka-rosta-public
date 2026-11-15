@@ -16,7 +16,7 @@ export interface ProjectMilestone {
   step_number: number
   title: string
   amount: number
-  status: "pending_funds" | "escrow_funded" | "in_review" | "approved" | "disputed"
+  status: "pending_funds" | "escrow_funded" | "in_review" | "approved" | "completed" | "disputed"
   raw_report?: string | null
   ai_summary?: string | null
   paid_at?: string | null

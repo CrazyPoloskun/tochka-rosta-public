@@ -585,7 +585,7 @@ function CTA({
   onOpenAuth,
   loggedIn,
 }: {
-  onOpenAuth: (mode?: "login" | "register") => void;
+  onOpenAuth: (mode?: AuthModalMode) => void;
   loggedIn: boolean;
 }) {
   const router = useRouter();
@@ -912,7 +912,7 @@ function MCTA({
   onOpenAuth,
   loggedIn,
 }: {
-  onOpenAuth: (mode?: "login" | "register") => void;
+  onOpenAuth: (mode?: AuthModalMode) => void;
   loggedIn: boolean;
 }) {
   const router = useRouter();
