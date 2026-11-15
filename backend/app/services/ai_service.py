@@ -141,44 +141,47 @@ async def call_real_llm(
     temperature: float = 0.2,
 ) -> tuple[str, str]:
     """
-    Выполняет реальный запрос к нейросети строго через OpenAI API.
-    Сторонние провайдеры (OpenRouter, Gemini, Pollinations) отключены: используется исключительно OpenAI.
+    Выполняет реальный запрос к нейросети строго через OpenRouter API.
+    Используется исключительно OpenRouter.
 
     Возвращает кортеж: (content, provider_name).
     При отсутствии ключа или ошибке API возбуждает RuntimeError.
     """
-    openai_key = _clean_str(settings.OPENAI_API_KEY)
-    openai_model = _clean_str(settings.OPENAI_MODEL) or "gpt-4o-mini"
-    openai_url = (_clean_str(settings.OPENAI_BASE_URL) or "https://api.openai.com/v1").rstrip('/') + "/chat/completions"
+    openrouter_key = _clean_str(settings.OPENROUTER_API_KEY)
+    openrouter_model = _clean_str(settings.OPENROUTER_MODEL) or "google/gemini-2.5-flash"
+    openrouter_url = (_clean_str(settings.OPENROUTER_BASE_URL) or "https://openrouter.ai/api/v1").rstrip('/') + "/chat/completions"
 
-    if not openai_key:
+    if not openrouter_key:
         raise RuntimeError(
-            "ИИ-сервис платформы сконфигурирован исключительно для работы через OpenAI. "
-            "Ключ OPENAI_API_KEY не задан в настройках (.env). "
-            "Пожалуйста, укажите валидный OPENAI_API_KEY."
+            "ИИ-сервис платформы сконфигурирован исключительно для работы через OpenRouter. "
+            "Ключ OPENROUTER_API_KEY не задан в настройках (.env). "
+            "Пожалуйста, укажите валидный OPENROUTER_API_KEY."
         )
 
     headers = {
-        "Authorization": f"Bearer {openai_key}",
+        "Authorization": f"Bearer {openrouter_key}",
+        "HTTP-Referer": "https://tochkarosta.ru",
+        "X-Title": "Tochka Rosta DeepTech Platform",
         "Content-Type": "application/json",
     }
     payload: dict[str, Any] = {
-        "model": openai_model,
+        "model": openrouter_model,
         "messages": messages,
         "temperature": temperature,
     }
     if response_format_json:
         payload["response_format"] = {"type": "json_object"}
 
-    ai_proxy = _clean_str(settings.AI_PROXY or settings.OPENROUTER_PROXY) or None
+    ai_proxy = _clean_str(settings.OPENROUTER_PROXY or settings.AI_PROXY) or None
 
     try:
-        res = await _safe_http_post(openai_url, headers=headers, payload=payload, proxy=ai_proxy)
+        res = await _safe_http_post(openrouter_url, headers=headers, payload=payload, proxy=ai_proxy)
 
-        # Если модель не поддерживает response_format type json_object (код 400), повторяем без него
+        # Некоторые модели OpenRouter возвращают 400 при наличии response_format
         if res.status_code == 400 and response_format_json:
+            logger.info("OpenRouter model rejected response_format, retrying with raw text mode...")
             payload.pop("response_format", None)
-            res = await _safe_http_post(openai_url, headers=headers, payload=payload, proxy=ai_proxy)
+            res = await _safe_http_post(openrouter_url, headers=headers, payload=payload, proxy=ai_proxy)
 
         if res.status_code == 200:
             data = res.json()
@@ -186,15 +189,15 @@ async def call_real_llm(
             if choices:
                 content = choices[0].get("message", {}).get("content", "").strip()
                 if content:
-                    return content, f"OpenAI ({openai_model})"
-            raise RuntimeError(f"OpenAI вернул некорректный ответ: {data}")
+                    return content, f"OpenRouter ({openrouter_model})"
+            raise RuntimeError(f"OpenRouter вернул некорректный ответ: {data}")
         else:
             err_msg = res.text[:300]
-            logger.error(f"OpenAI API error {res.status_code}: {err_msg}")
-            raise RuntimeError(f"OpenAI API вернул код {res.status_code}: {err_msg}")
+            logger.error(f"OpenRouter API error {res.status_code}: {err_msg}")
+            raise RuntimeError(f"OpenRouter API вернул код {res.status_code}: {err_msg}")
     except Exception as e:
-        logger.error(f"OpenAI call failed: {e}")
-        raise RuntimeError(f"Ошибка вызова OpenAI ({openai_model}): {e}")
+        logger.error(f"OpenRouter call failed: {e}")
+        raise RuntimeError(f"Ошибка вызова OpenRouter ({openrouter_model}): {e}")
 
 
 # ==============================================================================
@@ -385,19 +388,19 @@ async def generate_task_tz_ai(title: str, query: str, industry: Optional[str] = 
 # ==============================================================================
 
 def get_ai_status() -> dict[str, Any]:
-    """Возвращает информацию о текущей активной конфигурации нейросетевого шлюза OpenAI."""
-    openai_key = _clean_str(settings.OPENAI_API_KEY)
-    openai_model = _clean_str(settings.OPENAI_MODEL) or "gpt-4o-mini"
+    """Возвращает информацию о текущей активной конфигурации нейросетевого шлюза OpenRouter."""
+    openrouter_key = _clean_str(settings.OPENROUTER_API_KEY)
+    openrouter_model = _clean_str(settings.OPENROUTER_MODEL) or "google/gemini-2.5-flash"
 
     key_preview = "не задан"
-    if openai_key:
-        key_preview = f"{openai_key[:6]}...{openai_key[-4:]}" if len(openai_key) > 10 else "задан"
+    if openrouter_key:
+        key_preview = f"{openrouter_key[:6]}...{openrouter_key[-4:]}" if len(openrouter_key) > 10 else "задан"
 
     return {
-        "is_configured": bool(openai_key),
-        "active_provider": f"OpenAI ({openai_model})",
+        "is_configured": bool(openrouter_key),
+        "active_provider": f"OpenRouter ({openrouter_model})",
         "key_preview": key_preview,
-        "available_providers": [f"OpenAI ({openai_model})"],
+        "available_providers": [f"OpenRouter ({openrouter_model})"],
         "mock_data_enabled": False,
-        "status": "online" if openai_key else "needs_key",
+        "status": "online" if openrouter_key else "needs_key",
     }

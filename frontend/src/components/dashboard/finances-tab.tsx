@@ -721,8 +721,8 @@ export function FinancesTab({
       {/* Invoice Modal for Legal Entities */}
       <Dialog open={!!invoiceData} onOpenChange={(open) => !open && setInvoiceData(null)}>
         <DialogContent className="max-w-xl bg-white rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-base font-bold text-[#111111] flex items-center justify-between">
+          <DialogHeader className="pr-8">
+            <DialogTitle className="text-base font-bold text-[#111111] flex flex-wrap items-center justify-between gap-2">
               <span>Счёт на оплату {invoiceData?.invoice_number}</span>
               <span className="text-xs font-normal text-[#6B7280]">от {invoiceData?.date}</span>
             </DialogTitle>
@@ -736,20 +736,20 @@ export function FinancesTab({
               {/* Supplier Requisites Box */}
               <div className="p-4 bg-[#F8FAFC] border border-[#E2E5EB] rounded-xl space-y-2">
                 <p className="font-bold text-[#111111]">{invoiceData.supplier.organization}</p>
-                <div className="grid grid-cols-2 gap-2 text-[11px] text-[#4B5563]">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-[#4B5563]">
                   <div>ИНН: <span className="font-mono font-semibold text-[#111111]">{invoiceData.supplier.inn}</span></div>
                   <div>КПП: <span className="font-mono font-semibold text-[#111111]">{invoiceData.supplier.kpp}</span></div>
                   <div>БИК: <span className="font-mono font-semibold text-[#111111]">{invoiceData.supplier.bik}</span></div>
                   <div>Банк: <span className="font-semibold text-[#111111]">{invoiceData.supplier.bank_name}</span></div>
-                  <div className="col-span-2">Р/с: <span className="font-mono font-semibold text-[#111111]">{invoiceData.supplier.account}</span></div>
-                  <div className="col-span-2">Корр/с: <span className="font-mono font-semibold text-[#111111]">{invoiceData.supplier.corr_account}</span></div>
+                  <div className="col-span-1 sm:col-span-2">Р/с: <span className="font-mono font-semibold text-[#111111]">{invoiceData.supplier.account}</span></div>
+                  <div className="col-span-1 sm:col-span-2">Корр/с: <span className="font-mono font-semibold text-[#111111]">{invoiceData.supplier.corr_account}</span></div>
                 </div>
               </div>
 
               {/* Payer & Purpose */}
               <div className="p-3 border border-[#E2E5EB] rounded-xl space-y-1.5 text-[11px]">
-                <p><span className="text-[#6B7280]">Плательщик:</span> <span className="font-semibold text-[#111111]">{invoiceData.customer.name}</span></p>
-                <p><span className="text-[#6B7280]">Назначение:</span> <span className="text-[#111111]">{invoiceData.purpose}</span></p>
+                <p className="break-words"><span className="text-[#6B7280]">Плательщик:</span> <span className="font-semibold text-[#111111]">{invoiceData.customer.name}</span></p>
+                <p className="break-words"><span className="text-[#6B7280]">Назначение:</span> <span className="text-[#111111]">{invoiceData.purpose}</span></p>
                 <p className="pt-1 text-sm font-extrabold text-[#111111]">
                   Сумма к оплате: {Number(invoiceData.amount).toLocaleString("ru-RU")} ₽ ({invoiceData.supplier.nds})
                 </p>
@@ -789,14 +789,14 @@ export function FinancesTab({
       {/* Transfer Confirmation Receipt Modal */}
       <Dialog open={!!receiptData} onOpenChange={(open) => !open && setReceiptData(null)}>
         <DialogContent className="max-w-xl bg-white rounded-2xl p-6 max-h-[92vh] overflow-y-auto space-y-4">
-          <DialogHeader className="border-b border-[#E2E5EB] pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200">
+          <DialogHeader className="border-b border-[#E2E5EB] pb-3 pr-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
                   <HiOutlineCheckBadge className="size-5" />
                 </span>
-                <div>
-                  <DialogTitle className="text-base font-bold text-[#111111]">
+                <div className="min-w-0">
+                  <DialogTitle className="text-base font-bold text-[#111111] truncate">
                     Подтверждение банковского перевода
                   </DialogTitle>
                   <DialogDescription className="text-xs text-[#6B7280]">
@@ -804,7 +804,7 @@ export function FinancesTab({
                   </DialogDescription>
                 </div>
               </div>
-              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold">
+              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold shrink-0 self-start sm:self-auto">
                 {receiptData?.status || "ПОДТВЕРЖДЕНО"}
               </Badge>
             </div>
@@ -813,16 +813,16 @@ export function FinancesTab({
           {receiptData && (
             <div className="space-y-4 text-xs">
               {/* Receipt Header Badge */}
-              <div className="p-4 bg-[#F8FAFC] border border-[#E2E5EB] rounded-xl flex items-center justify-between">
-                <div>
+              <div className="p-4 bg-[#F8FAFC] border border-[#E2E5EB] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="min-w-0">
                   <span className="text-[10px] font-mono uppercase tracking-wider text-[#6B7280] block">
                     Номер документа / УИН
                   </span>
-                  <span className="text-sm font-bold font-mono text-[#111111]">
+                  <span className="text-sm font-bold font-mono text-[#111111] break-all">
                     {receiptData.receipt_number}
                   </span>
                 </div>
-                <div className="text-right">
+                <div className="sm:text-right shrink-0">
                   <span className="text-[10px] font-mono uppercase tracking-wider text-[#6B7280] block">
                     Дата и время фиксации
                   </span>
@@ -833,17 +833,17 @@ export function FinancesTab({
               </div>
 
               {/* Amount Box */}
-              <div className="p-4 bg-white border border-[#E2E5EB] rounded-xl flex items-center justify-between shadow-2xs">
-                <div>
+              <div className="p-4 bg-white border border-[#E2E5EB] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                <div className="min-w-0 flex-1">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280] block">
                     {receiptData.operation_label}
                   </span>
-                  <span className="text-xs text-[#4B5563] mt-0.5 block">
+                  <span className="text-xs text-[#4B5563] mt-0.5 block break-words">
                     {receiptData.purpose}
                   </span>
                 </div>
-                <div className="text-right">
-                  <span className="text-xl font-extrabold text-[#111111] font-mono">
+                <div className="sm:text-right shrink-0">
+                  <span className="text-xl font-extrabold text-[#111111] font-mono block">
                     {receiptData.amount_formatted}
                   </span>
                 </div>
@@ -855,7 +855,7 @@ export function FinancesTab({
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280] block">
                     Плательщик / Отправитель:
                   </span>
-                  <p className="font-bold text-[#111111]">{receiptData.payer.name}</p>
+                  <p className="font-bold text-[#111111] break-words">{receiptData.payer.name}</p>
                   <p className="text-[11px] text-[#6B7280]">ИНН: {receiptData.payer.inn}</p>
                 </div>
 
@@ -863,14 +863,14 @@ export function FinancesTab({
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280] block">
                     Получатель средств:
                   </span>
-                  <p className="font-bold text-[#111111]">{receiptData.recipient.name}</p>
+                  <p className="font-bold text-[#111111] break-words">{receiptData.recipient.name}</p>
                   <p className="text-[11px] text-[#6B7280]">ИНН: {receiptData.recipient.inn}</p>
                 </div>
               </div>
 
               {/* Bank Execution Note */}
-              <div className="p-3.5 bg-[#F8FAFC] border border-[#E2E5EB] rounded-xl flex items-center justify-between">
-                <div>
+              <div className="p-3.5 bg-[#F8FAFC] border border-[#E2E5EB] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="min-w-0 flex-1">
                   <span className="text-xs font-bold text-[#111111] block">
                     Операция проведена через платёжный контур «Точка Роста»
                   </span>
@@ -878,7 +878,7 @@ export function FinancesTab({
                     Банк-эквайер: АО «Т-Банк» • Система быстрых платежей
                   </span>
                 </div>
-                <Badge variant="outline" className="text-[10px] font-bold bg-emerald-50 text-emerald-800 border-emerald-200">
+                <Badge variant="outline" className="text-[10px] font-bold bg-emerald-50 text-emerald-800 border-emerald-200 shrink-0 self-start sm:self-auto">
                   Исполнено
                 </Badge>
               </div>

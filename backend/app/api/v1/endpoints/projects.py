@@ -2,13 +2,13 @@ import os
 import shutil
 from datetime import datetime
 from decimal import Decimal
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Query
 from fastapi.responses import FileResponse
 from sqlalchemy import select, or_, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_current_user_flexible, http_bearer, HTTPAuthorizationCredentials
 from app.models.user import User
 from app.models.project import Project, ProjectMilestone, ProjectFile, ProjectSyndicateMember
 from app.models.finance import Account, Transaction, ProfitDistribution, ProfitPayoutItem
@@ -332,12 +332,31 @@ async def upload_project_file(
 async def download_project_file(
     project_id: int,
     file_id: int,
-    current_user: User = Depends(get_current_user),
+    token: str | None = Query(None),
+    credentials: HTTPAuthorizationCredentials | None = Depends(http_bearer),
     db: AsyncSession = Depends(get_db),
 ):
+    current_user = await get_current_user_flexible(token=token, credentials=credentials, db=db)
+
     p_res = await db.execute(select(Project).where(Project.id == project_id))
     project = p_res.scalar_one_or_none()
-    if not project or (project.investor_id != current_user.id and project.lab_id != current_user.id and not current_user.is_admin):
+    if not project:
+        raise HTTPException(status_code=404, detail="Проект не найден")
+
+    # Проверка прав: заказчик, исполнитель, администратор или соинвестор синдиката
+    is_party = (current_user.id in [project.investor_id, project.lab_id])
+    is_syndicate = False
+    if project.is_syndicated:
+        syn_check = await db.execute(
+            select(ProjectSyndicateMember.id).where(
+                ProjectSyndicateMember.project_id == project.id,
+                ProjectSyndicateMember.investor_id == current_user.id,
+            )
+        )
+        if syn_check.scalar_one_or_none():
+            is_syndicate = True
+
+    if not is_party and not current_user.is_admin and not is_syndicate:
         raise HTTPException(status_code=403, detail="Доступ запрещён")
 
     f_res = await db.execute(select(ProjectFile).where(ProjectFile.id == file_id, ProjectFile.project_id == project_id))
@@ -870,20 +889,34 @@ async def download_gost_report(
     project_id: int,
     milestone_id: int,
     format: str = "pdf",  # "pdf" or "docx"
-    current_user: User = Depends(get_current_user),
+    token: str | None = Query(None),
+    credentials: HTTPAuthorizationCredentials | None = Depends(http_bearer),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Скачивание сгенерированного отчета ГОСТ 7.32. Доступно заказчику, исполнителю и админам (арбитраж).
     """
+    current_user = await get_current_user_flexible(token=token, credentials=credentials, db=db)
+
     p_res = await db.execute(select(Project).where(Project.id == project_id))
     project = p_res.scalar_one_or_none()
     if not project:
         raise HTTPException(status_code=404, detail="Проект не найден")
 
-    # Проверка прав доступа: заказчик, исполнитель или администратор
+    # Проверка прав доступа: заказчик, исполнитель, администратор или соинвестор синдиката
     is_party = (current_user.id in [project.investor_id, project.lab_id])
-    if not is_party and not current_user.is_admin:
+    is_syndicate = False
+    if project.is_syndicated:
+        syn_check = await db.execute(
+            select(ProjectSyndicateMember.id).where(
+                ProjectSyndicateMember.project_id == project.id,
+                ProjectSyndicateMember.investor_id == current_user.id,
+            )
+        )
+        if syn_check.scalar_one_or_none():
+            is_syndicate = True
+
+    if not is_party and not current_user.is_admin and not is_syndicate:
         raise HTTPException(status_code=403, detail="Доступ к отчетам закрытого проекта разрешен только сторонам сделки или арбитражу")
 
     m_res = await db.execute(

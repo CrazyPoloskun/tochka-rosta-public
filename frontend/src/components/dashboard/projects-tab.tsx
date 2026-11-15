@@ -18,6 +18,8 @@ import {
   HiOutlineBanknotes,
   HiOutlineChatBubbleLeftRight,
   HiOutlineArrowRight,
+  HiOutlineClipboardDocumentCheck,
+  HiXMark,
 } from "react-icons/hi2"
 
 import { Button } from "@/components/ui/button"
@@ -94,17 +96,53 @@ export function ProjectsTab({
     title: string
   } | null>(null)
   const [rawReportText, setRawReportText] = React.useState("")
-  const [reportFiles, setReportFiles] = React.useState<string[]>([])
+  const [reportFiles, setReportFiles] = React.useState<{ name: string; url: string; size?: number }[]>([])
+  const [uploadingReportFile, setUploadingReportFile] = React.useState(false)
+  const reportFileInputRef = React.useRef<HTMLInputElement>(null)
   const [submittingReport, setSubmittingReport] = React.useState(false)
 
-  // Report Review Modal (Investor)
+  // File Download Handler
+  const [downloadingFile, setDownloadingFile] = React.useState<string | null>(null)
+  const handleDownloadFile = async (url: string, filename: string) => {
+    setDownloadingFile(url)
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      let targetUrl = url
+      if (token && !url.includes("token=")) {
+        targetUrl += (url.includes("?") ? "&" : "?") + `token=${encodeURIComponent(token)}`
+      }
+
+      const res = await authFetch(targetUrl)
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail || "Не удалось скачать файл")
+      }
+      const blob = await res.blob()
+      const blobUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = blobUrl
+      link.download = filename || "file"
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(blobUrl)
+      success(`Файл «${filename}» успешно скачан`, "Загрузка завершена")
+    } catch (err: any) {
+      error(err.message || "Ошибка при скачивании файла", "Ошибка")
+    } finally {
+      setDownloadingFile(null)
+    }
+  }
+
+  // Report Review Modal (Investor & Lab)
   const [viewingReport, setViewingReport] = React.useState<{
     projectId: number
     milestoneId: number
     title: string
     raw: string
-    ai: string
-    mode: "ai" | "raw"
+    ai?: string
+    hasGostDocx?: boolean
+    hasGostPdf?: boolean
   } | null>(null)
 
   // GOST 7.32 Report Modal (Lab)
@@ -167,6 +205,38 @@ export function ProjectsTab({
     }
   }
 
+  // Upload attached report files (Lab)
+  const handleReportFileUpload = async (files: FileList | null) => {
+    if (!files || !reportModal) return
+    setUploadingReportFile(true)
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        const fd = new FormData()
+        fd.append("file", file)
+        const res = await authFetch(`/api/v1/projects/${reportModal.projectId}/files`, {
+          method: "POST",
+          body: fd,
+        })
+        if (res.ok) {
+          const uploaded = await res.json()
+          const fileUrl = `/api/v1/projects/${reportModal.projectId}/files/${uploaded.id}`
+          setReportFiles((prev) => [
+            ...prev,
+            { name: uploaded.file_name || file.name, url: fileUrl, size: uploaded.file_size || file.size },
+          ])
+          success(`Файл «${file.name}» успешно прикреплён`, "Файл загружен")
+        } else {
+          error(`Не удалось загрузить файл ${file.name}`, "Ошибка загрузки")
+        }
+      }
+    } catch {
+      error("Сетевая ошибка при загрузке файлов", "Ошибка")
+    } finally {
+      setUploadingReportFile(false)
+    }
+  }
+
   // Submit milestone report (Lab)
   const handleSubmitReport = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -178,12 +248,19 @@ export function ProjectsTab({
 
     setSubmittingReport(true)
     try {
+      let finalReportText = rawReportText.trim()
+      if (reportFiles.length > 0) {
+        finalReportText +=
+          "\n\n### Прикреплённые файлы и материалы этапа:\n" +
+          reportFiles.map((f) => `- [${f.name}](${f.url})`).join("\n")
+      }
+
       const res = await authFetch(
         `/api/v1/projects/${reportModal.projectId}/milestones/${reportModal.milestoneId}/report`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ raw_report: rawReportText.trim() }),
+          body: JSON.stringify({ raw_report: finalReportText }),
         }
       )
       const data = await res.json()
@@ -364,7 +441,7 @@ export function ProjectsTab({
             <div className="space-y-2">
               {projects.map((p) => {
                 const isSelected = p.id === activeProject?.id
-                const completedCount = p.milestones.filter((m) => m.status === "approved").length
+                const completedCount = p.milestones.filter((m) => m.status === "completed" || m.status === "approved").length
                 return (
                   <button
                     key={p.id}
@@ -597,7 +674,7 @@ export function ProjectsTab({
                   <div className="flex justify-between text-xs">
                     <span className="font-medium text-[#6B7280]">Прогресс выполнения этапов</span>
                     <span className="font-bold text-[#111111]">
-                      {activeProject.milestones.filter((m) => m.status === "approved").length} из{" "}
+                      {activeProject.milestones.filter((m) => m.status === "completed" || m.status === "approved").length} из{" "}
                       {activeProject.milestones.length} сдано
                     </span>
                   </div>
@@ -606,7 +683,7 @@ export function ProjectsTab({
                       <div
                         key={idx}
                         className={`h-full border-r border-white/40 transition-all ${
-                          m.status === "approved"
+                          m.status === "completed" || m.status === "approved"
                             ? "bg-emerald-500"
                             : m.status === "in_review"
                             ? "bg-blue-500"
@@ -642,37 +719,37 @@ export function ProjectsTab({
                     const isPendingFunds = m.status === "pending_funds"
                     const isEscrowFunded = m.status === "escrow_funded"
                     const isInReview = m.status === "in_review"
-                    const isApproved = m.status === "approved"
+                    const isCompleted = m.status === "completed" || m.status === "approved"
                     const isDisputed = m.status === "disputed"
 
                     return (
                       <div key={m.id} className="relative flex items-start gap-3 group">
                         {/* Connected Step Node on Chain Line */}
                         <div
-                          className={`absolute -left-8 size-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 z-10 shadow-xs border-2 transition-transform group-hover:scale-110 ${
-                            isApproved
-                              ? "bg-emerald-500 border-white text-white"
+                          className={`absolute -left-8 size-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 z-10 border-2 transition-all duration-200 group-hover:scale-110 ${
+                            isCompleted
+                              ? "bg-emerald-500 border-emerald-400 text-white shadow-md shadow-emerald-500/40 ring-4 ring-emerald-100/90"
                               : isInReview
-                              ? "bg-blue-500 border-white text-white animate-pulse"
+                              ? "bg-blue-500 border-white text-white animate-pulse shadow-md shadow-blue-500/30 ring-4 ring-blue-100"
                               : isEscrowFunded
-                              ? "bg-amber-500 border-white text-white"
+                              ? "bg-amber-500 border-white text-white shadow-xs"
                               : isDisputed
-                              ? "bg-red-500 border-white text-white"
-                              : "bg-white border-[#E2E5EB] text-slate-700"
+                              ? "bg-red-500 border-white text-white shadow-xs ring-4 ring-red-100"
+                              : "bg-white border-[#E2E5EB] text-slate-700 shadow-xs"
                           }`}
                         >
-                          {isApproved ? <HiOutlineCheck className="size-4" /> : m.step_number || idx + 1}
+                          {isCompleted ? <HiOutlineCheck className="size-4.5 stroke-[2.5] text-white" /> : m.step_number || idx + 1}
                         </div>
 
                         {/* Milestone Card */}
                         <Card
                           className={`flex-1 rounded-2xl p-4 sm:p-5 transition-all bg-white shadow-2xs ${
-                            isInReview
+                            isCompleted
+                              ? "border-emerald-300 ring-1 ring-emerald-100/70"
+                              : isInReview
                               ? "border-blue-300 ring-1 ring-blue-100"
                               : isEscrowFunded
                               ? "border-amber-300"
-                              : isApproved
-                              ? "border-emerald-200"
                               : isDisputed
                               ? "border-red-300 ring-1 ring-red-100"
                               : "border-[#E2E5EB]"
@@ -684,8 +761,8 @@ export function ProjectsTab({
                                 <div className="flex items-center gap-2">
                                   <h4 className="text-xs font-bold text-[#111111]">{m.title}</h4>
                                 <span
-                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                    isApproved
+                                  className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 ${
+                                    isCompleted
                                       ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                       : isInReview
                                       ? "bg-blue-50 text-blue-700 border border-blue-200"
@@ -696,8 +773,9 @@ export function ProjectsTab({
                                       : "bg-slate-50 text-slate-600 border border-slate-200"
                                   }`}
                                 >
-                                  {isApproved
-                                    ? "Выполнено и выплачено"
+                                  {isCompleted && <HiOutlineCheck className="size-3 text-emerald-600 stroke-[2.5]" />}
+                                  {isCompleted
+                                    ? "Этап завершен"
                                     : isInReview
                                     ? "Отчёт на приёмке"
                                     : isEscrowFunded
@@ -737,8 +815,9 @@ export function ProjectsTab({
                                         milestoneId: m.id,
                                         title: m.title,
                                         raw: m.raw_report || "Текст отчёта не найден",
-                                        ai: m.ai_summary || "ИИ-сводка генерируется...",
-                                        mode: "ai",
+                                        ai: m.ai_summary || "",
+                                        hasGostDocx: !!m.gost_docx_path,
+                                        hasGostPdf: !!m.gost_pdf_path,
                                       })
                                     }
                                     className="text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 rounded-xl"
@@ -754,25 +833,64 @@ export function ProjectsTab({
                             {isLab && (
                               <div className="flex items-center gap-2 flex-wrap">
                                 {isEscrowFunded && (
-                                  <Button
-                                    size="sm"
-                                    onClick={() =>
-                                      setGostModal({
-                                        projectId: activeProject.id,
-                                        milestoneId: m.id,
-                                        title: m.title,
-                                      })
-                                    }
-                                    className="text-xs font-bold bg-[#F81B00] hover:bg-[#e01800] text-white rounded-xl shadow-xs"
-                                  >
-                                    <HiOutlineDocumentText className="size-3.5 mr-1" />
-                                    Отчёт ГОСТ 7.32 (Сдать этап)
-                                  </Button>
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => {
+                                        setReportModal({
+                                          projectId: activeProject.id,
+                                          milestoneId: m.id,
+                                          title: m.title,
+                                        })
+                                        setRawReportText("")
+                                        setReportFiles([])
+                                      }}
+                                      className="text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs"
+                                    >
+                                      <HiOutlinePaperClip className="size-3.5 mr-1 text-[#F81B00]" />
+                                      Сдать отчёт с файлами
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      onClick={() =>
+                                        setGostModal({
+                                          projectId: activeProject.id,
+                                          milestoneId: m.id,
+                                          title: m.title,
+                                        })
+                                      }
+                                      className="text-xs font-bold bg-[#F81B00] hover:bg-[#e01800] text-white rounded-xl shadow-xs"
+                                    >
+                                      <HiOutlineDocumentText className="size-3.5 mr-1" />
+                                      Отчёт ГОСТ 7.32
+                                    </Button>
+                                  </>
                                 )}
                                 {isInReview && (
-                                  <span className="text-[11px] text-blue-700 font-medium bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
-                                    Отчёт на проверке у инвестора
-                                  </span>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-[11px] text-blue-700 font-medium bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
+                                      Отчёт на проверке у инвестора
+                                    </span>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() =>
+                                        setViewingReport({
+                                          projectId: activeProject.id,
+                                          milestoneId: m.id,
+                                          title: m.title,
+                                          raw: m.raw_report || "Текст отчёта не найден",
+                                          ai: m.ai_summary || "",
+                                          hasGostDocx: !!m.gost_docx_path,
+                                          hasGostPdf: !!m.gost_pdf_path,
+                                        })
+                                      }
+                                      className="text-xs font-bold border-[#E2E5EB] text-[#111111] hover:bg-[#F5F6F8] rounded-xl cursor-pointer"
+                                    >
+                                      <HiOutlineEye className="size-3.5 mr-1 text-[#F81B00]" />
+                                      Смотреть мой отчёт
+                                    </Button>
+                                  </div>
                                 )}
                               </div>
                             )}
@@ -780,33 +898,39 @@ export function ProjectsTab({
                             {/* ГОСТ 7.32 Downloads for Both Parties */}
                             {(m.gost_docx_path || m.gost_pdf_path || m.raw_report) && (
                               <div className="flex items-center gap-1.5">
-                                <a
-                                  href={`/api/v1/projects/${activeProject.id}/milestones/${m.id}/gost-download?format=docx`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  download
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#F5F6F8] hover:bg-[#E2E5EB] border border-[#E2E5EB] rounded-lg text-[10px] font-mono text-[#111111] transition-colors"
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleDownloadFile(
+                                      `/api/v1/projects/${activeProject.id}/milestones/${m.id}/gost-download?format=docx`,
+                                      `ГОСТ_7.32_Проект_${activeProject.id}_Этап_${m.step_number}.docx`
+                                    )
+                                  }
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#F5F6F8] hover:bg-[#E2E5EB] border border-[#E2E5EB] rounded-lg text-[10px] font-mono text-[#111111] transition-colors cursor-pointer"
                                   title="Скачать официальный отчет ГОСТ 7.32 (DOCX)"
                                 >
                                   <HiOutlineArrowDownTray className="size-3 text-[#F81B00]" />
                                   <span>DOCX</span>
-                                </a>
-                                <a
-                                  href={`/api/v1/projects/${activeProject.id}/milestones/${m.id}/gost-download?format=pdf`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  download
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#F5F6F8] hover:bg-[#E2E5EB] border border-[#E2E5EB] rounded-lg text-[10px] font-mono text-[#111111] transition-colors"
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleDownloadFile(
+                                      `/api/v1/projects/${activeProject.id}/milestones/${m.id}/gost-download?format=pdf`,
+                                      `ГОСТ_7.32_Проект_${activeProject.id}_Этап_${m.step_number}.pdf`
+                                    )
+                                  }
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#F5F6F8] hover:bg-[#E2E5EB] border border-[#E2E5EB] rounded-lg text-[10px] font-mono text-[#111111] transition-colors cursor-pointer"
                                   title="Скачать официальный отчет ГОСТ 7.32 (PDF)"
                                 >
                                   <HiOutlineArrowDownTray className="size-3 text-[#F81B00]" />
                                   <span>PDF</span>
-                                </a>
+                                </button>
                               </div>
                             )}
 
-                            {/* Both: View Report if completed */}
-                            {isApproved && (m.raw_report || m.ai_summary) && (
+                            {/* Both: View Report if completed or report already submitted */}
+                            {(isCompleted || m.raw_report || m.ai_summary) && !isInReview && (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -817,12 +941,14 @@ export function ProjectsTab({
                                     title: m.title,
                                     raw: m.raw_report || "",
                                     ai: m.ai_summary || "",
-                                    mode: "ai",
+                                    hasGostDocx: !!m.gost_docx_path,
+                                    hasGostPdf: !!m.gost_pdf_path,
                                   })
                                 }
-                                className="text-xs border-[#E2E5EB] text-[#111111] rounded-xl"
+                                className="text-xs border-[#E2E5EB] text-[#111111] rounded-xl cursor-pointer hover:bg-[#F5F6F8]"
                               >
-                                Просмотр отчёта
+                                <HiOutlineEye className="size-3.5 mr-1" />
+                                {isLab ? "Посмотреть мой отчёт" : "Просмотр отчёта"}
                               </Button>
                             )}
                           </div>
@@ -853,20 +979,89 @@ export function ProjectsTab({
           <form onSubmit={handleSubmitReport} className="space-y-4 py-2">
             <div>
               <label className="text-xs font-semibold text-[#111111] block mb-1">
-                Научный отчёт и описание результатов (raw_report)
+                Научный отчёт и описание результатов (raw_report) *
               </label>
               <textarea
                 value={rawReportText}
                 onChange={(e) => setRawReportText(e.target.value)}
                 placeholder="Опишите полученные научные результаты, проведённые испытания, характеристики полученных образцов..."
-                className="w-full h-36 border border-[#E2E5EB] rounded-xl p-3 text-xs text-[#111111] focus:ring-1 focus:ring-[#111111] outline-hidden resize-none leading-relaxed"
+                className="w-full h-32 border border-[#E2E5EB] rounded-xl p-3 text-xs text-[#111111] focus:ring-1 focus:ring-[#111111] outline-hidden resize-none leading-relaxed"
                 required
               />
             </div>
 
+            {/* Блок прикрепления файлов */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-[#111111] flex items-center gap-1.5">
+                  <HiOutlinePaperClip className="size-4 text-[#F81B00]" />
+                  <span>Прикреплённые файлы и материалы</span>
+                </label>
+                <input
+                  ref={reportFileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    handleReportFileUpload(e.target.files)
+                    e.target.value = ""
+                  }}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={uploadingReportFile}
+                  onClick={() => reportFileInputRef.current?.click()}
+                  className="h-7 text-[11px] font-bold border-[#E2E5EB] rounded-lg gap-1.5 cursor-pointer hover:bg-[#F5F6F8]"
+                >
+                  <HiOutlinePaperClip className="size-3.5" />
+                  <span>{uploadingReportFile ? "Загрузка..." : "Прикрепить файлы"}</span>
+                </Button>
+              </div>
+
+              {reportFiles.length > 0 ? (
+                <div className="space-y-1.5 p-2.5 bg-[#F8FAFC] border border-[#E2E5EB] rounded-xl max-h-36 overflow-y-auto">
+                  {reportFiles.map((f, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between gap-2 p-1.5 bg-white border border-[#E2E5EB] rounded-lg text-xs"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <HiOutlineDocumentText className="size-4 text-[#F81B00] shrink-0" />
+                        <span className="font-medium text-[#111111] truncate">{f.name}</span>
+                        {f.size && (
+                          <span className="text-[10px] text-[#6B7280] font-mono shrink-0">
+                            ({Math.round(f.size / 1024)} КБ)
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setReportFiles((prev) => prev.filter((_, i) => i !== idx))}
+                        className="text-[#6B7280] hover:text-red-600 p-1 rounded-md transition-colors cursor-pointer"
+                        title="Удалить файл"
+                      >
+                        <HiXMark className="size-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div
+                  onClick={() => reportFileInputRef.current?.click()}
+                  className="p-3 border border-dashed border-[#D1D5DB] rounded-xl text-center bg-[#F9FAFB] hover:bg-[#F3F4F6] transition-colors cursor-pointer"
+                >
+                  <p className="text-[11px] text-[#6B7280]">
+                    Нажмите, чтобы прикрепить PDF, DOCX, таблицы измерений, протоколы стендовых тестов или архивы
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="p-3 bg-[#F8FAFC] border border-[#E2E5EB] rounded-xl text-xs text-[#6B7280] flex items-center gap-2">
               <HiOutlineSparkles className="size-4 text-[#F81B00] shrink-0" />
-              <span>После отправки ИИ подготовит executive summary для ускоренной приёмки этапа.</span>
+              <span>После отправки нейросеть подготовит executive summary для ускоренной приёмки этапа инвестором.</span>
             </div>
 
             <DialogFooter className="gap-3 pt-3">
@@ -880,8 +1075,8 @@ export function ProjectsTab({
               </Button>
               <Button
                 type="submit"
-                disabled={submittingReport}
-                className="text-xs font-semibold bg-[#F81B00] hover:bg-[#e01800] text-white rounded-xl shadow-xs"
+                disabled={submittingReport || uploadingReportFile}
+                className="text-xs font-semibold bg-[#F81B00] hover:bg-[#e01800] text-white rounded-xl shadow-xs cursor-pointer"
               >
                 {submittingReport ? "Отправка..." : "Отправить отчёт на приёмку"}
               </Button>
@@ -890,85 +1085,157 @@ export function ProjectsTab({
         </DialogContent>
       </Dialog>
 
-      {/* Investor Report Review Modal */}
+      {/* Report Review Modal (Investor & Lab) */}
       <Dialog open={!!viewingReport} onOpenChange={(open) => !open && setViewingReport(null)}>
         <DialogContent className="max-w-2xl bg-white rounded-2xl p-6">
           <DialogHeader>
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-base font-bold text-[#111111]">
-                Приёмка отчёта: {viewingReport?.title}
-              </DialogTitle>
-              {/* Toggle Mode */}
-              <div className="flex bg-[#F5F6F8] p-1 rounded-xl border border-[#E2E5EB]">
-                <button
-                  type="button"
-                  onClick={() => setViewingReport((prev) => prev ? { ...prev, mode: "ai" } : null)}
-                  className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                    viewingReport?.mode === "ai"
-                      ? "bg-white text-[#111111] shadow-xs"
-                      : "text-[#6B7280] hover:text-[#111111]"
-                  }`}
-                >
-                  ✨ ИИ-сводка
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewingReport((prev) => prev ? { ...prev, mode: "raw" } : null)}
-                  className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                    viewingReport?.mode === "raw"
-                      ? "bg-white text-[#111111] shadow-xs"
-                      : "text-[#6B7280] hover:text-[#111111]"
-                  }`}
-                >
-                  Полный научный отчёт
-                </button>
-              </div>
-            </div>
+            <DialogTitle className="text-base font-bold text-[#111111]">
+              Научный отчёт: {viewingReport?.title}
+            </DialogTitle>
             <DialogDescription className="text-xs text-[#6B7280]">
-              Ознакомьтесь с результатами этапа перед подтверждением перевода средств из эскроу.
+              {isLab
+                ? "Официальные материалы сдачи этапа и полный исходный текст отчёта."
+                : "Ознакомьтесь с прикреплёнными файлами и исходным текстом этапа перед приёмкой."}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="py-3">
-            {viewingReport?.mode === "ai" ? (
-              <div className="p-4 bg-red-50/50 border border-red-100 rounded-2xl text-xs text-[#111111] space-y-2 leading-relaxed">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-[#F81B00]">
-                  <HiOutlineSparkles className="size-4" />
-                  <span>Аналитическое резюме для инвестора</span>
+          {/* Files & Source Content */}
+          <div className="py-3 space-y-4">
+            {/* Download Attached Files */}
+            {(() => {
+              if (!viewingReport) return null
+              const fileList: { name: string; url: string }[] = []
+
+              if (viewingReport.hasGostDocx) {
+                fileList.push({
+                  name: `Отчёт_ГОСТ_7.32_${viewingReport.title}.docx`,
+                  url: `/api/v1/projects/${viewingReport.projectId}/milestones/${viewingReport.milestoneId}/gost-download?format=docx`,
+                })
+              }
+              if (viewingReport.hasGostPdf) {
+                fileList.push({
+                  name: `Отчёт_ГОСТ_7.32_${viewingReport.title}.pdf`,
+                  url: `/api/v1/projects/${viewingReport.projectId}/milestones/${viewingReport.milestoneId}/gost-download?format=pdf`,
+                })
+              }
+
+              if (viewingReport.raw) {
+                const fileRegex = /\[([^\]]+)\]\(([^)]+)\)/g
+                let match
+                while ((match = fileRegex.exec(viewingReport.raw)) !== null) {
+                  const fName = match[1]
+                  const fUrl = match[2]
+                  if (!fileList.some((item) => item.url === fUrl)) {
+                    fileList.push({ name: fName, url: fUrl })
+                  }
+                }
+              }
+
+              if (fileList.length === 0) {
+                return (
+                  <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl text-xs text-amber-800 flex items-center gap-2">
+                    <HiOutlineDocumentText className="size-4 shrink-0 text-amber-600" />
+                    <span>Файлы к этапу не прикреплены. Ниже представлен полный исходный научно-технический текст сдачи.</span>
+                  </div>
+                )
+              }
+
+              return (
+                <div className="p-4 bg-gradient-to-r from-blue-50/90 to-indigo-50/80 border border-blue-200 rounded-2xl space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#111111] flex items-center gap-1.5">
+                      <HiOutlinePaperClip className="size-4 text-blue-600" />
+                      <span>Прикреплённые файлы и материалы этапа:</span>
+                    </span>
+                    <span className="text-[11px] text-blue-700 font-semibold bg-blue-100 px-2.5 py-0.5 rounded-full">
+                      {fileList.length} {fileList.length === 1 ? "файл" : "файла(ов)"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {fileList.map((file, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleDownloadFile(file.url, file.name)}
+                        disabled={downloadingFile === file.url}
+                        className="flex items-center justify-between gap-3 p-3 bg-white hover:bg-blue-50/70 border border-blue-200/90 hover:border-blue-400 rounded-xl transition-all shadow-xs group text-left cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="p-2 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors shrink-0">
+                            <HiOutlineArrowDownTray className="size-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-[#111111] truncate group-hover:text-blue-700">
+                              {file.name}
+                            </p>
+                            <p className="text-[10px] text-[#6B7280]">
+                              {downloadingFile === file.url ? "Скачивание..." : "Нажмите для скачивания"}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-xs font-bold text-blue-600 shrink-0 group-hover:translate-x-0.5 transition-transform">
+                          Скачать
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <p className="whitespace-pre-line text-[#262626]">{viewingReport.ai}</p>
-              </div>
-            ) : (
-              <div className="p-4 bg-[#F8FAFC] border border-[#E2E5EB] rounded-2xl text-xs text-[#111111] max-h-72 overflow-y-auto whitespace-pre-line leading-relaxed font-mono">
-                {viewingReport?.raw}
-              </div>
-            )}
+              )
+            })()}
+
+            {/* Complete Source Text directly beneath files */}
+            {(() => {
+              if (!viewingReport?.raw) return null
+              let cleanText = viewingReport.raw
+              const attachmentIdx = cleanText.indexOf("\n\n### Прикреплённые файлы и материалы этапа:")
+              if (attachmentIdx !== -1) {
+                cleanText = cleanText.substring(0, attachmentIdx).trim()
+              }
+              return (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#111111] flex items-center gap-1.5">
+                      <HiOutlineDocumentText className="size-3.5 text-[#F81B00]" />
+                      <span>Полный исходник отчёта:</span>
+                    </span>
+                    <CopyButton text={cleanText} />
+                  </div>
+                  <div className="p-4 bg-[#F8FAFC] border border-[#E2E5EB] rounded-2xl text-xs text-[#1E293B] max-h-80 overflow-y-auto whitespace-pre-wrap leading-relaxed font-mono shadow-inner select-text">
+                    {cleanText}
+                  </div>
+                </div>
+              )
+            })()}
           </div>
 
           <DialogFooter className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-[#E2E5EB]">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                if (viewingReport) {
-                  setDisputeModal({
-                    projectId: viewingReport.projectId,
-                    milestoneId: viewingReport.milestoneId,
-                    title: viewingReport.title,
-                  })
-                }
-              }}
-              className="w-full sm:w-auto text-xs border-red-200 text-red-600 hover:bg-red-50 rounded-xl font-medium"
-            >
-              <HiOutlineScale className="size-3.5 mr-1" />
-              Передать на арбитраж
-            </Button>
+            {!isLab ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  if (viewingReport) {
+                    setDisputeModal({
+                      projectId: viewingReport.projectId,
+                      milestoneId: viewingReport.milestoneId,
+                      title: viewingReport.title,
+                    })
+                  }
+                }}
+                className="w-full sm:w-auto text-xs border-red-200 text-red-600 hover:bg-red-50 rounded-xl font-medium cursor-pointer"
+              >
+                <HiOutlineScale className="size-3.5 mr-1" />
+                Передать на арбитраж
+              </Button>
+            ) : (
+              <div />
+            )}
             <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setViewingReport(null)}
-                className="text-xs border-[#E2E5EB] rounded-xl"
+                className="text-xs border-[#E2E5EB] rounded-xl cursor-pointer"
               >
                 Закрыть
               </Button>
@@ -983,7 +1250,7 @@ export function ProjectsTab({
                       })
                     }
                   }}
-                  className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs"
+                  className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs cursor-pointer"
                 >
                   <HiOutlineCheckCircle className="size-4 mr-1" />
                   Подтвердить и перевести средства

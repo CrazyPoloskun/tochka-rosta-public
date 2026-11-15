@@ -83,14 +83,14 @@ def generate_receipt_pdf(
     c.setFillColor(colors.HexColor("#0F172A"))
     c.drawString(margin + 18, y, "Квитанция о переводе денежных средств")
 
-    y -= 16
+    y -= 18
     c.setFont(font_reg, 9.5)
     c.setFillColor(colors.HexColor("#64748B"))
     c.drawString(margin + 18, y, f"Электронный платёжный чек № ТР-ПП-{tx_id:06d}")
 
     # 3. Карточка суммы платежа
-    y -= 58
     card_h = 62
+    y -= (18 + card_h)  # Отступаем 18 pt вниз от текста номера чека и резервируем высоту блока
     c.setFillColor(colors.HexColor("#F8FAFC"))
     c.setStrokeColor(colors.HexColor("#E2E8F0"))
     c.setLineWidth(1)
@@ -98,7 +98,7 @@ def generate_receipt_pdf(
 
     c.setFont(font_bold, 8.5)
     c.setFillColor(colors.HexColor("#64748B"))
-    c.drawString(margin + 34, y + card_h - 18, (operation_label or "Финансовая операция").upper())
+    c.drawString(margin + 34, y + card_h - 20, (operation_label or "Финансовая операция").upper())
 
     amt_val = float(amount)
     amt_formatted = f"{amt_val:,.2f} ₽".replace(",", " ")
@@ -107,13 +107,13 @@ def generate_receipt_pdf(
     c.drawString(margin + 34, y + 14, amt_formatted)
 
     # 4. Стороны перевода: Плательщик и Получатель
-    y -= 20
     side_w = (content_w - 36 - 16) / 2
     side_h = 76
+    y -= (16 + side_h)  # Отступаем 16 pt вниз от карточки суммы
 
     # Блок плательщика
     p_x = margin + 18
-    p_y = y - side_h
+    p_y = y
     c.setFillColor(colors.HexColor("#FFFFFF"))
     c.setStrokeColor(colors.HexColor("#E2E8F0"))
     c.roundRect(p_x, p_y, side_w, side_h, 6, stroke=1, fill=1)
@@ -172,23 +172,24 @@ def generate_receipt_pdf(
 
     t_w = content_w - 36
     t_y = y
+    row_h = 20
     for label, val in table_rows:
         c.setStrokeColor(colors.HexColor("#F1F5F9"))
         c.setLineWidth(1)
         c.line(margin + 18, t_y, margin + 18 + t_w, t_y)
-        t_y -= 18
+        t_y -= row_h
 
         c.setFont(font_bold, 8.5)
         c.setFillColor(colors.HexColor("#64748B"))
-        c.drawString(margin + 24, t_y + 4, label)
+        c.drawString(margin + 24, t_y + 6, label)
 
         c.setFont(font_reg, 8.5)
         c.setFillColor(colors.HexColor("#0F172A"))
         # Truncate value if too long
         v_str = str(val)
-        if len(v_str) > 55:
-            v_str = v_str[:52] + "..."
-        c.drawRightString(margin + 18 + t_w - 8, t_y + 4, v_str)
+        if len(v_str) > 52:
+            v_str = v_str[:49] + "..."
+        c.drawRightString(margin + 18 + t_w - 8, t_y + 6, v_str)
 
     c.setStrokeColor(colors.HexColor("#F1F5F9"))
     c.setLineWidth(1)
@@ -198,7 +199,7 @@ def generate_receipt_pdf(
     stamp_w = 230
     stamp_h = 72
     stamp_x = margin + 24
-    stamp_y = margin + 50
+    stamp_y = max(margin + 45, t_y - 24 - stamp_h)
 
     c.setStrokeColor(colors.HexColor("#0284C7"))
     c.setLineWidth(1.4)

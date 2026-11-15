@@ -202,7 +202,7 @@ export function ChainOfThought({
             </span>
             <span className="text-[10px] text-[#6B7280] block">
               {running
-                ? "Модель строит логическую цепочку решения задачи..."
+                ? "Формирование логической цепочки решения задачи..."
                 : `Завершено успешно • ${completedCount} из ${totalCount} проверок пройдено`}
             </span>
           </div>
@@ -364,8 +364,8 @@ export function PlanContent({ className, children, ...props }: React.HTMLAttribu
 
 export function PlanSteps({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("relative pl-7 space-y-3 pt-1", className)} {...props}>
-      <div className="absolute left-2.5 top-3 bottom-3 w-0.5 bg-[#E2E5EB]" />
+    <div className={cn("relative pl-8 sm:pl-9 space-y-3 pt-1", className)} {...props}>
+      <div className="absolute left-3 top-3 bottom-3 w-0.5 bg-[#E2E5EB]" />
       {children}
     </div>
   )
@@ -392,15 +392,15 @@ export function PlanStepItem({
 }: PlanStepItemProps) {
   return (
     <div className={cn("relative flex items-start gap-3 text-xs", className)} {...props}>
-      <div className="absolute -left-7 top-0.5 size-5 rounded-full bg-[#111111] text-white text-[10px] font-bold flex items-center justify-center shrink-0 shadow-xs">
+      <div className="absolute -left-8 sm:-left-9 top-0.5 size-5 sm:size-6 rounded-full bg-[#111111] text-white text-[10px] sm:text-xs font-bold flex items-center justify-center shrink-0 shadow-xs">
         {stepNumber}
       </div>
-      <div className="flex-1 bg-[#F8FAFC] border border-[#E2E5EB] rounded-xl p-3 space-y-1.5 transition-all hover:border-[#111111]">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="font-bold text-[#111111] text-xs">
+      <div className="flex-1 min-w-0 bg-[#F8FAFC] border border-[#E2E5EB] rounded-xl p-3 space-y-1.5 transition-all hover:border-[#111111]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2">
+          <span className="font-bold text-[#111111] text-xs min-w-0 flex-1 break-words">
             {title}
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0">
             {budget !== undefined && (
               <span className="font-mono text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                 {typeof budget === "number" ? `${budget.toLocaleString("ru-RU")} ₽` : budget}
@@ -415,7 +415,7 @@ export function PlanStepItem({
         </div>
 
         {description && (
-          <p className="text-[11px] text-[#4B5563] leading-relaxed">
+          <p className="text-[11px] text-[#4B5563] leading-relaxed break-words">
             {description}
           </p>
         )}
@@ -429,7 +429,7 @@ export function PlanStepItem({
               {deliverables.map((del, dIdx) => (
                 <li key={dIdx} className="text-[11px] text-[#374151] flex items-center gap-1.5">
                   <span className="size-1 rounded-full bg-[#F81B00] shrink-0" />
-                  <span>{del}</span>
+                  <span className="break-words">{del}</span>
                 </li>
               ))}
             </ul>

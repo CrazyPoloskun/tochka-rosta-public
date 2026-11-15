@@ -1019,7 +1019,7 @@ export function IdeasTab({
 
       {/* Lab Publish Tech Modal */}
       <Dialog open={isPublishModalOpen} onOpenChange={setIsPublishModalOpen}>
-        <DialogContent className="max-w-xl bg-white rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-xl w-[95vw] sm:w-full bg-white rounded-2xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-[#111111]">
               Публикация научной разработки в каталоге
@@ -1031,26 +1031,22 @@ export function IdeasTab({
 
           {/* AI PDF Parser Feature Box with shadcn AI Styling */}
           {parsingPdf ? (
-            <div className="my-2 p-4 bg-[#F8FAFC] border border-[#E2E5EB] rounded-2xl shadow-xs animate-in fade-in duration-200 space-y-3">
+            <div className="my-2 p-3.5 sm:p-4 bg-[#F8FAFC] border border-[#E2E5EB] rounded-2xl shadow-xs animate-in fade-in duration-200 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#111111] flex items-center gap-2">
                   <AiMarker variant="primary" size="md" />
-                  ИИ анализирует научную статью (PDF)...
-                </span>
-                <span className="text-[10px] font-semibold text-[#4B5563] bg-white px-2 py-0.5 rounded-full border border-[#E2E5EB] flex items-center gap-1.5">
-                  <span className="size-1.5 rounded-full bg-[#111111] animate-pulse" />
-                  AI Engine
+                  Анализ научной статьи (PDF)...
                 </span>
               </div>
               <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                 <div className="h-full rounded-full bg-[#111111] w-2/3 animate-pulse" />
               </div>
               <p className="text-[11px] text-[#4B5563]">
-                Нейросеть извлекает технологические параметры, определяет уровень TRL и автоматически формирует этапы сметы по ГОСТ...
+                Извлечение технологических параметров, расчет уровня TRL и формирование этапов сметы по ГОСТ...
               </p>
             </div>
           ) : (
-            <div className="my-2 p-4 bg-red-50/60 border border-red-200/80 rounded-2xl space-y-2">
+            <div className="my-2 p-3.5 sm:p-4 bg-red-50/60 border border-red-200/80 rounded-2xl space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-[#F81B00] flex items-center gap-1.5">
                   <HiOutlineSparkles className="size-4" />
@@ -1058,12 +1054,12 @@ export function IdeasTab({
                 </span>
               </div>
               <p className="text-[11px] text-[#4B5563] leading-relaxed">
-                Загрузите препринт или статью в PDF. ИИ автоматически сформирует коммерческое название, выделит отрасль, оценит TRL и разобьёт проект на 3 логических этапа сметы.
+                Загрузите препринт или статью в PDF. Система автоматически сформирует коммерческое название, выделит отрасль, оценит TRL и разобьёт проект на 3 логических этапа сметы.
               </p>
-              <div className="flex flex-wrap items-center gap-3 pt-1">
-                <label className="cursor-pointer inline-flex items-center gap-2 px-3.5 py-1.5 bg-white border border-red-300 hover:bg-red-50 rounded-xl text-xs font-semibold text-[#F81B00] transition-colors">
-                  <HiOutlineDocumentText className="size-4" />
-                  <span>Выбрать файл статьи (PDF)</span>
+              <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 pt-1">
+                <label className="cursor-pointer inline-flex items-center gap-2 px-3 sm:px-3.5 py-1.5 bg-white border border-red-300 hover:bg-red-50 rounded-xl text-xs font-semibold text-[#F81B00] transition-colors">
+                  <HiOutlineDocumentText className="size-4 shrink-0" />
+                  <span className="truncate">Выбрать файл статьи (PDF)</span>
                   <input
                     type="file"
                     accept=".pdf"
@@ -1143,7 +1139,7 @@ export function IdeasTab({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-semibold text-[#111111] block mb-1">Отрасль</label>
                 <select

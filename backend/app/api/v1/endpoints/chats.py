@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_current_user_flexible, http_bearer, HTTPAuthorizationCredentials
 from app.models.user import User
 from app.models.chat import Chat, Message, ChatMember, MessageAttachment
 from app.models.project import Project, ProjectSyndicateMember
@@ -478,10 +478,12 @@ async def upload_chat_attachment(
 @router.get("/attachments/{attachment_id}/download")
 async def download_attachment(
     attachment_id: int,
-    current_user: User = Depends(get_current_user),
+    token: str | None = Query(None),
+    credentials: HTTPAuthorizationCredentials | None = Depends(http_bearer),
     db: AsyncSession = Depends(get_db),
 ):
     """Скачивание файла вложения с проверкой прав доступа пользователя к чату."""
+    current_user = await get_current_user_flexible(token=token, credentials=credentials, db=db)
     att_res = await db.execute(
         select(MessageAttachment, Chat)
         .join(Chat, MessageAttachment.chat_id == Chat.id)

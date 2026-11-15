@@ -63,8 +63,8 @@ export function CardGridSkeleton({ count = 6 }: { count?: number }) {
 
 
 export function AiShineSkeleton({
-  title = "Нейросетевая обработка данных",
-  subtitle = "Используются модели OpenRouter и нормативная база трансфера технологий",
+  title = "Интеллектуальная обработка данных",
+  subtitle = "Нормативная верификация и структурирование требований",
   className = "",
 }: {
   title?: string
@@ -84,10 +84,6 @@ export function AiShineSkeleton({
               {title}
             </span>
           </div>
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#F5F6F8] text-[#4B5563] border border-[#E2E5EB] flex items-center gap-1.5">
-            <span className="size-1.5 rounded-full bg-[#111111] animate-pulse" />
-            AI Engine
-          </span>
         </div>
 
         <div className="space-y-2.5">

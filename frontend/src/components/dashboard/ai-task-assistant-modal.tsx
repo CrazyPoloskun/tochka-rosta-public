@@ -325,9 +325,6 @@ export function AiTaskAssistantModal({
                 </PlanDescription>
               </div>
               <div className="flex flex-wrap items-center gap-2 shrink-0">
-                <Badge variant="outline" className="border-sky-200 bg-sky-50 text-[10px] text-sky-800 font-bold">
-                  OpenAI gpt-4o-mini
-                </Badge>
                 {result && (
                   <>
                     <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-[10px] text-emerald-800 font-bold">
@@ -436,7 +433,7 @@ export function AiTaskAssistantModal({
                     currentStepIndex={chainSteps.length - 1}
                     running={false}
                     defaultOpen={false}
-                    title="Цепочка рассуждений модели (Chain of Thought)"
+                    title="Аналитический ход рассуждений"
                   />
 
                   {/* Topic & Scientific Summary */}
@@ -633,7 +630,7 @@ export function AiTaskAssistantModal({
                   <div className="p-3 bg-amber-50/60 border border-amber-200/80 rounded-xl text-[11px] text-amber-900 flex items-center gap-2">
                     <HiOutlineSparkles className="size-4 text-amber-600 shrink-0" />
                     <span>
-                      Опишите задачу выше и нажмите <strong>«Сформировать план и ТЗ»</strong>. Нейросеть OpenAI рассчитает индивидуальный график, смету и этапы под ваш проект.
+                      Опишите задачу выше и нажмите <strong>«Сформировать план и ТЗ»</strong>. Нейросеть рассчитает индивидуальный график, смету и этапы под ваш проект.
                     </span>
                   </div>
                 </div>
