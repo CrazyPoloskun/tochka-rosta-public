@@ -369,7 +369,7 @@ async def order_idea(
 
     # 3. СОЗДАНИЕ КОММЕРЧЕСКОГО ПРОЕКТА НИОКР
     project = Project(
-        title=f"Заказ разработки: {idea.title}",
+        title=f"Заказ разработки: {idea.title}"[:255],
         investor_id=investor_id,
         lab_id=lab_id,
         total_budget=budget,
@@ -395,7 +395,7 @@ async def order_idea(
             ms = ProjectMilestone(
                 project_id=project.id,
                 step_number=int(s_num) if str(s_num).isdigit() else idx,
-                title=str(s_title),
+                title=str(s_title)[:255],
                 amount=s_amt,
                 status="pending_funds",
             )
@@ -416,6 +416,12 @@ async def order_idea(
         c_type = "donation"
     else:
         c_type = "idea_order"
+
+    order_type_label = (
+        "Пожертвование на исследование"
+        if (data and data.order_type == "donation")
+        else ("Предложение НИИ" if current_user.role == "lab" else "Заказ R&D")
+    )
 
     budget_formatted = f"{budget:,.2f} ₽".replace(",", " ")
     intro_content = (
@@ -443,7 +449,7 @@ async def order_idea(
         notif = Notification(
             recipient_id=recipient_id,
             type="project_created",
-            title=f"Новая сделка: {order_type_label}",
+            title=f"Новая сделка: {order_type_label}"[:255],
             body=f"{current_user.organization_name or current_user.full_name} открыл сделку «{idea.title}» с бюджетом {budget_formatted}.",
             link_url="/dashboard?tab=projects",
             severity="info",
