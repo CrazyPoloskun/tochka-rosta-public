@@ -178,7 +178,22 @@ async def call_real_llm(
     При отсутствии ключа или ошибке API возбуждает RuntimeError.
     """
     openrouter_key = _clean_str(settings.OPENROUTER_API_KEY)
-    openrouter_model = _clean_str(settings.OPENROUTER_MODEL) or "google/gemini-2.5-flash"
+    raw_model = _clean_str(settings.OPENROUTER_MODEL) or "google/gemini-2.5-flash"
+    
+    # Очистка некорректных суффиксов (например :batch недопустим для chat/completions)
+    openrouter_model = raw_model
+    if ":batch" in openrouter_model:
+        logger.warning(f"Model '{raw_model}' contains ':batch' adapter which is incompatible with /chat/completions. Auto-correcting...")
+        openrouter_model = openrouter_model.replace(":batch", "").strip()
+    
+    # Исправление несуществующих или опечаточных моделей deepseek-v4 -> deepseek-chat
+    if "deepseek-v4" in openrouter_model.lower():
+        logger.warning(f"Model '{openrouter_model}' is not a valid chat model. Using 'deepseek/deepseek-chat'...")
+        openrouter_model = "deepseek/deepseek-chat"
+        
+    if not openrouter_model:
+        openrouter_model = "deepseek/deepseek-chat" if "deepseek" in raw_model.lower() else "google/gemini-2.5-flash"
+
     openrouter_url = (_clean_str(settings.OPENROUTER_BASE_URL) or "https://openrouter.ai/api/v1").rstrip('/') + "/chat/completions"
 
     if not openrouter_key:
@@ -229,6 +244,20 @@ async def call_real_llm(
             logger.info("OpenRouter model rejected response_format, retrying with raw text mode...")
             payload.pop("response_format", None)
             res = await _safe_http_post(openrouter_url, headers=headers, payload=payload, proxy=ai_proxy)
+
+        # Если модель не поддерживается эндпоинтом chat/completions (код 404 / несовместимый адаптер)
+        if res.status_code == 404 and any(phrase in res.text.lower() for phrase in ["chat/completions", "not found", "adapter", "cannot be used"]):
+            fallback_model = "deepseek/deepseek-chat" if "deepseek" in openrouter_model.lower() else "google/gemini-2.5-flash"
+            logger.warning(f"Model '{openrouter_model}' returned 404 on /chat/completions. Auto-recovering with '{fallback_model}'...")
+            payload["model"] = fallback_model
+            res = await _safe_http_post(openrouter_url, headers=headers, payload=payload, proxy=ai_proxy)
+            if res.status_code == 200:
+                data = res.json()
+                choices = data.get("choices", [])
+                if choices:
+                    content = choices[0].get("message", {}).get("content", "").strip()
+                    if content:
+                        return content, f"OpenRouter ({fallback_model})"
 
         if res.status_code == 200:
             data = res.json()

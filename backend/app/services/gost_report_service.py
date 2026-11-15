@@ -105,12 +105,12 @@ def build_gost_docx(
     lab_rep_name: str,
     investor_org_name: str,
     investor_rep_name: str,
-    executors: list[dict],
-    abstract_text: str,
-    intro_text: str,
-    main_research_text: str,
-    conclusion_text: str,
-    references: list[str],
+    executors: list[dict] | None = None,
+    abstract_text: str = "",
+    intro_text: str = "",
+    main_research_text: str = "",
+    conclusion_text: str = "",
+    references: list[str] | None = None,
 ) -> str:
     """
     Генерирует официальный документ DOCX в строгом соответствии с ГОСТ 7.32-2017:
@@ -235,12 +235,12 @@ def build_gost_pdf(
     lab_rep_name: str,
     investor_org_name: str,
     investor_rep_name: str,
-    executors: list[dict],
-    abstract_text: str,
-    intro_text: str,
-    main_research_text: str,
-    conclusion_text: str,
-    references: list[str],
+    executors: list[dict] | None = None,
+    abstract_text: str = "",
+    intro_text: str = "",
+    main_research_text: str = "",
+    conclusion_text: str = "",
+    references: list[str] | None = None,
 ) -> str:
     """
     Генерирует PDF версию отчета по ГОСТ 7.32 средствами ReportLab.
