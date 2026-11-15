@@ -71,8 +71,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      gluetun:
-        condition: service_started
 
   frontend:
     build:
