@@ -1,942 +1,1886 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import Link from "next/link"
+import * as React from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
-  HiOutlineArrowRight,
-  HiOutlineChevronDown,
-  HiOutlineCubeTransparent,
-  HiOutlineBeaker,
-  HiOutlineBuildingLibrary,
-  HiOutlineShieldCheck,
-  HiOutlineHeart,
-  HiOutlineBriefcase,
-  HiOutlineLightBulb,
-  HiOutlineUser,
-  HiOutlineUserPlus,
-  HiOutlineDocumentPlus,
-  HiOutlineChatBubbleLeftRight,
-  HiOutlineLockClosed,
-  HiOutlineBuildingOffice2,
-  HiOutlineDocumentCheck,
-  HiOutlineMagnifyingGlassCircle,
-  HiOutlineBanknotes,
-  HiCheckBadge,
-  HiOutlineFingerPrint,
-  HiOutlineChatBubbleOvalLeftEllipsis,
-  HiOutlineLifebuoy,
-  HiOutlineScale,
-  HiOutlineDocumentText,
-  HiOutlineArrowRightOnRectangle,
-  HiBars3,
-  HiXMark,
-} from "react-icons/hi2"
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  ShieldCheck,
+  Layers,
+  Zap,
+  Play,
+  Send,
+  TrendingUp,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  X,
+  Sparkles,
+  Building2,
+  FlaskConical,
+  CheckCircle2,
+  Heart,
+  Briefcase,
+  Lightbulb,
+  FileCheck,
+  Scale,
+  Menu,
+  User as UserIcon,
+  AlertCircle,
+  ExternalLink,
+  ChevronDown,
+} from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
-import { Button } from "@/components/ui/button"
-import { SwissGraphic } from "@/components/ui/swiss-graphic"
-import { ScrollReveal } from "@/components/ui/scroll-reveal"
-import { useAuth } from "@/lib/auth-context"
+/* ───────────── КОНСТАНТЫ И ПАЛИТРА ───────────── */
 
-export default function Home() {
-  const { user, logout } = useAuth()
-  const [activeTab, setActiveTab] = React.useState<"investors" | "labs">("investors")
-  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false)
+const RED = "#E30613";
+
+const navLinks = [
+  { label: "Исследования", href: "#research" },
+  { label: "Форматы", href: "#formats" },
+  { label: "Регламент", href: "#moderation" },
+  { label: "Безопасность", href: "#security" },
+  { label: "Документы", href: "/legal" },
+];
+
+const features = [
+  {
+    icon: ShieldCheck,
+    title: "Проверенные исследования",
+    text: "Индекс доверия лабораторий, аудит смет и прозрачные метрики",
+  },
+  {
+    icon: Layers,
+    title: "Поэтапный контроль",
+    text: "Эскроу-механика, защита бюджета и понятный трекер выполнения",
+  },
+  {
+    icon: Zap,
+    title: "Доступ к экспертизе",
+    text: "ИИ-аналитика отчётов, научная оценка и патентная чистота",
+  },
+];
+
+const cards = [
+  {
+    tag: "Новые материалы",
+    score: "98.7",
+    title: "Разработка умных полимеров",
+    org: "ТулГУ",
+    pct: 72,
+    gradient: "from-blue-600/20 via-indigo-500/10 to-transparent",
+    accentColor: "#3B82F6",
+    type: "polymer",
+  },
+  {
+    tag: "Биотех",
+    score: "96.1",
+    title: "Генная терапия редких заболеваний",
+    org: "МГУ им. М.В. Ломоносова",
+    pct: 41,
+    gradient: "from-emerald-600/20 via-teal-500/10 to-transparent",
+    accentColor: "#10B981",
+    type: "biotech",
+  },
+  {
+    tag: "ИИ и данные",
+    score: "95.8",
+    title: "Нейросетевые модели для медицины",
+    org: "СПбГУ",
+    pct: 23,
+    gradient: "from-purple-600/20 via-pink-500/10 to-transparent",
+    accentColor: "#8B5CF6",
+    type: "ai",
+  },
+];
+
+const steps = [
+  {
+    t: "Выберите проект",
+    d: "Изучите исследования, смету и оцените коммерческий потенциал",
+  },
+  {
+    t: "Поддержите через эскроу",
+    d: "Средства депонируются на счете и переводятся по факту приемки",
+  },
+  {
+    t: "Следите за прогрессом",
+    d: "Получайте подтвержденные отчеты, образцы и патентные права",
+  },
+];
+
+const moderationStepsInvestor = [
+  {
+    step: "01",
+    title: "Регистрация в системе",
+    desc: "Создание аккаунта физического лица для пожертвований или юридического лица для контрактного заказа R&D.",
+  },
+  {
+    step: "02",
+    title: "Выбор проекта или публикация идеи",
+    desc: "Выбор готового исследования из каталога либо размещение собственной задачи с направлением в профильные институты.",
+  },
+  {
+    step: "03",
+    title: "Согласование сметы и эскроу",
+    desc: "Фиксация этапов, сроков и депонирование средств на защищенном эскроу-счете до приемки образцов.",
+  },
+  {
+    step: "04",
+    title: "Приемка результатов и отчетность",
+    desc: "Проверка опытных образцов, передача научно-технической документации и выплата вознаграждения.",
+  },
+];
+
+const moderationStepsLab = [
+  {
+    step: "01",
+    title: "Верификация НИИ / Лаборатории",
+    desc: "Проверка уставных документов, состава исследовательской группы и аккредитации оборудования.",
+  },
+  {
+    step: "02",
+    title: "Публикация программы разработки",
+    desc: "Размещение паспорта исследования, календарного плана работ, сметы расходов и ожидаемых результатов.",
+  },
+  {
+    step: "03",
+    title: "Заключение трехстороннего соглашения",
+    desc: "Юридическое закрепление условий финансирования, патентных прав и критериев успешности этапов.",
+  },
+  {
+    step: "04",
+    title: "Поэтапное финансирование",
+    desc: "Разблокировка средств с эскроу-счета по мере сдачи и утверждения каждого этапа заказчиком.",
+  },
+];
+
+const securityFeatures = [
+  {
+    icon: ShieldCheck,
+    title: "Эскроу-контроль бюджета",
+    desc: "Деньги инвестора замораживаются в защищенном контуре и перечисляются исполнителю только после подтверждения сдачи этапа.",
+  },
+  {
+    icon: Scale,
+    title: "Патентная чистота и права",
+    desc: "Юридическая фиксация авторских прав и передача исключительных прав заказчику в рамках трехсторонних соглашений.",
+  },
+  {
+    icon: FileCheck,
+    title: "Экспертная верификация",
+    desc: "Проверка лабораторных отчетов, образцов и протоколов независимыми отраслевыми экспертами и ИИ-системой.",
+  },
+  {
+    icon: ExternalLink,
+    title: "Реестр подлинности /verify",
+    desc: "Цифровой реестр хэшей документов и отчетов платформы. Мгновенная проверка подлинности любого свидетельства.",
+    link: "/verify",
+  },
+];
+
+/* ───────────── SVG-ДЕКОР ДЛЯ КАРТОЧЕК ИССЛЕДОВАНИЙ ───────────── */
+
+function CardGraphic({ type }: { type: string }) {
+  if (type === "polymer") {
+    return (
+      <svg className="w-full h-full opacity-60" viewBox="0 0 200 120" fill="none">
+        <polygon points="100,20 140,45 140,90 100,115 60,90 60,45" stroke="#3B82F6" strokeWidth="1.5" fill="#3B82F6" fillOpacity="0.08" />
+        <polygon points="140,45 180,68 180,110 140,135 100,115 140,90" stroke="#3B82F6" strokeWidth="1.2" strokeDasharray="3 3" fill="#3B82F6" fillOpacity="0.04" />
+        <polygon points="60,45 100,20 100,65 60,90 20,68 20,25" stroke="#3B82F6" strokeWidth="1.2" strokeDasharray="3 3" fill="#3B82F6" fillOpacity="0.04" />
+        <circle cx="100" cy="20" r="3.5" fill="#E30613" />
+        <circle cx="140" cy="45" r="3.5" fill="#3B82F6" />
+        <circle cx="140" cy="90" r="3.5" fill="#3B82F6" />
+        <circle cx="100" cy="115" r="3.5" fill="#3B82F6" />
+        <circle cx="60" cy="90" r="3.5" fill="#3B82F6" />
+        <circle cx="60" cy="45" r="3.5" fill="#3B82F6" />
+      </svg>
+    );
+  }
+  if (type === "biotech") {
+    return (
+      <svg className="w-full h-full opacity-60" viewBox="0 0 200 120" fill="none">
+        <path d="M40 20 Q100 60 160 20" stroke="#10B981" strokeWidth="2" fill="none" />
+        <path d="M40 100 Q100 60 160 100" stroke="#10B981" strokeWidth="2" fill="none" />
+        <line x1="60" y1="35" x2="60" y2="85" stroke="#10B981" strokeWidth="1.5" strokeDasharray="2 2" />
+        <line x1="80" y1="48" x2="80" y2="72" stroke="#E30613" strokeWidth="1.5" />
+        <line x1="100" y1="60" x2="100" y2="60" stroke="#10B981" strokeWidth="3" strokeLinecap="round" />
+        <line x1="120" y1="48" x2="120" y2="72" stroke="#E30613" strokeWidth="1.5" />
+        <line x1="140" y1="35" x2="140" y2="85" stroke="#10B981" strokeWidth="1.5" strokeDasharray="2 2" />
+        <circle cx="80" cy="48" r="3" fill="#E30613" />
+        <circle cx="120" cy="72" r="3" fill="#E30613" />
+      </svg>
+    );
+  }
+  return (
+    <svg className="w-full h-full opacity-60" viewBox="0 0 200 120" fill="none">
+      <circle cx="45" cy="40" r="5" fill="#8B5CF6" />
+      <circle cx="45" cy="80" r="5" fill="#8B5CF6" />
+      <circle cx="100" cy="25" r="5" fill="#8B5CF6" />
+      <circle cx="100" cy="60" r="6" fill="#E30613" />
+      <circle cx="100" cy="95" r="5" fill="#8B5CF6" />
+      <circle cx="155" cy="40" r="5" fill="#8B5CF6" />
+      <circle cx="155" cy="80" r="5" fill="#8B5CF6" />
+      <line x1="45" y1="40" x2="100" y2="25" stroke="#8B5CF6" strokeWidth="1.2" />
+      <line x1="45" y1="40" x2="100" y2="60" stroke="#8B5CF6" strokeWidth="1.2" />
+      <line x1="45" y1="80" x2="100" y2="60" stroke="#8B5CF6" strokeWidth="1.2" />
+      <line x1="45" y1="80" x2="100" y2="95" stroke="#8B5CF6" strokeWidth="1.2" />
+      <line x1="100" y1="25" x2="155" y2="40" stroke="#8B5CF6" strokeWidth="1.2" />
+      <line x1="100" y1="60" x2="155" y2="40" stroke="#E30613" strokeWidth="1.5" />
+      <line x1="100" y1="60" x2="155" y2="80" stroke="#E30613" strokeWidth="1.5" />
+      <line x1="100" y1="95" x2="155" y2="80" stroke="#8B5CF6" strokeWidth="1.2" />
+    </svg>
+  );
+}
+
+/* ───────────── МОДАЛЬНОЕ ОКНО АВТОРИЗАЦИИ ───────────── */
+
+type AuthRole = "all" | "investor" | "lab";
+
+const authRoles: { id: AuthRole; label: string; icon: typeof Sparkles }[] = [
+  { id: "all", label: "Вход", icon: Sparkles },
+  { id: "investor", label: "Инвестор", icon: Building2 },
+  { id: "lab", label: "НИИ / Лаборатория", icon: FlaskConical },
+];
+
+function AuthModal({
+  isOpen,
+  onClose,
+  initialMode = "login",
+  initialRole = "all",
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  initialMode?: "login" | "register";
+  initialRole?: AuthRole;
+}) {
+  const router = useRouter();
+  const { login, registerInvestor, registerLab } = useAuth();
+
+  const [role, setRole] = React.useState<AuthRole>(initialRole);
+  const [mode, setMode] = React.useState<"login" | "register">(initialMode);
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [name, setName] = React.useState("");
+  const [inn, setInn] = React.useState("");
+  const [ogrn, setOgrn] = React.useState("");
+  const [rememberMe, setRememberMe] = React.useState(true);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isSuccess, setIsSuccess] = React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setMode(initialMode);
+    setRole(initialRole);
+    setErrorMessage(null);
+  }, [initialMode, initialRole, isOpen]);
+
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+      window.addEventListener("keydown", handleKeyDown);
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setIsSubmitting(true);
+
+    try {
+      if (mode === "login") {
+        const res = await login(email.trim(), password);
+        if (res.success) {
+          setIsSuccess(true);
+          setTimeout(() => {
+            setIsSuccess(false);
+            onClose();
+            // Проверяем админский логин или ведем в кабинет
+            if (email.trim().toLowerCase().includes("admin")) {
+              router.push("/admin");
+            } else {
+              router.push("/dashboard");
+            }
+          }, 600);
+        } else {
+          setErrorMessage(res.error || "Неверный адрес электронной почты или пароль");
+          setIsSubmitting(false);
+        }
+      } else {
+        // Регистрация
+        if (role === "lab") {
+          const res = await registerLab({
+            organizationName: name.trim() || "Научно-исследовательский институт",
+            inn: inn.trim() || "7700000000",
+            ogrn: ogrn.trim() || "1000000000000",
+            representativeName: name.trim() || "Руководитель лаборатории",
+            email: email.trim(),
+            password,
+          });
+          if (res.success) {
+            setIsSuccess(true);
+            setTimeout(() => {
+              setIsSuccess(false);
+              onClose();
+              router.push("/dashboard");
+            }, 600);
+          } else {
+            setErrorMessage(res.error || "Ошибка при регистрации лаборатории");
+            setIsSubmitting(false);
+          }
+        } else {
+          // Инвестор или общий пользователь
+          const res = await registerInvestor(
+            name.trim() || "Инвестор платформы",
+            email.trim(),
+            password
+          );
+          if (res.success) {
+            setIsSuccess(true);
+            setTimeout(() => {
+              setIsSuccess(false);
+              onClose();
+              router.push("/dashboard");
+            }, 600);
+          } else {
+            setErrorMessage(res.error || "Ошибка при создании аккаунта инвестора");
+            setIsSubmitting(false);
+          }
+        }
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || "Произошла непредвиденная ошибка");
+      setIsSubmitting(false);
+    }
+  };
+
+  const getSubtitle = () => {
+    if (mode === "register") {
+      return "Создайте аккаунт для доступа к проектам, грантам и технологическому партнёрству";
+    }
+    switch (role) {
+      case "investor":
+        return "Вход в инвестиционный кабинет: сделки, аналитика и венчурные проекты";
+      case "lab":
+        return "Кабинет научной организации: управление заявками на гранты и исследования";
+      default:
+        return "Единый доступ для инвесторов, научных сотрудников и кураторов платформы";
+    }
+  };
+
+  const getEmailPlaceholder = () => {
+    switch (role) {
+      case "investor":
+        return "investor@venture-fund.ru";
+      case "lab":
+        return "lab@university.edu.ru";
+      default:
+        return "name@company.ru";
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-[#F5F6F8] text-[#111111] font-sans antialiased flex flex-col selection:bg-[#F81B00] selection:text-white">
-      
-      {/* =========================================================================
-         ШАПКА САЙТА (Header)
-         - Слева: только графический логотип (без текста)
-         - По центру: вкладки с плавной нижней полоской
-         - Справа: навигация и кнопка «Войти»
-         ========================================================================= */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-[#E2E5EB] transition-all">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-20 gap-4">
-            
-            {/* Слева: Графический логотип */}
-            <div className="flex items-center shrink-0">
-              <a href="#" className="flex items-center group" aria-label="Главная">
-                <img
-                  src="/logo.png"
-                  alt="Логотип платформы"
-                  className="h-8 w-auto object-contain"
-                />
-              </a>
-            </div>
-
-            {/* По центру: Переключатель аудитории с плавной акцентной полоской */}
-            <div className="hidden md:flex items-center gap-8 h-full">
-              <button
-                type="button"
-                onClick={() => setActiveTab("investors")}
-                className={`h-full inline-flex items-center text-sm font-semibold transition-all border-b-2 cursor-pointer ${
-                  activeTab === "investors"
-                    ? "border-[#F81B00] text-[#111111]"
-                    : "border-transparent text-[#6B7280] hover:text-[#111111] hover:border-zinc-300"
-                }`}
-              >
-                Инвесторам и спонсорам
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab("labs")}
-                className={`h-full inline-flex items-center text-sm font-semibold transition-all border-b-2 cursor-pointer ${
-                  activeTab === "labs"
-                    ? "border-[#F81B00] text-[#111111]"
-                    : "border-transparent text-[#6B7280] hover:text-[#111111] hover:border-zinc-300"
-                }`}
-              >
-                НИИ и лабораториям
-              </button>
-            </div>
-
-            {/* Справа: Ссылки навигации и кнопка «Войти» */}
-            <div className="hidden lg:flex items-center gap-6">
-              <nav className="flex items-center gap-6 text-sm font-medium text-[#4B5563]">
-                <a href="#formats" className="hover:text-[#F81B00] transition-colors">
-                  О платформе
-                </a>
-                <a href="#moderation" className="hover:text-[#F81B00] transition-colors">
-                  Модерация
-                </a>
-                <a href="#security" className="hover:text-[#F81B00] transition-colors">
-                  Безопасность
-                </a>
-                <a href="#support" className="hover:text-[#F81B00] transition-colors">
-                  Поддержка
-                </a>
-                <Link href="/legal" className="hover:text-[#F81B00] transition-colors">
-                  Документы
-                </Link>
-              </nav>
-
-              {user ? (
-                <Link
-                  href={user.is_admin ? "/admin" : "/dashboard"}
-                  className="flex items-center justify-center size-10 rounded-xl bg-white border border-[#E2E5EB] text-[#111111] hover:text-[#F81B00] hover:border-[#111111]/30 hover:shadow-xs transition-all active:scale-95 cursor-pointer"
-                  title={user.is_admin ? "Панель управления (/admin)" : "Личный кабинет"}
-                  aria-label={user.is_admin ? "Панель управления" : "Личный кабинет"}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-[460px] my-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Переключатель роли */}
+        <div className="mb-3 flex justify-center">
+          <div className="inline-flex rounded-full bg-white/90 p-1 shadow-md border border-black/5 backdrop-blur-md">
+            {authRoles.map((r) => {
+              const Icon = r.icon;
+              const active = role === r.id;
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => {
+                    setRole(r.id);
+                    setErrorMessage(null);
+                    if (r.id !== "all") {
+                      // При выборе инвестора или лаборатории сохраняем режим
+                    }
+                  }}
+                  className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                    active
+                      ? "bg-[#111] text-white shadow-sm"
+                      : "text-black/60 hover:text-black"
+                  }`}
                 >
-                  <HiOutlineUser className="size-5" />
-                </Link>
-              ) : (
-                <Link href="/auth?mode=login">
-                  <Button
-                    variant="dark"
-                    size="default"
-                    className="gap-2 font-semibold group cursor-pointer"
-                  >
-                    <span>Войти</span>
-                    <HiOutlineArrowRightOnRectangle className="size-4 transition-transform group-hover:translate-x-0.5" />
-                  </Button>
-                </Link>
-              )}
-            </div>
-
-            {/* Мобильная кнопка меню */}
-            <div className="flex lg:hidden items-center">
-              <button
-                type="button"
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="p-2 text-[#111111] hover:bg-[#ECEEF2] rounded-lg transition-colors cursor-pointer active:scale-95"
-                aria-label="Меню"
-              >
-                {mobileMenuOpen ? <HiXMark className="size-6" /> : <HiBars3 className="size-6" />}
-              </button>
-            </div>
-
+                  <Icon size={13} className={active ? "text-[#E30613]" : ""} />
+                  <span>{r.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Мобильное меню */}
-        {mobileMenuOpen && (
-          <div className="lg:hidden border-t border-[#E2E5EB] bg-white px-4 pt-4 pb-6 space-y-4 animate-in slide-in-from-top-2 duration-150">
-            <div className="grid grid-cols-2 gap-2 border-b border-[#E2E5EB] pb-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab("investors")
-                  setMobileMenuOpen(false)
-                }}
-                className={`py-2 text-xs font-semibold rounded-lg text-center cursor-pointer transition-colors ${
-                  activeTab === "investors"
-                    ? "bg-[#111111] text-white"
-                    : "bg-[#F5F6F8] text-[#6B7280]"
-                }`}
-              >
-                Инвесторам
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab("labs")
-                  setMobileMenuOpen(false)
-                }}
-                className={`py-2 text-xs font-semibold rounded-lg text-center cursor-pointer transition-colors ${
-                  activeTab === "labs"
-                    ? "bg-[#111111] text-white"
-                    : "bg-[#F5F6F8] text-[#6B7280]"
-                }`}
-              >
-                Лабораториям
-              </button>
-            </div>
+        {/* Главная карточка с формой */}
+        <div className="relative overflow-hidden rounded-[28px] sm:rounded-[32px] bg-white/95 p-6 sm:p-8 shadow-[0_25px_70px_-15px_rgba(0,0,0,0.22),0_0_40px_rgba(227,6,19,0.06)] border border-white backdrop-blur-2xl">
+          {/* Деликатный градиентный блик в углу */}
+          <div
+            className="pointer-events-none absolute -right-20 -top-20 h-44 w-44 rounded-full bg-gradient-to-br from-red-500/10 via-red-500/5 to-transparent blur-2xl"
+            aria-hidden="true"
+          />
 
-            <nav className="flex flex-col gap-2">
-              <a
-                href="#formats"
-                onClick={() => setMobileMenuOpen(false)}
-                className="px-3 py-2 text-sm font-semibold text-[#111111] hover:bg-[#F5F6F8] rounded-lg transition-colors"
-              >
-                О платформе
-              </a>
-              <a
-                href="#moderation"
-                onClick={() => setMobileMenuOpen(false)}
-                className="px-3 py-2 text-sm font-semibold text-[#111111] hover:bg-[#F5F6F8] rounded-lg transition-colors"
-              >
-                Модерация
-              </a>
-              <a
-                href="#security"
-                onClick={() => setMobileMenuOpen(false)}
-                className="px-3 py-2 text-sm font-semibold text-[#111111] hover:bg-[#F5F6F8] rounded-lg transition-colors"
-              >
-                Безопасность
-              </a>
-              <a
-                href="#support"
-                onClick={() => setMobileMenuOpen(false)}
-                className="px-3 py-2 text-sm font-semibold text-[#111111] hover:bg-[#F5F6F8] rounded-lg transition-colors"
-              >
-                Поддержка
-              </a>
-              <Link
-                href="/legal"
-                onClick={() => setMobileMenuOpen(false)}
-                className="px-3 py-2 text-sm font-semibold text-[#111111] hover:bg-[#F5F6F8] rounded-lg transition-colors"
-              >
-                Документы
-              </Link>
-            </nav>
+          {/* Кнопка закрытия */}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Закрыть"
+            className="absolute right-4 top-4 sm:right-5 sm:top-5 flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.04] text-black/55 transition-all hover:bg-black/[0.08] hover:text-black hover:rotate-90 active:scale-95 cursor-pointer"
+          >
+            <X size={15} />
+          </button>
 
-            <div className="pt-2 border-t border-[#E2E5EB]">
-              {user ? (
-                <Link
-                  href={user.is_admin ? "/admin" : "/dashboard"}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between p-3 rounded-xl bg-[#F5F6F8] border border-[#E2E5EB] text-[#111111] hover:border-[#111111]/30 transition-all cursor-pointer"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="size-9 rounded-lg bg-white border border-[#E2E5EB] flex items-center justify-center text-[#111111]">
-                      <HiOutlineUser className="size-5" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-[#111111]">
-                        {user.is_admin ? "Панель управления" : "Личный кабинет"}
-                      </p>
-                      <p className="text-[11px] text-[#6B7280] truncate max-w-[200px]">
-                        {user.full_name || user.email}
-                      </p>
-                    </div>
-                  </div>
-                  <HiOutlineArrowRight className="size-4 text-[#6B7280]" />
-                </Link>
-              ) : (
-                <Link href="/auth?mode=login" onClick={() => setMobileMenuOpen(false)}>
-                  <Button
-                    variant="default"
-                    size="lg"
-                    className="w-full gap-2 font-bold cursor-pointer"
-                  >
-                    <span>Войти</span>
-                    <HiOutlineArrowRightOnRectangle className="size-5" />
-                  </Button>
-                </Link>
-              )}
-            </div>
+          {/* Заголовок карточки */}
+          <div className="pr-6">
+            <h2 className="text-[22px] sm:text-[24px] font-extrabold tracking-tight text-[#111]">
+              {mode === "login" ? "Вход в личный кабинет" : "Регистрация аккаунта"}
+            </h2>
+            <p className="mt-2 text-[12px] sm:text-[13px] leading-snug text-black/55 min-h-[34px]">
+              {getSubtitle()}
+            </p>
           </div>
-        )}
-      </header>
 
-      {/* =========================================================================
-         ОСНОВНОЙ КОНТЕНТ
-         ========================================================================= */}
-      <main className="flex-1 animate-slide-down">
+          {/* Блок ошибки */}
+          {errorMessage && (
+            <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-red-50 border border-red-200 px-3.5 py-2.5 text-xs text-red-700 animate-in fade-in duration-150">
+              <AlertCircle size={15} className="shrink-0 text-red-600" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
 
-        {/* ---------------------------------------------------------------------
-           БЛОК 1: Первый экран (Hero — сбалансированный текст, графика сдвинута вправо)
-           --------------------------------------------------------------------- */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 lg:py-18">
-          <div key={activeTab} className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-            
-            {activeTab === "investors" ? (
-              <>
-                {/* Вариант А: Инвесторам и спонсорам */}
-                <div className="lg:col-span-6 flex flex-col justify-center space-y-5">
-                  <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#111111] tracking-tight leading-[1.12] animate-slide-down">
-                    Финансируйте научные разработки <span className="text-[#F81B00]">без риска потери бюджета</span>
-                  </h1>
-
-                  <p className="text-base sm:text-lg text-[#4B5563] leading-relaxed max-w-xl font-normal animate-slide-down-delay-1">
-                    Платформа объединяет бизнес, частных спонсоров и исследовательские институты. Вы финансируете исследования или запускаете производство своих идей. Оплата исполнителю переводится только после успешной проверки образца.
-                  </p>
-
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2 animate-slide-down-delay-2">
-                    <Link href={user ? "/dashboard" : "/auth?mode=investor"}>
-                      <Button
-                        variant="default"
-                        size="lg"
-                        className="font-bold gap-2 px-7 h-12 text-sm sm:text-base shadow-sm cursor-pointer"
-                      >
-                        <span>{user ? "В личный кабинет" : "Регистрация"}</span>
-                        <HiOutlineArrowRight className="size-4" />
-                      </Button>
-                    </Link>
-
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      className="font-semibold gap-2 px-7 h-12 text-sm sm:text-base border-[#E2E5EB] hover:border-zinc-400"
-                      onClick={() => {
-                        const el = document.getElementById("formats")
-                        el?.scrollIntoView({ behavior: "smooth" })
-                      }}
-                    >
-                      <span>Подробнее</span>
-                      <HiOutlineChevronDown className="size-4 text-[#6B7280]" />
-                    </Button>
-                  </div>
+          {/* Форма */}
+          <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+            {/* Дополнительное поле при регистрации */}
+            {mode === "register" && (
+              <div className="space-y-1.5 animate-in fade-in duration-200">
+                <label className="block text-[10px] font-bold tracking-wider text-black/70">
+                  {role === "lab"
+                    ? "НАЗВАНИЕ ЛАБОРАТОРИИ / НИИ"
+                    : role === "investor"
+                    ? "НАЗВАНИЕ ФОНДА ИЛИ ВАШЕ ИМЯ"
+                    : "ИМЯ ИЛИ ОРГАНИЗАЦИЯ"}{" "}
+                  <span style={{ color: RED }}>*</span>
+                </label>
+                <div className="group relative flex items-center rounded-2xl bg-[#f4f5f7] border border-black/[0.06] transition-all focus-within:border-[#E30613] focus-within:bg-white focus-within:ring-4 focus-within:ring-red-500/10">
+                  <span className="pl-4 text-black/40 group-focus-within:text-[#E30613] transition-colors">
+                    <Building2 size={16} />
+                  </span>
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder={
+                      role === "lab"
+                        ? "Лаборатория квантовых материалов"
+                        : "ООО «Венчурные инвестиции»"
+                    }
+                    className="w-full bg-transparent py-3 pl-3 pr-4 text-[13px] font-medium text-[#111] placeholder:text-black/35 focus:outline-none"
+                  />
                 </div>
-
-                {/* Правая колонка: Графика сдвинута чуть вправо от текста */}
-                <div className="lg:col-span-6 flex items-center justify-center lg:justify-end lg:pl-10 xl:pl-14 pointer-events-none select-none animate-slide-down-delay-1">
-                  <SwissGraphic variant="investors" />
-                </div>
-              </>
-            ) : (
-              <>
-                {/* Вариант Б: НИИ и лабораториям */}
-                <div className="lg:col-span-6 flex flex-col justify-center space-y-5">
-                  <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#111111] tracking-tight leading-[1.12] animate-slide-down">
-                    Привлекайте деньги бизнеса и гранты <span className="text-[#F81B00]">на прикладные разработки</span>
-                  </h1>
-
-                  <p className="text-base sm:text-lg text-[#4B5563] leading-relaxed max-w-xl font-normal animate-slide-down-delay-1">
-                    Берите в работу реальные задачи от предприятий или находите финансирование под свои проекты. Платформа фиксирует авторские права, утверждает смету и гарантирует оплату каждого этапа.
-                  </p>
-
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2 animate-slide-down-delay-2">
-                    <Link href={user ? "/dashboard" : "/auth?mode=lab"}>
-                      <Button
-                        variant="default"
-                        size="lg"
-                        className="font-bold gap-2 px-7 h-12 text-sm sm:text-base shadow-sm cursor-pointer"
-                      >
-                        <span>{user ? "В личный кабинет" : "Регистрация НИИ"}</span>
-                        <HiOutlineBuildingLibrary className="size-4" />
-                      </Button>
-                    </Link>
-
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      className="font-semibold gap-2 px-7 h-12 text-sm sm:text-base border-[#E2E5EB] hover:border-zinc-400"
-                      onClick={() => {
-                        const el = document.getElementById("moderation")
-                        el?.scrollIntoView({ behavior: "smooth" })
-                      }}
-                    >
-                      <span>Регламент</span>
-                      <HiOutlineShieldCheck className="size-4 text-[#6B7280]" />
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Правая колонка: Графика сдвинута чуть вправо от текста */}
-                <div className="lg:col-span-6 flex items-center justify-center lg:justify-end lg:pl-10 xl:pl-14 pointer-events-none select-none animate-slide-down-delay-1">
-                  <SwissGraphic variant="labs" />
-                </div>
-              </>
+              </div>
             )}
 
-          </div>
-        </section>
-
-        {/* ---------------------------------------------------------------------
-           БЛОК 2: Направления деятельности (Большие иконки на месте вверху)
-           --------------------------------------------------------------------- */}
-        <section id="formats" className="bg-white border-y border-[#E2E5EB] py-14 sm:py-20">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
-            
-            <ScrollReveal direction="down" distance={16} className="max-w-3xl space-y-2">
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#111111] tracking-tight">
-                Форматы взаимодействия на платформе
-              </h2>
-              <p className="text-sm sm:text-base text-[#4B5563] leading-relaxed">
-                Единый правовой и финансовый контур для ученых, инвесторов и спонсоров.
-              </p>
-            </ScrollReveal>
-
-            {/* Карточки с большими иконками на своем месте (вверху) */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
-              
-              {/* Формат 1 */}
-              <ScrollReveal delay={0} direction="down" distance={16} className="h-full">
-                <div className="bg-[#F5F6F8] border border-[#E2E5EB] rounded-2xl p-6 sm:p-8 h-full flex flex-col justify-between hover:border-[#111111]/30 hover:shadow-xs transition-all duration-150 group">
-                  <div className="space-y-4">
-                    <div className="size-16 rounded-2xl bg-white border border-[#E2E5EB] flex items-center justify-center text-[#F81B00] shadow-xs">
-                      <HiOutlineHeart className="size-9" />
-                    </div>
-                    <h3 className="text-lg sm:text-xl font-bold text-[#111111] leading-snug group-hover:text-[#F81B00] transition-colors duration-150">
-                      Пожертвования на науку
-                    </h3>
-                    <p className="text-sm text-[#4B5563] leading-relaxed">
-                      Прямая поддержка фундаментальных исследований и лабораторий. Прозрачные финансовые отчеты публикуются в личном кабинете.
-                    </p>
-                  </div>
-                </div>
-              </ScrollReveal>
-
-              {/* Формат 2 */}
-              <ScrollReveal delay={120} direction="down" distance={16} className="h-full">
-                <div className="bg-[#F5F6F8] border border-[#E2E5EB] rounded-2xl p-6 sm:p-8 h-full flex flex-col justify-between hover:border-[#111111]/30 hover:shadow-xs transition-all duration-150 group">
-                  <div className="space-y-4">
-                    <div className="size-16 rounded-2xl bg-white border border-[#E2E5EB] flex items-center justify-center text-[#F81B00] shadow-xs">
-                      <HiOutlineBriefcase className="size-9" />
-                    </div>
-                    <h3 className="text-lg sm:text-xl font-bold text-[#111111] leading-snug group-hover:text-[#F81B00] transition-colors duration-150">
-                      Контрактный заказ R&D
-                    </h3>
-                    <p className="text-sm text-[#4B5563] leading-relaxed">
-                      Целевое финансирование прикладных разработок под ключ. Исключительные права на полученные патенты закрепляются за вами.
-                    </p>
-                  </div>
-                </div>
-              </ScrollReveal>
-
-              {/* Формат 3 */}
-              <ScrollReveal delay={240} direction="down" distance={16} className="h-full">
-                <div className="bg-[#F5F6F8] border border-[#E2E5EB] rounded-2xl p-6 sm:p-8 h-full flex flex-col justify-between hover:border-[#111111]/30 hover:shadow-xs transition-all duration-150 group">
-                  <div className="space-y-4">
-                    <div className="size-16 rounded-2xl bg-white border border-[#E2E5EB] flex items-center justify-center text-[#F81B00] shadow-xs">
-                      <HiOutlineLightBulb className="size-9" />
-                    </div>
-                    <h3 className="text-lg sm:text-xl font-bold text-[#111111] leading-snug group-hover:text-[#F81B00] transition-colors duration-150">
-                      Реализация идей бизнеса
-                    </h3>
-                    <p className="text-sm text-[#4B5563] leading-relaxed">
-                      Опишите производственную задачу. Профильный институт разработает решение, согласует прозрачную смету и защитит патент.
-                    </p>
-                  </div>
-                </div>
-              </ScrollReveal>
-
-            </div>
-
-          </div>
-        </section>
-
-        {/* ---------------------------------------------------------------------
-           БЛОК 3: Регламент работы и поэтапная модерация
-           --------------------------------------------------------------------- */}
-        <section id="moderation" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20">
-          <ScrollReveal direction="down" distance={16} className="max-w-3xl space-y-2 mb-12">
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-[#111111] tracking-tight">
-              Порядок работы и модерации
-            </h2>
-            <p className="text-sm sm:text-base text-[#4B5563] leading-relaxed">
-              Допуск участников к совершению операций и публикация материалов осуществляются после обязательной проверки модераторами платформы.
-            </p>
-          </ScrollReveal>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-            
-            {/* Столбец 1: Порядок действий для инвестора и донора */}
-            <ScrollReveal delay={80} direction="down" distance={16} className="h-full">
-              <div className="bg-white border border-[#E2E5EB] rounded-2xl p-6 sm:p-8 space-y-7 shadow-xs h-full">
-              <div className="pb-4 border-b border-[#E2E5EB]">
-                <h3 className="text-xl font-bold text-[#111111]">
-                  Порядок действий для инвестора и спонсора
-                </h3>
-              </div>
-
-              {/* Цепочка этапов со связующей линией */}
-              <div className="relative space-y-7 before:absolute before:left-5 before:top-4 before:bottom-4 before:w-0.5 before:bg-[#E2E5EB]">
-                
-                {/* Шаг 1 */}
-                <div className="relative flex items-start gap-4">
-                  <div className="relative z-10 size-10 rounded-full bg-white border-2 border-[#F81B00] flex items-center justify-center text-[#F81B00] shrink-0 font-extrabold text-xs shadow-xs">
-                    01
-                  </div>
-                  <div className="space-y-1 pt-0.5">
-                    <h4 className="text-base sm:text-lg font-bold text-[#111111] flex items-center gap-2">
-                      <HiOutlineUserPlus className="size-6 text-[#F81B00] shrink-0" />
-                      <span>Регистрация в системе</span>
-                    </h4>
-                    <p className="text-sm text-[#4B5563] leading-relaxed">
-                      Создание аккаунта физического лица для пожертвований или юридического лица для контрактного заказа R&D.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Шаг 2 */}
-                <div className="relative flex items-start gap-4">
-                  <div className="relative z-10 size-10 rounded-full bg-white border-2 border-[#F81B00] flex items-center justify-center text-[#F81B00] shrink-0 font-extrabold text-xs shadow-xs">
-                    02
-                  </div>
-                  <div className="space-y-1 pt-0.5">
-                    <h4 className="text-base sm:text-lg font-bold text-[#111111] flex items-center gap-2">
-                      <HiOutlineDocumentPlus className="size-6 text-[#F81B00] shrink-0" />
-                      <span>Выбор проекта или публикация идеи</span>
-                    </h4>
-                    <p className="text-sm text-[#4B5563] leading-relaxed">
-                      Выбор готового исследования из каталога либо размещение собственной задачи с направлением в профильные институты.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Шаг 3 */}
-                <div className="relative flex items-start gap-4">
-                  <div className="relative z-10 size-10 rounded-full bg-white border-2 border-[#F81B00] flex items-center justify-center text-[#F81B00] shrink-0 font-extrabold text-xs shadow-xs">
-                    03
-                  </div>
-                  <div className="space-y-1 pt-0.5">
-                    <h4 className="text-base sm:text-lg font-bold text-[#111111] flex items-center gap-2">
-                      <HiOutlineChatBubbleLeftRight className="size-6 text-[#F81B00] shrink-0" />
-                      <span>Согласование условий в чате</span>
-                    </h4>
-                    <p className="text-sm text-[#4B5563] leading-relaxed">
-                      Обсуждение технического задания, контрольных точек, прозрачной сметы и отчетности в защищенном чате.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Шаг 4 */}
-                <div className="relative flex items-start gap-4">
-                  <div className="relative z-10 size-10 rounded-full bg-white border-2 border-[#F81B00] flex items-center justify-center text-[#F81B00] shrink-0 font-extrabold text-xs shadow-xs">
-                    04
-                  </div>
-                  <div className="space-y-1 pt-0.5">
-                    <h4 className="text-base sm:text-lg font-bold text-[#111111] flex items-center gap-2">
-                      <HiOutlineLockClosed className="size-6 text-[#F81B00] shrink-0" />
-                      <span>Депонирование на резервном счёте</span>
-                    </h4>
-                    <p className="text-sm text-[#4B5563] leading-relaxed">
-                      Перевод средств на специальный защищенный счет. Оплата исполнителю переводится поэтапно только после приёмки работ.
-                    </p>
-                  </div>
-                </div>
-
+            {/* Электронная почта */}
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-bold tracking-wider text-black/70">
+                ЭЛЕКТРОННАЯ ПОЧТА <span style={{ color: RED }}>*</span>
+              </label>
+              <div className="group relative flex items-center rounded-2xl bg-[#f4f5f7] border border-black/[0.06] transition-all focus-within:border-[#E30613] focus-within:bg-white focus-within:ring-4 focus-within:ring-red-500/10">
+                <span className="pl-4 text-black/40 group-focus-within:text-[#E30613] transition-colors">
+                  <Mail size={16} />
+                </span>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder={getEmailPlaceholder()}
+                  className="w-full bg-transparent py-3 pl-3 pr-4 text-[13px] font-medium text-[#111] placeholder:text-black/35 focus:outline-none"
+                />
               </div>
             </div>
-            </ScrollReveal>
 
-            {/* Столбец 2: Порядок действий для НИИ и лаборатории */}
-            <ScrollReveal delay={200} direction="down" distance={16} className="h-full">
-              <div className="bg-white border border-[#E2E5EB] rounded-2xl p-6 sm:p-8 space-y-7 shadow-xs h-full">
-                <div className="pb-4 border-b border-[#E2E5EB]">
-                <h3 className="text-xl font-bold text-[#111111]">
-                  Порядок действий для НИИ и лаборатории
-                </h3>
-              </div>
-
-              {/* Цепочка этапов со связующей линией */}
-              <div className="relative space-y-7 before:absolute before:left-5 before:top-4 before:bottom-4 before:w-0.5 before:bg-[#E2E5EB]">
-                
-                {/* Шаг 1 */}
-                <div className="relative flex items-start gap-4">
-                  <div className="relative z-10 size-10 rounded-full bg-white border-2 border-[#111111] flex items-center justify-center text-[#111111] shrink-0 font-extrabold text-xs shadow-xs">
-                    01
-                  </div>
-                  <div className="space-y-1 pt-0.5">
-                    <h4 className="text-base sm:text-lg font-bold text-[#111111] flex items-center gap-2">
-                      <HiOutlineBuildingOffice2 className="size-6 text-[#F81B00] shrink-0" />
-                      <span>Регистрация и верификация</span>
-                    </h4>
-                    <p className="text-sm text-[#4B5563] leading-relaxed">
-                      Подача заявки от лица научной организации с предоставлением уставных документов и реквизитов.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Шаг 2 */}
-                <div className="relative flex items-start gap-4">
-                  <div className="relative z-10 size-10 rounded-full bg-white border-2 border-[#111111] flex items-center justify-center text-[#111111] shrink-0 font-extrabold text-xs shadow-xs">
-                    02
-                  </div>
-                  <div className="space-y-1 pt-0.5">
-                    <h4 className="text-base sm:text-lg font-bold text-[#111111] flex items-center gap-2">
-                      <HiOutlineDocumentCheck className="size-6 text-[#F81B00] shrink-0" />
-                      <span>Подготовка проекта и сметы</span>
-                    </h4>
-                    <p className="text-sm text-[#4B5563] leading-relaxed">
-                      Оформление собственной разработки или принятие задачи инвестора с утверждением поэтапного бюджета.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Шаг 3 */}
-                <div className="relative flex items-start gap-4">
-                  <div className="relative z-10 size-10 rounded-full bg-white border-2 border-[#111111] flex items-center justify-center text-[#111111] shrink-0 font-extrabold text-xs shadow-xs">
-                    03
-                  </div>
-                  <div className="space-y-1 pt-0.5">
-                    <h4 className="text-base sm:text-lg font-bold text-[#111111] flex items-center gap-2">
-                      <HiOutlineMagnifyingGlassCircle className="size-6 text-[#F81B00] shrink-0" />
-                      <span>Экспертиза и патентная чистота</span>
-                    </h4>
-                    <p className="text-sm text-[#4B5563] leading-relaxed">
-                      Проверка сметы экспертами платформы, подтверждение патентной чистоты и фиксация авторского приоритета.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Шаг 4 */}
-                <div className="relative flex items-start gap-4">
-                  <div className="relative z-10 size-10 rounded-full bg-white border-2 border-[#111111] flex items-center justify-center text-[#111111] shrink-0 font-extrabold text-xs shadow-xs">
-                    04
-                  </div>
-                  <div className="space-y-1 pt-0.5">
-                    <h4 className="text-base sm:text-lg font-bold text-[#111111] flex items-center gap-2">
-                      <HiOutlineBanknotes className="size-6 text-[#F81B00] shrink-0" />
-                      <span>Сдача этапов и получение оплаты</span>
-                    </h4>
-                    <p className="text-sm text-[#4B5563] leading-relaxed">
-                      Выполнение работ по графику, передача образцов и отчетов, гарантированный перевод средств с резервного счёта.
-                    </p>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-            </ScrollReveal>
-
-          </div>
-        </section>
-
-        {/* ---------------------------------------------------------------------
-           БЛОК 4: Безопасность (Чистые блоки БЕЗ ИКОНОК и БЕЗ щита)
-           --------------------------------------------------------------------- */}
-        <section id="security" className="bg-white border-y border-[#E2E5EB] py-14 sm:py-20">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
-            
-            <ScrollReveal direction="down" distance={16} className="max-w-3xl space-y-2">
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#111111] tracking-tight">
-                Гарантии безопасности и контроль исполнения
-              </h2>
-              <p className="text-sm sm:text-base text-[#4B5563] leading-relaxed">
-                Каждая сделка структурирована по нормам законодательства с полной защитой коммерческой тайны и результатов интеллектуальной деятельности.
-              </p>
-            </ScrollReveal>
-
-            {/* Сетка из 4 карточек с большими иконками */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              
-              {/* Блок 1 */}
-              <ScrollReveal delay={0} direction="down" distance={16} className="h-full">
-                <div className="p-6 sm:p-7 rounded-2xl bg-[#F5F6F8] border border-[#E2E5EB] flex flex-col justify-between hover:border-[#111111]/30 hover:shadow-xs transition-all duration-150 h-full group">
-                  <div className="space-y-4">
-                    <div className="size-16 rounded-2xl bg-white border border-[#E2E5EB] flex items-center justify-center text-[#F81B00] shadow-xs">
-                      <HiOutlineLockClosed className="size-9" />
-                    </div>
-                    <h3 className="text-base sm:text-lg font-bold text-[#111111] leading-snug group-hover:text-[#F81B00] transition-colors duration-150">
-                      Расчёты через резервный счёт
-                    </h3>
-                    <p className="text-sm text-[#4B5563] leading-relaxed">
-                      Финансовые средства резервируются на счете до сдачи контрольного этапа, гарантируя оплату исполнителю и сохранность средств инвестору.
-                    </p>
-                  </div>
-                </div>
-              </ScrollReveal>
-
-              {/* Блок 2 */}
-              <ScrollReveal delay={90} direction="down" distance={16} className="h-full">
-                <div className="p-6 sm:p-7 rounded-2xl bg-[#F5F6F8] border border-[#E2E5EB] flex flex-col justify-between hover:border-[#111111]/30 hover:shadow-xs transition-all duration-150 h-full group">
-                  <div className="space-y-4">
-                    <div className="size-16 rounded-2xl bg-white border border-[#E2E5EB] flex items-center justify-center text-[#F81B00] shadow-xs">
-                      <HiCheckBadge className="size-9" />
-                    </div>
-                    <h3 className="text-base sm:text-lg font-bold text-[#111111] leading-snug group-hover:text-[#F81B00] transition-colors duration-150">
-                      Обязательная верификация НИИ
-                    </h3>
-                    <p className="text-sm text-[#4B5563] leading-relaxed">
-                      Проверка правового статуса, лабораторной базы и подлинности патентной документации научной организации до начала сбора средств.
-                    </p>
-                  </div>
-                </div>
-              </ScrollReveal>
-
-              {/* Блок 3 */}
-              <ScrollReveal delay={180} direction="down" distance={16} className="h-full">
-                <div className="p-6 sm:p-7 rounded-2xl bg-[#F5F6F8] border border-[#E2E5EB] flex flex-col justify-between hover:border-[#111111]/30 hover:shadow-xs transition-all duration-150 h-full group">
-                  <div className="space-y-4">
-                    <div className="size-16 rounded-2xl bg-white border border-[#E2E5EB] flex items-center justify-center text-[#F81B00] shadow-xs">
-                      <HiOutlineFingerPrint className="size-9" />
-                    </div>
-                    <h3 className="text-base sm:text-lg font-bold text-[#111111] leading-snug group-hover:text-[#F81B00] transition-colors duration-150">
-                      Фиксация интеллектуальных прав
-                    </h3>
-                    <p className="text-sm text-[#4B5563] leading-relaxed">
-                      Все идеи инвесторов и научные описания регистрируются с криптографической меткой времени, защищая авторство сторон.
-                    </p>
-                  </div>
-                </div>
-              </ScrollReveal>
-
-              {/* Блок 4 */}
-              <ScrollReveal delay={270} direction="down" distance={16} className="h-full">
-                <div className="p-6 sm:p-7 rounded-2xl bg-[#F5F6F8] border border-[#E2E5EB] flex flex-col justify-between hover:border-[#111111]/30 hover:shadow-xs transition-all duration-150 h-full group">
-                  <div className="space-y-4">
-                    <div className="size-16 rounded-2xl bg-white border border-[#E2E5EB] flex items-center justify-center text-[#F81B00] shadow-xs">
-                      <HiOutlineChatBubbleOvalLeftEllipsis className="size-9" />
-                    </div>
-                    <h3 className="text-base sm:text-lg font-bold text-[#111111] leading-snug group-hover:text-[#F81B00] transition-colors duration-150">
-                      Защищённый чат участников
-                    </h3>
-                    <p className="text-sm text-[#4B5563] leading-relaxed">
-                      Вся деловая переписка и изменения по проекту ведутся во встроенном мессенджере с сохранением юридически значимой истории.
-                    </p>
-                  </div>
-                </div>
-              </ScrollReveal>
-
-            </div>
-
-          </div>
-        </section>
-
-        {/* ---------------------------------------------------------------------
-           БЛОК 5: Служба поддержки (Большие иконки на месте вверху)
-           --------------------------------------------------------------------- */}
-        <section id="support" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20">
-          <div className="space-y-10">
-            
-            <ScrollReveal direction="down" distance={16} className="max-w-3xl space-y-2">
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#111111] tracking-tight">
-                Сопровождение и служба поддержки
-              </h2>
-              <p className="text-sm sm:text-base text-[#4B5563] leading-relaxed">
-                Служба поддержки платформы обеспечивает экспертное и организационное сопровождение пользователей на всех стадиях взаимодействия.
-              </p>
-            </ScrollReveal>
-
-            {/* Карточки поддержки с большими иконками вверху */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
-              
-              {/* Плашка 1 */}
-              <ScrollReveal delay={0} direction="down" distance={16} className="h-full">
-                <div className="bg-white border border-[#E2E5EB] rounded-2xl p-6 sm:p-8 flex flex-col justify-between hover:border-[#111111]/30 hover:shadow-xs transition-all duration-150 h-full group">
-                  <div className="space-y-4">
-                    <div className="size-16 rounded-2xl bg-[#F5F6F8] border border-[#E2E5EB] flex items-center justify-center text-[#F81B00]">
-                      <HiOutlineLifebuoy className="size-9" />
-                    </div>
-                    <h3 className="text-lg sm:text-xl font-bold text-[#111111] leading-snug group-hover:text-[#F81B00] transition-colors duration-150">
-                      Консультационная поддержка
-                    </h3>
-                    <p className="text-sm text-[#4B5563] leading-relaxed">
-                      Быстрые ответы по регистрации, верификации проектов и правилам работы с резервным счётом.
-                    </p>
-                  </div>
-                </div>
-              </ScrollReveal>
-
-              {/* Плашка 2 */}
-              <ScrollReveal delay={120} direction="down" distance={16} className="h-full">
-                <div className="bg-white border border-[#E2E5EB] rounded-2xl p-6 sm:p-8 flex flex-col justify-between hover:border-[#111111]/30 hover:shadow-xs transition-all duration-150 h-full group">
-                  <div className="space-y-4">
-                    <div className="size-16 rounded-2xl bg-[#F5F6F8] border border-[#E2E5EB] flex items-center justify-center text-[#F81B00]">
-                      <HiOutlineScale className="size-9" />
-                    </div>
-                    <h3 className="text-lg sm:text-xl font-bold text-[#111111] leading-snug group-hover:text-[#F81B00] transition-colors duration-150">
-                      Независимый арбитраж
-                    </h3>
-                    <p className="text-sm text-[#4B5563] leading-relaxed">
-                      Помощь в объективной технической оценке этапов и быстрое разрешение любых спорных вопросов.
-                    </p>
-                  </div>
-                </div>
-              </ScrollReveal>
-
-              {/* Плашка 3 */}
-              <ScrollReveal delay={240} direction="down" distance={16} className="h-full">
-                <div className="bg-white border border-[#E2E5EB] rounded-2xl p-6 sm:p-8 flex flex-col justify-between hover:border-[#111111]/30 hover:shadow-xs transition-all duration-150 h-full group">
-                  <div className="space-y-4">
-                    <div className="size-16 rounded-2xl bg-[#F5F6F8] border border-[#E2E5EB] flex items-center justify-center text-[#F81B00]">
-                      <HiOutlineDocumentText className="size-9" />
-                    </div>
-                    <h3 className="text-lg sm:text-xl font-bold text-[#111111] leading-snug group-hover:text-[#F81B00] transition-colors duration-150">
-                      Методическое сопровождение
-                    </h3>
-                    <p className="text-sm text-[#4B5563] leading-relaxed">
-                      Помощь заказчикам в структурировании технических задач, а институтам — в расчёте смет и фиксации патентов.
-                    </p>
-                  </div>
-                </div>
-              </ScrollReveal>
-
-            </div>
-
-          </div>
-        </section>
-
-        {/* ---------------------------------------------------------------------
-           БЛОК 6: Призыв к регистрации (CTA)
-           --------------------------------------------------------------------- */}
-        <section className="bg-white border-t border-[#E2E5EB] py-16 sm:py-20">
-          <ScrollReveal direction="down" distance={16} className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-[#111111] tracking-tight">
-              Начните работу на платформе
-            </h2>
-            <p className="text-base sm:text-lg text-[#4B5563] max-w-2xl mx-auto leading-relaxed">
-              Полный доступ к базе исследований, бирже технологических идей и инструментам финансирования открывается после регистрации.
-            </p>
-
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-              <Link href={user ? "/dashboard" : "/auth?mode=investor"} className="w-full sm:w-auto">
-                <Button
-                  variant="default"
-                  size="lg"
-                  className="w-full sm:w-auto font-bold gap-2 px-8 shadow-sm hover:shadow transition-all group cursor-pointer"
-                >
-                  <span>{user ? "В личный кабинет" : "Инвесторам"}</span>
-                  <HiOutlineArrowRight className="size-5 transition-transform group-hover:translate-x-1" />
-                </Button>
-              </Link>
-
-              <Link href={user ? "/dashboard" : "/auth?mode=lab"} className="w-full sm:w-auto">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="w-full sm:w-auto font-bold gap-2 px-8 hover:border-zinc-400 transition-all cursor-pointer"
-                >
-                  <span>{user ? "Кабинет организации" : "Научным организациям"}</span>
-                  <HiOutlineBuildingLibrary className="size-5 text-[#F81B00]" />
-                </Button>
-              </Link>
-            </div>
-          </ScrollReveal>
-        </section>
-
-      </main>
-
-      {/* =========================================================================
-         БЛОК 7: Подвал (Footer — БЕЗ ЛОГОТИПА, с регламентами)
-         ========================================================================= */}
-      <footer className="bg-[#111111] text-zinc-400 text-xs py-12 border-t border-[#222222]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
-          
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-            
-            {/* Описание платформы */}
-            <div className="md:col-span-5 space-y-3">
-              <span className="font-bold text-white text-sm tracking-wide block">
-                Платформа R&D финансирования
-              </span>
-              <p className="text-xs text-zinc-400 leading-relaxed max-w-sm">
-                Платформа безопасного финансирования научных исследований и технологических разработок с гарантией расчётов через резервный счёт.
-              </p>
-            </div>
-
-            {/* Навигация */}
-            <div className="md:col-span-3 space-y-3">
-              <span className="font-bold text-white text-xs tracking-wider uppercase block">
-                Навигация
-              </span>
-              <ul className="space-y-2 text-xs">
-                <li>
+            {/* Пароль */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="block text-[10px] font-bold tracking-wider text-black/70">
+                  ПАРОЛЬ <span style={{ color: RED }}>*</span>
+                </label>
+                {mode === "login" && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setActiveTab("investors")
-                      window.scrollTo({ top: 0, behavior: "smooth" })
-                    }}
-                    className="hover:text-white transition-colors cursor-pointer"
+                    onClick={() =>
+                      alert(
+                        "Для восстановления доступа свяжитесь со службой поддержки или администратором."
+                      )
+                    }
+                    className="text-[10px] font-semibold text-black/45 hover:text-[#E30613] transition-colors cursor-pointer"
                   >
-                    Инвесторам и спонсорам
+                    Забыли пароль?
                   </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTab("labs")
-                      window.scrollTo({ top: 0, behavior: "smooth" })
-                    }}
-                    className="hover:text-white transition-colors cursor-pointer"
-                  >
-                    НИИ и лабораториям
-                  </button>
-                </li>
-                <li>
-                  <a href="#moderation" className="hover:text-white transition-colors">
-                    Порядок модерации
-                  </a>
-                </li>
-                <li>
-                  <a href="#support" className="hover:text-white transition-colors">
-                    Служба поддержки
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-            {/* Правовые документы и регламенты */}
-            <div className="md:col-span-4 space-y-3">
-              <Link href="/legal" className="group flex items-center justify-between">
-                <span className="font-bold text-white text-xs tracking-wider uppercase group-hover:text-[#F81B00] transition-colors">
-                  Правовые документы и регламенты
+                )}
+              </div>
+              <div className="group relative flex items-center rounded-2xl bg-[#f4f5f7] border border-black/[0.06] transition-all focus-within:border-[#E30613] focus-within:bg-white focus-within:ring-4 focus-within:ring-red-500/10">
+                <span className="pl-4 text-black/40 group-focus-within:text-[#E30613] transition-colors">
+                  <Lock size={16} />
                 </span>
-                <span className="text-[10px] text-zinc-500 group-hover:text-zinc-300 transition-colors">
-                  Все документы →
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-transparent py-3 pl-3 pr-11 text-[13px] font-medium text-[#111] placeholder:text-black/35 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
+                  className="absolute right-3.5 flex h-7 w-7 items-center justify-center rounded-full text-black/40 hover:text-black hover:bg-black/5 transition-colors cursor-pointer"
+                >
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Запомнить меня */}
+            {mode === "login" && (
+              <label className="flex items-center gap-2.5 pt-0.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-4 w-4 rounded border-black/20 accent-[#E30613] cursor-pointer"
+                />
+                <span className="text-[11px] font-medium text-black/60">
+                  Запомнить меня на этом устройстве
                 </span>
-              </Link>
-              <ul className="space-y-2 text-xs">
-                <li>
-                  <Link href="/legal/moderation" className="hover:text-white transition-colors block">
-                    Регламент модерации проектов и заявок
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/legal/escrow" className="hover:text-white transition-colors block">
-                    Правила расчётов через резервный счёт
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/legal/terms" className="hover:text-white transition-colors block">
-                    Пользовательское соглашение
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/legal/privacy" className="hover:text-white transition-colors block">
-                    Политика конфиденциальности и защиты данных
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/legal/intellectual-property" className="hover:text-white transition-colors block">
-                    Регламент фиксации прав на РИД и патенты
-                  </Link>
-                </li>
-              </ul>
-            </div>
+              </label>
+            )}
 
+            {/* Кнопка отправки формы */}
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={isSubmitting || isSuccess}
+                className="group relative flex h-[46px] sm:h-[48px] w-full items-center justify-center gap-3 rounded-full bg-[#111] px-6 text-[13px] font-semibold text-white shadow-[0_10px_24px_-6px_rgba(0,0,0,0.3)] transition-all duration-300 hover:bg-[#E30613] hover:shadow-[0_12px_28px_-6px_rgba(227,6,19,0.55)] hover:-translate-y-0.5 active:translate-y-0 cursor-pointer disabled:opacity-75"
+              >
+                {isSuccess ? (
+                  <span className="flex items-center gap-2 text-white animate-in zoom-in-90 duration-200">
+                    <CheckCircle2 size={16} /> Успешно! Переход...
+                  </span>
+                ) : isSubmitting ? (
+                  <span className="flex items-center gap-2">
+                    <svg
+                      className="h-4 w-4 animate-spin text-white"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8H4z"
+                      />
+                    </svg>
+                    Выполняется вход...
+                  </span>
+                ) : (
+                  <>
+                    <span>
+                      {mode === "login" ? "Войти в личный кабинет" : "Создать аккаунт"}
+                    </span>
+                    <ArrowRight
+                      size={14}
+                      className="transition-transform group-hover:translate-x-1"
+                    />
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+
+          {/* Переключение Вход / Регистрация */}
+          <div className="mt-6 pt-5 border-t border-black/[0.08] text-center">
+            {mode === "login" ? (
+              <p className="text-[12px] text-black/60">
+                Ещё нет аккаунта?{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("register");
+                    setErrorMessage(null);
+                  }}
+                  className="font-bold text-[#E30613] hover:underline cursor-pointer"
+                >
+                  Зарегистрироваться
+                </button>
+              </p>
+            ) : (
+              <p className="text-[12px] text-black/60">
+                Уже зарегистрированы?{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("login");
+                    setErrorMessage(null);
+                  }}
+                  className="font-bold text-[#E30613] hover:underline cursor-pointer"
+                >
+                  Войти в кабинет
+                </button>
+              </p>
+            )}
           </div>
-
-          <div className="pt-6 border-t border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-zinc-500">
-            <div>
-              © 2026. Все права защищены.
-            </div>
-            <div>
-              Единый стандарт защищённых расчетов и модерации R&D.
-            </div>
-          </div>
-
         </div>
-      </footer>
-
+      </div>
     </div>
-  )
+  );
+}
+
+/* ───────────── КОМПОНЕНТЫ ИНТЕРФЕЙСА ЛЕНДИНГА ───────────── */
+
+function Logo() {
+  return (
+    <Link href="/" className="flex items-center gap-2.5 group">
+      <svg
+        width="32"
+        height="32"
+        viewBox="0 0 30 30"
+        fill="none"
+        aria-hidden
+        className="transition-transform group-hover:scale-105"
+      >
+        <path d="M4 12 18 4v8L4 20z" fill={RED} />
+        <path d="M12 26 26 18v-8L12 18z" fill="#111" />
+        <path d="M4 22 12 18v8l-8 4z" fill={RED} />
+      </svg>
+      <span className="text-[15px] font-extrabold leading-[1.05] tracking-tight text-black">
+        Точка
+        <br />
+        Роста
+      </span>
+    </Link>
+  );
+}
+
+function Media3D({
+  src,
+  poster,
+  className = "",
+}: {
+  src: string;
+  poster: string;
+  className?: string;
+}) {
+  return (
+    <video
+      className={`pointer-events-none select-none object-contain mix-blend-multiply ${className}`}
+      style={{
+        filter: "brightness(1.08) contrast(1.08)",
+        WebkitMaskImage: "radial-gradient(ellipse at center, #000 50%, transparent 76%)",
+        maskImage: "radial-gradient(ellipse at center, #000 50%, transparent 76%)",
+      }}
+      autoPlay
+      loop
+      muted
+      playsInline
+      preload="auto"
+      poster={poster}
+    >
+      <source src={`${src}.mp4`} type="video/mp4" />
+    </video>
+  );
+}
+
+/* ───────────── ДЕСКТОП: ШАПКА ───────────── */
+
+function Header({
+  onOpenAuth,
+  loggedIn,
+  isAdmin,
+}: {
+  onOpenAuth: (mode?: "login" | "register", role?: AuthRole) => void;
+  loggedIn: boolean;
+  isAdmin?: boolean;
+}) {
+  const router = useRouter();
+
+  return (
+    <header className="sticky top-0 z-40 border-b border-black/5 bg-white/80 backdrop-blur-md">
+      <div className="mx-auto flex h-[68px] max-w-[1200px] items-center justify-between px-6">
+        <div className="flex items-center gap-12 xl:gap-16">
+          <Logo />
+          <nav className="hidden gap-7 text-[13px] font-medium text-black/75 lg:flex">
+            {navLinks.map((n) => (
+              <a
+                key={n.label}
+                href={n.href}
+                className="transition-colors hover:text-[#E30613]"
+              >
+                {n.label}
+              </a>
+            ))}
+          </nav>
+        </div>
+
+        <div className="flex items-center gap-3.5">
+          <button
+            onClick={() => {
+              const el = document.getElementById("research");
+              el?.scrollIntoView({ behavior: "smooth" });
+            }}
+            aria-label="Поиск по проектам"
+            title="Поиск исследований"
+            className="flex h-9 w-[46px] items-center justify-center rounded-full border border-black/10 bg-white/80 text-black/60 transition-all hover:text-black hover:border-black/30 cursor-pointer"
+          >
+            <Search size={14} />
+          </button>
+
+          {loggedIn ? (
+            <button
+              onClick={() => router.push(isAdmin ? "/admin" : "/dashboard")}
+              className="flex h-10 items-center gap-2 rounded-full bg-[#111] px-5 text-[12px] font-semibold text-white transition-all hover:bg-black hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+            >
+              <UserIcon size={14} className="text-[#E30613]" />
+              <span>{isAdmin ? "Панель управления" : "Личный кабинет"}</span>
+              <ArrowRight size={13} />
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onOpenAuth("login", "all")}
+                className="flex h-10 items-center gap-2 rounded-full border border-black/10 bg-white/70 px-5 text-[12px] font-semibold text-[#111] transition-all hover:bg-white hover:border-black/25 cursor-pointer"
+              >
+                Войти
+              </button>
+              <button
+                onClick={() => onOpenAuth("register", "investor")}
+                className="flex h-10 items-center gap-2 rounded-full bg-[#111] px-5 text-[12px] font-semibold text-white shadow-sm transition-all hover:bg-[#E30613] hover:shadow-[0_8px_20px_-6px_rgba(227,6,19,.5)] hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+              >
+                <span>Регистрация</span>
+                <ArrowRight size={13} />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </header>
+  );
+}
+
+/* ───────────── ДЕСКТОП: ПЕРВЫЙ ЭКРАН (HERO) ───────────── */
+
+function Hero({
+  onOpenAuth,
+  loggedIn,
+  isAdmin,
+}: {
+  onOpenAuth: (mode?: "login" | "register", role?: AuthRole) => void;
+  loggedIn: boolean;
+  isAdmin?: boolean;
+}) {
+  const router = useRouter();
+
+  return (
+    <div className="relative overflow-hidden bg-gradient-to-b from-[#eeeff1] via-[#f3f3f5] to-[#f7f7f8]">
+      <section className="relative mx-auto max-w-[1200px] px-6 pb-12 pt-14 lg:min-h-[540px] flex flex-col justify-center">
+        <div className="relative z-10 max-w-[580px]">
+          {/* Бейдж */}
+          <span className="inline-flex items-center gap-3 rounded-full border border-black/5 bg-white/80 px-5 py-2.5 text-[11px] font-medium leading-tight text-black/75 shadow-xs">
+            <span className="relative flex h-2 w-2">
+              <span
+                className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                style={{ background: RED }}
+              />
+              <span
+                className="relative inline-flex rounded-full h-2 w-2"
+                style={{ background: RED }}
+              />
+            </span>
+            Платформа финансирования научных разработок
+          </span>
+
+          {/* Заголовок */}
+          <h1 className="mt-8 text-[44px] font-extrabold leading-[1.03] tracking-tight text-[#1e1e22] md:text-[50px]">
+            Привлекайте деньги бизнеса и гранты{" "}
+            <span style={{ color: RED }}>на прикладные разработки</span>
+          </h1>
+
+          {/* Описание */}
+          <p className="mt-6 max-w-[460px] text-[15px] leading-[1.5] text-black/65 font-normal">
+            Единая экосистема, где наука встречается с венчурным капиталом и производством.
+            Прозрачное эскроу-финансирование, защита авторских прав и гарантированные результаты.
+          </p>
+
+          {/* Кнопки действий */}
+          <div className="mt-9 flex items-center gap-4">
+            {loggedIn ? (
+              <button
+                onClick={() => router.push(isAdmin ? "/admin" : "/dashboard")}
+                className="flex h-[44px] items-center gap-3 rounded-full px-7 text-[13px] font-semibold text-white shadow-[0_10px_24px_-6px_rgba(227,6,19,.5)] transition-all hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                style={{ background: RED }}
+              >
+                <span>{isAdmin ? "В панель управления" : "В личный кабинет"}</span>
+                <ArrowRight size={14} />
+              </button>
+            ) : (
+              <button
+                onClick={() => onOpenAuth("register", "investor")}
+                className="flex h-[44px] items-center gap-3 rounded-full px-7 text-[13px] font-semibold text-white shadow-[0_10px_24px_-6px_rgba(227,6,19,.5)] transition-all hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                style={{ background: RED }}
+              >
+                <span>Зарегистрироваться</span>
+                <ArrowRight size={14} />
+              </button>
+            )}
+
+            <button
+              onClick={() => {
+                const el = document.getElementById("formats");
+                el?.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="flex h-[44px] items-center gap-3 rounded-full border border-black/10 bg-white/70 px-6 text-[13px] font-semibold text-[#111] transition-all hover:bg-white hover:border-black/25 active:scale-98 cursor-pointer"
+            >
+              <span>Узнать больше</span>
+              <Play size={10} fill={RED} stroke={RED} className="ml-0.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* 3D молекула (видео) */}
+        <Media3D
+          src="/3d/molecule"
+          poster="/3d/molecule.webp"
+          className="absolute right-[-40px] top-4 z-0 hidden h-[480px] w-[620px] lg:block"
+        />
+
+        {/* Индекс доверия */}
+        <div className="absolute right-6 top-10 z-20 hidden items-center gap-3.5 rounded-[22px] bg-white/85 px-5 py-3 shadow-[0_12px_32px_-10px_rgba(0,0,0,.15)] border border-white/60 backdrop-blur-md lg:flex">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-[#E30613]">
+            <TrendingUp size={20} color={RED} />
+          </div>
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-black/55">
+              Индекс доверия НИИ
+            </div>
+            <div className="text-[24px] font-extrabold leading-none tracking-tight text-[#111]">
+              98.7 <span className="text-[11px] font-bold" style={{ color: RED }}>↗ 99.1%</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+/* ───────────── ПРЕИМУЩЕСТВА (FEATURES) ───────────── */
+
+function Features() {
+  return (
+    <section className="mx-auto max-w-[1200px] px-6 py-10">
+      <div className="grid gap-8 border-b border-black/5 pb-10 md:grid-cols-3 md:gap-0">
+        {features.map(({ icon: Icon, title, text }, i) => (
+          <div
+            key={title}
+            className={`flex items-start gap-4 md:px-8 ${
+              i ? "md:border-l md:border-black/10" : "md:pl-0"
+            }`}
+          >
+            <span className="flex h-[54px] w-[54px] shrink-0 items-center justify-center rounded-2xl bg-white shadow-[0_8px_20px_-6px_rgba(0,0,0,.12)] border border-black/5">
+              <Icon size={22} color={RED} strokeWidth={1.8} />
+            </span>
+            <div>
+              <h3 className="text-[15px] font-bold leading-tight text-[#111]">{title}</h3>
+              <p className="mt-2 text-[12px] leading-relaxed text-black/60">{text}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ───────────── АКТУАЛЬНЫЕ ИССЛЕДОВАНИЯ (RESEARCH) ───────────── */
+
+function Research({
+  onOpenAuth,
+  loggedIn,
+}: {
+  onOpenAuth: (mode?: "login" | "register") => void;
+  loggedIn: boolean;
+}) {
+  const router = useRouter();
+  const [activeSlide, setActiveSlide] = React.useState(0);
+
+  const handleCatalogClick = () => {
+    if (loggedIn) {
+      router.push("/dashboard");
+    } else {
+      onOpenAuth("register");
+    }
+  };
+
+  return (
+    <section id="research" className="mx-auto grid max-w-[1200px] items-start gap-10 px-6 py-12 lg:grid-cols-[260px_1fr]">
+      <div>
+        <i className="mb-5 block h-[3px] w-[32px] rounded-full" style={{ background: RED }} />
+        <h2 className="text-[28px] font-extrabold leading-[1.08] tracking-tight text-[#111]">
+          Актуальные
+          <br />
+          исследования
+        </h2>
+        <p className="mt-4 text-[13px] leading-relaxed text-black/60">
+          Выберите перспективный проект из каталога и инвестируйте в его реализацию с защитой прав.
+        </p>
+
+        <button
+          onClick={handleCatalogClick}
+          className="mt-8 inline-flex h-[42px] items-center gap-3 rounded-full bg-[#111] px-6 text-[12px] font-semibold text-white shadow-sm transition-all hover:bg-black hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+        >
+          <span>Перейти в каталог</span>
+          <ArrowRight size={13} />
+        </button>
+
+        <div className="mt-10 flex items-center gap-4 text-[12px]">
+          <span className="font-semibold">
+            <b>0{activeSlide + 1}</b>{" "}
+            <span className="text-black/40">/ 0{cards.length}</span>
+          </span>
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => setActiveSlide((prev) => (prev > 0 ? prev - 1 : cards.length - 1))}
+              aria-label="Назад"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-black/10 bg-white transition-all hover:border-black/30 cursor-pointer"
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <button
+              onClick={() => setActiveSlide((prev) => (prev < cards.length - 1 ? prev + 1 : 0))}
+              aria-label="Далее"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-black/10 bg-white transition-all hover:border-black/30 cursor-pointer"
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="relative">
+        <div className="grid gap-5 sm:grid-cols-3">
+          {cards.map((c) => (
+            <article
+              key={c.title}
+              onClick={handleCatalogClick}
+              className="group overflow-hidden rounded-[24px] border border-black/5 bg-white/90 shadow-[0_12px_32px_-18px_rgba(0,0,0,.18)] transition-all duration-300 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,.22)] hover:-translate-y-1 cursor-pointer flex flex-col justify-between"
+            >
+              <div className="relative h-[160px] bg-gradient-to-b from-[#f2f3f5] to-white p-3 flex items-center justify-center overflow-hidden">
+                <CardGraphic type={c.type} />
+                <span className="absolute left-3.5 top-3.5 rounded-full bg-white/95 px-3 py-1 text-[10px] font-semibold text-black/75 shadow-xs border border-black/5">
+                  {c.tag}
+                </span>
+                <span className="absolute right-3.5 top-3.5 flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold shadow-xs border border-black/5">
+                  <TrendingUp size={11} color={RED} /> {c.score}
+                </span>
+              </div>
+
+              <div className="p-5 flex-1 flex flex-col justify-between">
+                <div>
+                  <h3 className="text-[14px] font-bold leading-snug text-[#111] group-hover:text-[#E30613] transition-colors">
+                    {c.title}
+                  </h3>
+                  <p className="mt-1.5 text-[11px] font-medium text-black/50">{c.org}</p>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-black/[0.06]">
+                  <div className="flex items-center justify-between text-[11px] mb-1.5">
+                    <span className="text-black/50">Прогресс финансирования</span>
+                    <span className="font-bold text-[#111]">{c.pct}%</span>
+                  </div>
+                  <div className="h-[4px] w-full rounded-full bg-black/[0.08] overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${c.pct}%`, background: RED }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ───────────── ФОРМАТЫ ВЗАИМОДЕЙСТВИЯ (FORMATS) ───────────── */
+
+function FormatsSection({
+  onOpenAuth,
+  loggedIn,
+}: {
+  onOpenAuth: (mode?: "login" | "register", role?: AuthRole) => void;
+  loggedIn: boolean;
+}) {
+  const router = useRouter();
+
+  const handleAction = (role: AuthRole) => {
+    if (loggedIn) {
+      router.push("/dashboard");
+    } else {
+      onOpenAuth("register", role);
+    }
+  };
+
+  return (
+    <section id="formats" className="bg-white border-y border-black/5 py-16 sm:py-20">
+      <div className="max-w-[1200px] mx-auto px-6 space-y-12">
+        <div className="max-w-2xl space-y-3">
+          <i className="block h-[3px] w-[32px] rounded-full" style={{ background: RED }} />
+          <h2 className="text-[30px] sm:text-[34px] font-extrabold tracking-tight text-[#111]">
+            Форматы взаимодействия на платформе
+          </h2>
+          <p className="text-[14px] sm:text-[15px] text-black/60 leading-relaxed">
+            Единый правовой, финансовый и технологический контур для ученых, инвесторов и производственных предприятий.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
+          {/* Формат 1 */}
+          <div className="rounded-[28px] border border-black/5 bg-[#F7F7F8] p-7 flex flex-col justify-between hover:border-black/20 hover:shadow-sm transition-all group">
+            <div className="space-y-5">
+              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-xs border border-black/5 text-[#E30613]">
+                <Heart size={24} />
+              </span>
+              <h3 className="text-[18px] font-bold text-[#111] leading-snug group-hover:text-[#E30613] transition-colors">
+                Пожертвования на науку
+              </h3>
+              <p className="text-[13px] text-black/60 leading-relaxed">
+                Прямая поддержка фундаментальных исследований и профильных лабораторий. Прозрачные финансовые отчеты и публикации в личном кабинете.
+              </p>
+            </div>
+            <div className="pt-6">
+              <button
+                onClick={() => handleAction("investor")}
+                className="inline-flex items-center gap-2 text-xs font-bold text-[#111] hover:text-[#E30613] transition-colors cursor-pointer"
+              >
+                <span>Поддержать проект</span>
+                <ArrowRight size={13} />
+              </button>
+            </div>
+          </div>
+
+          {/* Формат 2 */}
+          <div className="rounded-[28px] border border-black/5 bg-[#F7F7F8] p-7 flex flex-col justify-between hover:border-black/20 hover:shadow-sm transition-all group">
+            <div className="space-y-5">
+              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-xs border border-black/5 text-[#E30613]">
+                <Briefcase size={24} />
+              </span>
+              <h3 className="text-[18px] font-bold text-[#111] leading-snug group-hover:text-[#E30613] transition-colors">
+                Контрактный заказ R&D
+              </h3>
+              <p className="text-[13px] text-black/60 leading-relaxed">
+                Целевое финансирование прикладных разработок под ключ. Исключительные права на полученные патенты закрепляются за вашей организацией.
+              </p>
+            </div>
+            <div className="pt-6">
+              <button
+                onClick={() => handleAction("investor")}
+                className="inline-flex items-center gap-2 text-xs font-bold text-[#111] hover:text-[#E30613] transition-colors cursor-pointer"
+              >
+                <span>Заказать разработку</span>
+                <ArrowRight size={13} />
+              </button>
+            </div>
+          </div>
+
+          {/* Формат 3 */}
+          <div className="rounded-[28px] border border-black/5 bg-[#F7F7F8] p-7 flex flex-col justify-between hover:border-black/20 hover:shadow-sm transition-all group">
+            <div className="space-y-5">
+              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-xs border border-black/5 text-[#E30613]">
+                <Lightbulb size={24} />
+              </span>
+              <h3 className="text-[18px] font-bold text-[#111] leading-snug group-hover:text-[#E30613] transition-colors">
+                Реализация идей бизнеса
+              </h3>
+              <p className="text-[13px] text-black/60 leading-relaxed">
+                Опишите производственную задачу. Профильный институт разработает решение, согласует прозрачную смету и защитит патент.
+              </p>
+            </div>
+            <div className="pt-6">
+              <button
+                onClick={() => handleAction("lab")}
+                className="inline-flex items-center gap-2 text-xs font-bold text-[#111] hover:text-[#E30613] transition-colors cursor-pointer"
+              >
+                <span>Предложить задачу</span>
+                <ArrowRight size={13} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ───────────── ПОРЯДОК РАБОТЫ И МОДЕРАЦИЯ (MODERATION) ───────────── */
+
+function ModerationSection() {
+  const [tab, setTab] = React.useState<"investors" | "labs">("investors");
+  const currentSteps = tab === "investors" ? moderationStepsInvestor : moderationStepsLab;
+
+  return (
+    <section id="moderation" className="max-w-[1200px] mx-auto px-6 py-16 sm:py-20">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+        <div className="max-w-2xl space-y-3">
+          <i className="block h-[3px] w-[32px] rounded-full" style={{ background: RED }} />
+          <h2 className="text-[30px] sm:text-[34px] font-extrabold tracking-tight text-[#111]">
+            Порядок работы и модерация
+          </h2>
+          <p className="text-[14px] text-black/60 leading-relaxed">
+            Допуск участников к операциям и публикация материалов осуществляются после обязательной проверки аккредитованными экспертами.
+          </p>
+        </div>
+
+        {/* Переключатель табов */}
+        <div className="inline-flex rounded-full bg-[#ECEEF2] p-1 self-start md:self-auto border border-black/5">
+          <button
+            onClick={() => setTab("investors")}
+            className={`rounded-full px-5 py-2 text-xs font-semibold transition-all cursor-pointer ${
+              tab === "investors"
+                ? "bg-[#111] text-white shadow-xs"
+                : "text-black/60 hover:text-black"
+            }`}
+          >
+            Инвесторам и спонсорам
+          </button>
+          <button
+            onClick={() => setTab("labs")}
+            className={`rounded-full px-5 py-2 text-xs font-semibold transition-all cursor-pointer ${
+              tab === "labs"
+                ? "bg-[#111] text-white shadow-xs"
+                : "text-black/60 hover:text-black"
+            }`}
+          >
+            НИИ и лабораториям
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {currentSteps.map((s) => (
+          <div
+            key={s.step}
+            className="rounded-[24px] border border-black/5 bg-white p-6 shadow-[0_10px_26px_-15px_rgba(0,0,0,.1)] flex flex-col justify-between space-y-4"
+          >
+            <div className="space-y-3">
+              <span
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-xs font-extrabold text-white shadow-xs"
+                style={{ background: RED }}
+              >
+                {s.step}
+              </span>
+              <h3 className="text-[15px] font-bold text-[#111] leading-snug">{s.title}</h3>
+              <p className="text-[12px] text-black/60 leading-relaxed">{s.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ───────────── БЕЗОПАСНОСТЬ И ЭСКРОУ (SECURITY) ───────────── */
+
+function SecuritySection() {
+  return (
+    <section id="security" className="bg-[#eeeff1]/60 border-t border-black/5 py-16 sm:py-20">
+      <div className="max-w-[1200px] mx-auto px-6 space-y-12">
+        <div className="max-w-2xl space-y-3">
+          <i className="block h-[3px] w-[32px] rounded-full" style={{ background: RED }} />
+          <h2 className="text-[30px] sm:text-[34px] font-extrabold tracking-tight text-[#111]">
+            Безопасность сделок и правовой контур
+          </h2>
+          <p className="text-[14px] text-black/60 leading-relaxed">
+            Встроенные защитные механизмы защищают бюджет инвестора и исключительные авторские права исследователей.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {securityFeatures.map((f) => {
+            const Icon = f.icon;
+            return (
+              <div
+                key={f.title}
+                className="rounded-[24px] border border-black/5 bg-white p-6 shadow-xs flex flex-col justify-between space-y-4 hover:border-black/20 transition-all"
+              >
+                <div className="space-y-3">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50 text-[#E30613]">
+                    <Icon size={20} />
+                  </span>
+                  <h3 className="text-[15px] font-bold text-[#111]">{f.title}</h3>
+                  <p className="text-[12px] text-black/60 leading-relaxed">{f.desc}</p>
+                </div>
+                {f.link && (
+                  <Link
+                    href={f.link}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#E30613] hover:underline pt-2"
+                  >
+                    <span>Открыть реестр</span>
+                    <ArrowRight size={12} />
+                  </Link>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ───────────── ДЕСКТОП: ПРИЗЫВ К ДЕЙСТВИЮ (CTA) ───────────── */
+
+function CTA({
+  onOpenAuth,
+  loggedIn,
+}: {
+  onOpenAuth: (mode?: "login" | "register") => void;
+  loggedIn: boolean;
+}) {
+  const router = useRouter();
+
+  const handleAction = () => {
+    if (loggedIn) {
+      router.push("/dashboard");
+    } else {
+      onOpenAuth("register");
+    }
+  };
+
+  return (
+    <section className="relative isolate overflow-hidden">
+      {/* Баннер с колбой (десктоп) */}
+      <Image
+        src="/3d/colb-baner.jpg"
+        alt=""
+        fill
+        sizes="100vw"
+        className="-z-10 object-cover object-center"
+      />
+
+      <div className="mx-auto grid max-w-[1200px] items-center gap-10 px-6 py-24 lg:min-h-[480px] lg:grid-cols-[1fr_460px_1fr]">
+        <div className="relative z-10">
+          <i className="mb-5 block h-[3px] w-[32px] rounded-full" style={{ background: RED }} />
+          <h2 className="text-[40px] font-extrabold leading-[1.02] tracking-tight text-[#111]">
+            Открывайте будущее вместе <span style={{ color: RED }}>с наукой</span>
+          </h2>
+          <p className="mt-6 text-[14px] leading-snug text-black/60">
+            Поддержите исследования
+            <br />
+            или станьте партнёром инновационных проектов
+          </p>
+          <button
+            onClick={handleAction}
+            className="mt-9 inline-flex h-[44px] items-center gap-4 rounded-full px-7 text-[12px] font-semibold text-white shadow-[0_8px_20px_-6px_rgba(227,6,19,.6)] transition-all hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+            style={{ background: RED }}
+          >
+            <span>{loggedIn ? "В личный кабинет" : "Стать партнёром"}</span>
+            <ArrowRight size={14} />
+          </button>
+        </div>
+
+        <div aria-hidden className="hidden lg:block" />
+
+        <ol className="relative z-10 space-y-9 lg:pl-6">
+          <span
+            className="absolute left-[13px] top-4 h-[calc(100%-32px)] w-px bg-black/15"
+            aria-hidden
+          />
+          {steps.map((s, i) => (
+            <li key={s.t} className="relative flex gap-5">
+              <span
+                className={`z-10 flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-full text-[11px] font-bold shadow-xs ${
+                  i ? "border border-black/10 bg-white text-black" : "text-white"
+                }`}
+                style={i ? undefined : { background: RED }}
+              >
+                {i + 1}
+              </span>
+              <div>
+                <h3 className="text-[14px] font-semibold text-[#111]">{s.t}</h3>
+                <p className="mt-1 max-w-[200px] text-[11px] leading-relaxed text-black/55">
+                  {s.d}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  );
+}
+
+/* ───────────── ДЕСКТОП: ФУТЕР (FOOTER) ───────────── */
+
+function Footer() {
+  return (
+    <footer className="border-t border-black/5 bg-white">
+      <div className="mx-auto max-w-[1200px] px-6 py-10 space-y-8">
+        <div className="flex flex-wrap items-center justify-between gap-6 pb-6 border-b border-black/[0.06]">
+          <Logo />
+          <nav className="flex flex-wrap gap-6 text-[12px] font-medium text-black/75">
+            {navLinks.map((n) => (
+              <a key={n.label} href={n.href} className="hover:text-[#E30613] transition-colors">
+                {n.label}
+              </a>
+            ))}
+            <Link href="/verify" className="hover:text-[#E30613] transition-colors font-semibold">
+              Реестр /verify
+            </Link>
+          </nav>
+
+          <div className="flex gap-3">
+            <a
+              href="https://t.me"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Telegram"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-white hover:border-black/30 transition-colors"
+            >
+              <Send size={14} />
+            </a>
+            <a
+              href="https://vk.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="VK"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-white text-[11px] font-bold hover:border-black/30 transition-colors"
+            >
+              VK
+            </a>
+          </div>
+        </div>
+
+        {/* Юридические документы платформы */}
+        <div className="flex flex-wrap items-center justify-between gap-4 text-[11px] text-black/50">
+          <div className="flex flex-wrap gap-5">
+            <Link href="/legal/terms" className="hover:text-black transition-colors">
+              Пользовательское соглашение
+            </Link>
+            <Link href="/legal/privacy" className="hover:text-black transition-colors">
+              Конфиденциальность
+            </Link>
+            <Link href="/legal/escrow" className="hover:text-black transition-colors">
+              Регламент эскроу
+            </Link>
+            <Link href="/legal/intellectual-property" className="hover:text-black transition-colors">
+              Интеллектуальная собственность
+            </Link>
+            <Link href="/legal/moderation" className="hover:text-black transition-colors">
+              Положение о модерации
+            </Link>
+          </div>
+          <p>© 2026 Точка Роста. Все права защищены.</p>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+/* ═════════════════════════════════════════
+   МОБИЛЬНАЯ ВЕРСИЯ (до 1024px)
+   ═════════════════════════════════════════ */
+
+const wrap = "mx-auto w-full max-w-[1200px] px-[clamp(16px,4.2vw,48px)]";
+const noScroll = "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+
+function MLogo() {
+  return (
+    <Link href="/" className="flex items-center gap-2">
+      <svg width="28" height="28" viewBox="0 0 30 30" fill="none" aria-hidden>
+        <path d="M4 12 18 4v8L4 20z" fill={RED} />
+        <path d="M12 26 26 18v-8L12 18z" fill="#111" />
+        <path d="M4 22 12 18v8l-8 4z" fill={RED} />
+      </svg>
+      <span className="text-[13px] font-extrabold leading-[1.05] tracking-tight">
+        Точка
+        <br />
+        Роста
+      </span>
+    </Link>
+  );
+}
+
+function MHeader({
+  onOpenAuth,
+  loggedIn,
+  isAdmin,
+}: {
+  onOpenAuth: (mode?: "login" | "register", role?: AuthRole) => void;
+  loggedIn: boolean;
+  isAdmin?: boolean;
+}) {
+  const router = useRouter();
+  const [menuOpen, setMenuOpen] = React.useState(false);
+
+  return (
+    <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-black/5">
+      <div className={`${wrap} flex h-[58px] items-center justify-between`}>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label="Меню"
+            className="p-1.5 -ml-1 text-black/70 hover:text-black cursor-pointer"
+          >
+            {menuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+          <MLogo />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const el = document.getElementById("research-m");
+              el?.scrollIntoView({ behavior: "smooth" });
+            }}
+            aria-label="Поиск"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.04] text-black/60"
+          >
+            <Search size={14} />
+          </button>
+
+          {loggedIn ? (
+            <button
+              onClick={() => router.push(isAdmin ? "/admin" : "/dashboard")}
+              className="flex h-8 items-center gap-1.5 rounded-full bg-[#111] px-3.5 text-[11px] font-semibold text-white active:scale-95 transition-transform cursor-pointer"
+            >
+              <span>{isAdmin ? "Админ" : "Кабинет"}</span>
+              <ArrowRight size={11} />
+            </button>
+          ) : (
+            <button
+              onClick={() => onOpenAuth("login", "all")}
+              className="flex h-8 items-center gap-1.5 rounded-full bg-[#111] px-3.5 text-[11px] font-semibold text-white active:scale-95 transition-transform cursor-pointer"
+            >
+              <span>Войти</span>
+              <ArrowRight size={11} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Выпадающее меню для мобильных */}
+      {menuOpen && (
+        <div className="border-t border-black/5 bg-white px-6 py-5 space-y-4 animate-in slide-in-from-top-2 duration-150">
+          <nav className="flex flex-col gap-3 text-sm font-semibold text-[#111]">
+            <a
+              href="#research-m"
+              onClick={() => setMenuOpen(false)}
+              className="py-1 hover:text-[#E30613]"
+            >
+              Исследования
+            </a>
+            <a
+              href="#formats-m"
+              onClick={() => setMenuOpen(false)}
+              className="py-1 hover:text-[#E30613]"
+            >
+              Форматы взаимодействия
+            </a>
+            <a
+              href="#moderation-m"
+              onClick={() => setMenuOpen(false)}
+              className="py-1 hover:text-[#E30613]"
+            >
+              Порядок модерации
+            </a>
+            <Link
+              href="/legal"
+              onClick={() => setMenuOpen(false)}
+              className="py-1 hover:text-[#E30613]"
+            >
+              Документы платформы
+            </Link>
+            <Link
+              href="/verify"
+              onClick={() => setMenuOpen(false)}
+              className="py-1 text-[#E30613] font-bold"
+            >
+              Реестр подлинности /verify
+            </Link>
+          </nav>
+        </div>
+      )}
+    </header>
+  );
+}
+
+function MHero({
+  onOpenAuth,
+  loggedIn,
+  isAdmin,
+}: {
+  onOpenAuth: (mode?: "login" | "register", role?: AuthRole) => void;
+  loggedIn: boolean;
+  isAdmin?: boolean;
+}) {
+  const router = useRouter();
+
+  return (
+    <section className="relative isolate overflow-hidden pt-4 pb-8">
+      <Image
+        src="/3d/hero-banner.jpg"
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        className="-z-10 object-cover object-[75%_center]"
+      />
+      <div className="absolute inset-0 -z-10 bg-gradient-to-r from-white/80 via-white/40 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 -z-10 h-24 bg-gradient-to-b from-transparent to-[#f4f4f6]" />
+
+      <div className={`${wrap} min-h-[460px] flex flex-col justify-center`}>
+        <div className="max-w-[420px]">
+          <span className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3.5 py-1.5 text-[10px] leading-tight text-black/70 shadow-xs border border-black/5">
+            <i className="h-1.5 w-1.5 rounded-full" style={{ background: RED }} />
+            Платформа финансирования науки
+          </span>
+
+          <h1 className="mt-4 text-[28px] font-extrabold leading-[1.08] tracking-tight text-[#111]">
+            Привлекайте деньги и гранты{" "}
+            <span style={{ color: RED }}>на прикладные разработки</span>
+          </h1>
+
+          <p className="mt-3 text-[13px] leading-relaxed text-black/70">
+            Единая экосистема для науки и бизнеса. Защита авторских прав, эскроу-контроль сметы и проверенные команды.
+          </p>
+
+          <div className="mt-6 flex flex-wrap gap-2.5">
+            {loggedIn ? (
+              <button
+                onClick={() => router.push(isAdmin ? "/admin" : "/dashboard")}
+                className="flex h-10 items-center gap-2.5 rounded-full px-5 text-[12px] font-semibold text-white shadow-sm cursor-pointer"
+                style={{ background: RED }}
+              >
+                <span>В личный кабинет</span>
+                <ArrowRight size={13} />
+              </button>
+            ) : (
+              <button
+                onClick={() => onOpenAuth("register", "investor")}
+                className="flex h-10 items-center gap-2.5 rounded-full px-5 text-[12px] font-semibold text-white shadow-sm cursor-pointer"
+                style={{ background: RED }}
+              >
+                <span>Регистрация</span>
+                <ArrowRight size={13} />
+              </button>
+            )}
+
+            <button
+              onClick={() => {
+                const el = document.getElementById("formats-m");
+                el?.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="flex h-10 items-center gap-2 rounded-full bg-white/90 px-4 text-[12px] font-semibold text-[#111] shadow-xs cursor-pointer"
+            >
+              <span>Подробнее</span>
+              <Play size={9} fill={RED} stroke={RED} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MFeatures() {
+  return (
+    <section className={`${wrap} py-8`}>
+      <div className="grid grid-cols-3 gap-2 border-b border-black/5 pb-8">
+        {features.map(({ icon: Icon, title, text }, i) => (
+          <div
+            key={title}
+            className={`flex flex-col items-center px-1 text-center ${
+              i ? "border-l border-black/10" : ""
+            }`}
+          >
+            <Icon className="h-6 w-6" color={RED} strokeWidth={1.7} />
+            <h3 className="mt-2 text-[11px] font-bold leading-tight">{title}</h3>
+            <p className="mt-1 text-[9px] leading-snug text-black/50">{text}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MResearch({
+  onOpenAuth,
+  loggedIn,
+}: {
+  onOpenAuth: (mode?: "login" | "register") => void;
+  loggedIn: boolean;
+}) {
+  const router = useRouter();
+
+  const handleCatalog = () => {
+    if (loggedIn) {
+      router.push("/dashboard");
+    } else {
+      onOpenAuth("register");
+    }
+  };
+
+  return (
+    <section id="research-m" className={`${wrap} pb-10 pt-2`}>
+      <div className="mb-4">
+        <i className="mb-3 block h-[2px] w-6 rounded-full" style={{ background: RED }} />
+        <h2 className="text-[22px] font-extrabold leading-[1.08] tracking-tight">
+          Актуальные разработки
+        </h2>
+        <p className="mt-1.5 text-[12px] text-black/60">
+          Выбирайте проекты с высоким индексом доверия и понятным планом работ.
+        </p>
+      </div>
+
+      <div className={`flex snap-x snap-mandatory gap-3 overflow-x-auto pb-4 ${noScroll}`}>
+        {cards.map((c) => (
+          <article
+            key={c.title}
+            onClick={handleCatalog}
+            className="w-[240px] shrink-0 snap-start overflow-hidden rounded-[20px] bg-white shadow-xs border border-black/5"
+          >
+            <div className="relative h-[120px] bg-gradient-to-b from-[#eceef1] to-white p-2 flex items-center justify-center">
+              <CardGraphic type={c.type} />
+              <span className="absolute left-2.5 top-2.5 rounded-full bg-white/95 px-2 py-0.5 text-[9px] font-medium shadow-xs">
+                {c.tag}
+              </span>
+              <span className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full bg-white/95 px-2 py-0.5 text-[9px] font-bold shadow-xs">
+                <TrendingUp size={9} color={RED} /> {c.score}
+              </span>
+            </div>
+            <div className="p-3.5">
+              <h3 className="text-[12px] font-bold leading-snug line-clamp-2">{c.title}</h3>
+              <p className="mt-1 text-[10px] text-black/45">{c.org}</p>
+              <div className="mt-3 flex items-center gap-2">
+                <div className="h-[3px] flex-1 rounded-full bg-black/10 overflow-hidden">
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${c.pct}%`, background: RED }}
+                  />
+                </div>
+                <span className="text-[10px] font-bold">{c.pct}%</span>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MCTA({
+  onOpenAuth,
+  loggedIn,
+}: {
+  onOpenAuth: (mode?: "login" | "register") => void;
+  loggedIn: boolean;
+}) {
+  const router = useRouter();
+
+  return (
+    <section className="px-4 pb-8">
+      <div className="relative isolate overflow-hidden rounded-[28px] p-6">
+        <Image
+          src="/3d/cta-banner.jpg"
+          alt=""
+          fill
+          sizes="100vw"
+          className="-z-10 object-cover object-bottom"
+        />
+
+        <div>
+          <i className="mb-3 block h-[2px] w-7 rounded-full" style={{ background: RED }} />
+          <h2 className="text-[26px] font-extrabold leading-[1.06] tracking-tight">
+            Открывайте будущее вместе <span style={{ color: RED }}>с наукой</span>
+          </h2>
+          <p className="mt-2 text-[12px] text-black/65">
+            Поддержите исследования или станьте заказчиком инновационных технологий.
+          </p>
+
+          <button
+            onClick={() => {
+              if (loggedIn) router.push("/dashboard");
+              else onOpenAuth("register");
+            }}
+            className="mt-5 inline-flex h-10 items-center gap-2.5 rounded-full px-5 text-[12px] font-semibold text-white shadow-sm cursor-pointer"
+            style={{ background: RED }}
+          >
+            <span>{loggedIn ? "В личный кабинет" : "Стать партнёром"}</span>
+            <ArrowRight size={13} />
+          </button>
+        </div>
+
+        <ol className="mt-8 space-y-4">
+          {steps.map((s, i) => (
+            <li key={s.t} className="flex gap-3">
+              <span
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                  i ? "bg-white border border-black/10 text-black" : "text-white"
+                }`}
+                style={i ? undefined : { background: RED }}
+              >
+                {i + 1}
+              </span>
+              <div>
+                <h3 className="text-[12px] font-semibold text-[#111]">{s.t}</h3>
+                <p className="text-[10px] text-black/55">{s.d}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  );
+}
+
+function MFooter() {
+  return (
+    <footer className="border-t border-black/5 bg-white py-6">
+      <div className={`${wrap} space-y-4`}>
+        <div className="flex items-center justify-between">
+          <MLogo />
+          <div className="flex gap-2">
+            <a
+              href="https://t.me"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Telegram"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-black/10 bg-white"
+            >
+              <Send size={13} />
+            </a>
+            <a
+              href="https://vk.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="VK"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-black/10 bg-white text-[10px] font-bold"
+            >
+              VK
+            </a>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-3 text-[10px] text-black/55 pt-2 border-t border-black/[0.06]">
+          <Link href="/legal" className="hover:underline">
+            Документы
+          </Link>
+          <Link href="/verify" className="hover:underline font-semibold text-[#E30613]">
+            Реестр /verify
+          </Link>
+          <p className="w-full text-[9px] text-black/40 pt-1">
+            © 2026 Точка Роста. Все права защищены.
+          </p>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+/* ═════════════════════════════════════════
+   ГЛАВНЫЙ ЭКСПОРТИРУЕМЫЙ КОМПОНЕНТ
+   ═════════════════════════════════════════ */
+
+export default function Home() {
+  const { user } = useAuth();
+  const [isAuthOpen, setIsAuthOpen] = React.useState(false);
+  const [authMode, setAuthMode] = React.useState<"login" | "register">("login");
+  const [authRole, setAuthRole] = React.useState<AuthRole>("all");
+
+  const openAuth = (mode: "login" | "register" = "login", role: AuthRole = "all") => {
+    setAuthMode(mode);
+    setAuthRole(role);
+    setIsAuthOpen(true);
+  };
+
+  const loggedIn = user !== null;
+  const isAdmin = user?.is_admin === true;
+
+  return (
+    <>
+      {/* Десктоп-версия (от 1024px) */}
+      <div className="hidden min-h-screen overflow-x-hidden bg-[#f7f7f8] font-sans text-[#111] antialiased lg:block">
+        <Header onOpenAuth={openAuth} loggedIn={loggedIn} isAdmin={isAdmin} />
+        <main>
+          <Hero onOpenAuth={openAuth} loggedIn={loggedIn} isAdmin={isAdmin} />
+          <Features />
+          <Research onOpenAuth={openAuth} loggedIn={loggedIn} />
+          <FormatsSection onOpenAuth={openAuth} loggedIn={loggedIn} />
+          <ModerationSection />
+          <SecuritySection />
+          <CTA onOpenAuth={openAuth} loggedIn={loggedIn} />
+        </main>
+        <Footer />
+      </div>
+
+      {/* Мобильная и планшетная версия (до 1024px) */}
+      <div className="min-h-screen overflow-x-hidden bg-[#f4f4f6] font-sans text-[#111] antialiased lg:hidden">
+        <MHeader onOpenAuth={openAuth} loggedIn={loggedIn} isAdmin={isAdmin} />
+        <main>
+          <MHero onOpenAuth={openAuth} loggedIn={loggedIn} isAdmin={isAdmin} />
+          <MFeatures />
+          <MResearch onOpenAuth={openAuth} loggedIn={loggedIn} />
+          <div id="formats-m">
+            <FormatsSection onOpenAuth={openAuth} loggedIn={loggedIn} />
+          </div>
+          <div id="moderation-m">
+            <ModerationSection />
+          </div>
+          <SecuritySection />
+          <MCTA onOpenAuth={openAuth} loggedIn={loggedIn} />
+        </main>
+        <MFooter />
+      </div>
+
+      {/* Модальное окно авторизации с настоящим API */}
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        initialMode={authMode}
+        initialRole={authRole}
+      />
+    </>
+  );
 }

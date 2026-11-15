@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
 import {
   HiOutlineFolderOpen,
   HiOutlineClock,
@@ -60,7 +59,6 @@ export function ProjectsTab({
   authFetch,
   onNavigateToIdeas,
 }: ProjectsTabProps) {
-  const router = useRouter()
   const { success, error, info } = useToast()
   const isLab = user?.role === "lab"
 
@@ -509,7 +507,7 @@ export function ProjectsTab({
                           size="sm"
                           variant="ghost"
                           onClick={() => {
-                            router.push(`/dashboard?tab=messages`)
+                            window.location.href = `/dashboard?tab=messages`
                           }}
                           className="text-xs font-semibold text-[#4B5563] hover:text-[#111111] h-9 px-3 rounded-xl gap-1"
                           title="Открыть групповой чат проекта"

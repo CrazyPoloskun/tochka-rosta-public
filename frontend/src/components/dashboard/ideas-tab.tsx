@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import {
   HiOutlineLightBulb,
   HiOutlineSparkles,
@@ -46,7 +45,6 @@ import { CounterpartyModal } from "@/components/profile/counterparty-modal"
 import { AiTaskAssistantModal } from "@/components/dashboard/ai-task-assistant-modal"
 import { AiMarker } from "@/components/ui/ai-elements"
 import { MilestonesChainView, MilestonesChainEditor, MilestoneItemData } from "./milestones-chain"
-import { PlanEditor, PlanStageData } from "./plan-editor"
 
 interface IdeasTabProps {
   user: User | null
@@ -79,7 +77,6 @@ export function IdeasTab({
   onNavigateToProjects,
   onNavigateToMessages,
 }: IdeasTabProps) {
-  const router = useRouter()
   const { success, error, info } = useToast()
   const isLab = user?.role === "lab"
   const isVerifiedLab = isLab && user?.verification_status === "verified"
@@ -285,7 +282,7 @@ export function IdeasTab({
     budget: string
     deadline: string
     description: string
-    stages?: { step?: number; title: string; amount?: number; duration?: string }[]
+    stages?: { step?: number; title: string; amount?: number }[]
   }) => {
     setInvestorIdeaTitle(data.title)
     if (data.category && CATEGORIES.includes(data.category)) {
@@ -295,20 +292,15 @@ export function IdeasTab({
     if (data.budget) {
       setInvestorIdeaBudget(data.budget)
     }
-    const totalBudget = Number(data.budget) || 2000000
-    const rawStages = data.stages && data.stages.length > 0 ? data.stages : [
-      { step: 1, title: "Аналитическое исследование и разработка эскизного проекта", amount: Math.round(totalBudget * 0.3) },
-      { step: 2, title: "Экспериментальный синтез образцов и стендовые испытания", amount: Math.round(totalBudget * 0.4) },
-      { step: 3, title: "Приёмочные испытания опытной партии и регистрация РИД", amount: Math.round(totalBudget * 0.3) },
-    ]
-    setInvestorIdeaMilestones(
-      rawStages.map((s, i) => ({
-        step: s.step || i + 1,
-        title: s.title || `Этап ${i + 1}`,
-        amount: Number(s.amount) || Math.round(totalBudget / rawStages.length) || 200000,
-        duration: s.duration || "2 мес.",
-      }))
-    )
+    if (data.stages && data.stages.length > 0) {
+      setInvestorIdeaMilestones(
+        data.stages.map((s, i) => ({
+          step: s.step || i + 1,
+          title: s.title || `Этап ${i + 1}`,
+          amount: Number(s.amount) || Math.round(Number(data.budget) / data.stages!.length) || 200000,
+        }))
+      )
+    }
     setIsNewIdeaModalOpen(true)
     success("План и ТЗ сформированы нейросетью и перенесены в форму заявки", "План готов")
   }
@@ -460,7 +452,6 @@ export function IdeasTab({
         setProposalMessage("")
         onRefresh()
         onNavigateToMessages()
-        router.push("/dashboard?tab=messages")
       } else {
         error(data?.detail || "Ошибка при отправке предложения", "Ошибка")
       }
@@ -500,7 +491,6 @@ export function IdeasTab({
           setDonationModal(null)
           onRefresh()
           onNavigateToProjects()
-          router.push("/dashboard?tab=projects")
         }
       } else {
         error(data?.detail || "Ошибка оформления сделки", "Ошибка")
@@ -571,7 +561,7 @@ export function IdeasTab({
             className="text-xs font-bold border-[#F81B00]/30 hover:border-[#F81B00] bg-[#FFF5F5] hover:bg-[#FFEBEB] text-[#F81B00] rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 h-9 px-3.5"
           >
             <HiOutlineSparkles className="size-4 text-[#F81B00]" />
-            <span>ИИ-помощник ТЗ</span>
+            <span>План реализации (ИИ)</span>
           </Button>
 
           {isLab ? (
@@ -1001,7 +991,7 @@ export function IdeasTab({
                           className="w-full text-[11px] font-semibold border-[#F81B00]/30 hover:border-[#F81B00] bg-[#FFF8F8] hover:bg-[#FFF0F0] text-[#F81B00] rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                         >
                           <HiOutlineSparkles className="size-3.5 text-[#F81B00]" />
-                          <span>Сформировать R&D-план и ТЗ (Plan)</span>
+                          <span>Сформировать план реализации</span>
                         </Button>
                       </div>
                     )
@@ -1350,7 +1340,7 @@ export function IdeasTab({
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-[#111111]">
               {selectedBaseIdeaTitle
-                ? `Предложить техническое задание для неё: «${selectedBaseIdeaTitle}»`
+                ? `Предложить техническое задание: «${selectedBaseIdeaTitle}»`
                 : "Предложить техническую задачу для НИИ"}
             </DialogTitle>
             <DialogDescription className="text-xs text-[#6B7280]">
@@ -1380,7 +1370,7 @@ export function IdeasTab({
               }}
               className="text-[11px] font-bold bg-[#F81B00] hover:bg-[#d01700] text-white rounded-lg h-7 px-2.5 shrink-0 shadow-xs cursor-pointer"
             >
-              Составить ТЗ
+              Сформировать план
             </Button>
           </div>
 
@@ -1439,21 +1429,12 @@ export function IdeasTab({
               />
             </div>
 
-            {/* shadcn AI: PLAN COMPONENT */}
+            {/* Stages Timeline Chain Editor */}
             <div className="pt-1">
-              <PlanEditor
-                stages={investorIdeaMilestones}
+              <MilestonesChainEditor
+                milestones={investorIdeaMilestones}
                 onChange={setInvestorIdeaMilestones}
                 onSyncBudget={(tot) => setInvestorIdeaBudget(String(tot))}
-                onOpenAiGenerator={() => {
-                  setAiTzInitialTitle(investorIdeaTitle)
-                  setAiTzInitialQuery(investorIdeaSummary || investorIdeaTitle)
-                  setAiTzInitialCategory(investorIdeaCategory)
-                  setAiTzTarget("new_idea")
-                  setIsAiTzModalOpen(true)
-                }}
-                title="Календарный план и этапы финансирования (Plan)"
-                description="Этапы R&D по ГОСТ 15.016-2016 с разбивкой бюджета и сроков"
               />
             </div>
 
@@ -1663,15 +1644,9 @@ export function IdeasTab({
             </div>
           </div>
 
-          {/* shadcn AI: PLAN COMPONENT */}
+          {/* Stages Connected Chain */}
           <div className="space-y-2">
-            <PlanEditor
-              stages={viewIdeaModal?.milestones || []}
-              onChange={() => {}}
-              title="Календарный план и этапы разработки (Plan)"
-              description="Этапы реализации, суммы финансирования и ожидаемые результаты"
-              readOnly={true}
-            />
+            <MilestonesChainView milestones={viewIdeaModal?.milestones || []} />
           </div>
 
           {/* Footer actions */}

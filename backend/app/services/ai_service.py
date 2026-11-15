@@ -141,160 +141,60 @@ async def call_real_llm(
     temperature: float = 0.2,
 ) -> tuple[str, str]:
     """
-    Выполняет реальный запрос к нейросети через доступные провайдеры:
-    1. OpenRouter (если задан OPENROUTER_API_KEY)
-    2. OpenAI / DeepSeek / Groq (если задан OPENAI_API_KEY)
-    3. Google Gemini (если задан GEMINI_API_KEY)
-    4. Neural Gateway (бесплатный открытый шлюз Pollinations/OpenAI)
+    Выполняет реальный запрос к нейросети строго через OpenAI API.
+    Сторонние провайдеры (OpenRouter, Gemini, Pollinations) отключены: используется исключительно OpenAI.
 
     Возвращает кортеж: (content, provider_name).
-    При невозможности связаться с нейросетью возбуждает RuntimeError.
+    При отсутствии ключа или ошибке API возбуждает RuntimeError.
     """
-    openrouter_key = _clean_str(settings.OPENROUTER_API_KEY)
-    openrouter_model = _clean_str(settings.OPENROUTER_MODEL) or "google/gemini-2.5-flash"
-    openrouter_url = (_clean_str(settings.OPENROUTER_BASE_URL) or "https://openrouter.ai/api/v1").rstrip('/') + "/chat/completions"
-
     openai_key = _clean_str(settings.OPENAI_API_KEY)
     openai_model = _clean_str(settings.OPENAI_MODEL) or "gpt-4o-mini"
     openai_url = (_clean_str(settings.OPENAI_BASE_URL) or "https://api.openai.com/v1").rstrip('/') + "/chat/completions"
 
-    gemini_key = _clean_str(settings.GEMINI_API_KEY)
-    gemini_model = _clean_str(settings.GEMINI_MODEL) or "gemini-2.5-flash"
+    if not openai_key:
+        raise RuntimeError(
+            "ИИ-сервис платформы сконфигурирован исключительно для работы через OpenAI. "
+            "Ключ OPENAI_API_KEY не задан в настройках (.env). "
+            "Пожалуйста, укажите валидный OPENAI_API_KEY."
+        )
 
-    # 1. Попытка через OpenRouter
-    if openrouter_key:
-        try:
-            headers = {
-                "Authorization": f"Bearer {openrouter_key}",
-                "HTTP-Referer": "https://tochkarosta.ru",
-                "X-Title": "Tochka Rosta DeepTech Platform",
-                "Content-Type": "application/json",
-            }
-            payload: dict[str, Any] = {
-                "model": openrouter_model,
-                "messages": messages,
-                "temperature": temperature,
-            }
-            if response_format_json:
-                payload["response_format"] = {"type": "json_object"}
+    headers = {
+        "Authorization": f"Bearer {openai_key}",
+        "Content-Type": "application/json",
+    }
+    payload: dict[str, Any] = {
+        "model": openai_model,
+        "messages": messages,
+        "temperature": temperature,
+    }
+    if response_format_json:
+        payload["response_format"] = {"type": "json_object"}
 
-            ai_proxy = _clean_str(settings.OPENROUTER_PROXY or settings.AI_PROXY) or None
-            res = await _safe_http_post(openrouter_url, headers=headers, payload=payload, proxy=ai_proxy)
+    ai_proxy = _clean_str(settings.AI_PROXY or settings.OPENROUTER_PROXY) or None
 
-            # Некоторые модели OpenRouter возвращают 400 при наличии response_format
-            if res.status_code == 400 and response_format_json:
-                logger.info("OpenRouter model rejected response_format, retrying with raw text mode...")
-                payload.pop("response_format", None)
-                res = await _safe_http_post(openrouter_url, headers=headers, payload=payload, proxy=ai_proxy)
-
-            if res.status_code == 200:
-                data = res.json()
-                choices = data.get("choices", [])
-                if choices:
-                    content = choices[0].get("message", {}).get("content", "").strip()
-                    if content:
-                        return content, f"OpenRouter ({openrouter_model})"
-            else:
-                logger.error(f"OpenRouter API error {res.status_code}: {res.text[:300]}")
-        except Exception as e:
-            logger.error(f"OpenRouter call failed: {e}")
-
-    # 2. Попытка через OpenAI / DeepSeek / Compatible API
-    if openai_key:
-        try:
-            headers = {
-                "Authorization": f"Bearer {openai_key}",
-                "Content-Type": "application/json",
-            }
-            payload = {
-                "model": openai_model,
-                "messages": messages,
-                "temperature": temperature,
-            }
-            if response_format_json:
-                payload["response_format"] = {"type": "json_object"}
-
-            ai_proxy = _clean_str(settings.AI_PROXY or settings.OPENROUTER_PROXY) or None
-            res = await _safe_http_post(openai_url, headers=headers, payload=payload, proxy=ai_proxy)
-            if res.status_code == 400 and response_format_json:
-                payload.pop("response_format", None)
-                res = await _safe_http_post(openai_url, headers=headers, payload=payload, proxy=ai_proxy)
-
-            if res.status_code == 200:
-                data = res.json()
-                choices = data.get("choices", [])
-                if choices:
-                    content = choices[0].get("message", {}).get("content", "").strip()
-                    if content:
-                        return content, f"OpenAI ({openai_model})"
-            else:
-                logger.error(f"OpenAI API error {res.status_code}: {res.text[:300]}")
-        except Exception as e:
-            logger.error(f"OpenAI call failed: {e}")
-
-    # 3. Попытка через Google Gemini Direct API
-    if gemini_key:
-        try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent?key={gemini_key}"
-            gemini_contents = []
-            for msg in messages:
-                role = "user" if msg["role"] in ("user", "system") else "model"
-                gemini_contents.append({
-                    "role": role,
-                    "parts": [{"text": msg["content"]}]
-                })
-            payload = {
-                "contents": gemini_contents,
-                "generationConfig": {
-                    "temperature": temperature,
-                }
-            }
-            if response_format_json:
-                payload["generationConfig"]["responseMimeType"] = "application/json"
-
-            ai_proxy = _clean_str(settings.AI_PROXY or settings.OPENROUTER_PROXY) or None
-            res = await _safe_http_post(url, payload=payload, proxy=ai_proxy)
-            if res.status_code == 200:
-                data = res.json()
-                candidates = data.get("candidates", [])
-                if candidates:
-                    parts = candidates[0].get("content", {}).get("parts", [])
-                    if parts and "text" in parts[0]:
-                        content = parts[0]["text"].strip()
-                        if content:
-                            return content, f"Google Gemini ({gemini_model})"
-            else:
-                logger.error(f"Gemini API error {res.status_code}: {res.text[:300]}")
-        except Exception as e:
-            logger.error(f"Gemini API call failed: {e}")
-
-    # 4. Резервный реальный нейросетевой шлюз (Real Neural Engine)
     try:
-        url = settings.FALLBACK_AI_URL
-        payload = {
-            "model": settings.FALLBACK_AI_MODEL,
-            "messages": messages,
-            "temperature": temperature,
-        }
-        res = await _safe_http_post(url, payload=payload)
+        res = await _safe_http_post(openai_url, headers=headers, payload=payload, proxy=ai_proxy)
+
+        # Если модель не поддерживает response_format type json_object (код 400), повторяем без него
+        if res.status_code == 400 and response_format_json:
+            payload.pop("response_format", None)
+            res = await _safe_http_post(openai_url, headers=headers, payload=payload, proxy=ai_proxy)
+
         if res.status_code == 200:
             data = res.json()
             choices = data.get("choices", [])
             if choices:
                 content = choices[0].get("message", {}).get("content", "").strip()
                 if content:
-                    model_name = data.get("model", settings.FALLBACK_AI_MODEL)
-                    return content, f"Neural Gateway ({model_name})"
+                    return content, f"OpenAI ({openai_model})"
+            raise RuntimeError(f"OpenAI вернул некорректный ответ: {data}")
         else:
-            logger.error(f"Fallback Neural Gateway error {res.status_code}: {res.text[:300]}")
+            err_msg = res.text[:300]
+            logger.error(f"OpenAI API error {res.status_code}: {err_msg}")
+            raise RuntimeError(f"OpenAI API вернул код {res.status_code}: {err_msg}")
     except Exception as e:
-        logger.error(f"Fallback Neural Gateway call failed: {e}")
-
-    # Никаких моковых заглушек: выбрасываем ошибку
-    raise RuntimeError(
-        "ИИ-сервис временно недоступен: не удалось связаться с нейросетевыми шлюзами. "
-        "Проверьте правильность OPENROUTER_API_KEY или подключение к сети."
-    )
+        logger.error(f"OpenAI call failed: {e}")
+        raise RuntimeError(f"Ошибка вызова OpenAI ({openai_model}): {e}")
 
 
 # ==============================================================================
@@ -485,40 +385,19 @@ async def generate_task_tz_ai(title: str, query: str, industry: Optional[str] = 
 # ==============================================================================
 
 def get_ai_status() -> dict[str, Any]:
-    """Возвращает информацию о текущей активной конфигурации нейросетевых шлюзов."""
-    openrouter_key = _clean_str(settings.OPENROUTER_API_KEY)
+    """Возвращает информацию о текущей активной конфигурации нейросетевого шлюза OpenAI."""
     openai_key = _clean_str(settings.OPENAI_API_KEY)
-    gemini_key = _clean_str(settings.GEMINI_API_KEY)
-
-    configured_providers = []
-    active = "Neural Gateway"
-
-    if openrouter_key:
-        model = _clean_str(settings.OPENROUTER_MODEL) or "google/gemini-2.5-flash"
-        configured_providers.append(f"OpenRouter ({model})")
-        active = f"OpenRouter ({model})"
-    if openai_key:
-        model = _clean_str(settings.OPENAI_MODEL) or "gpt-4o-mini"
-        configured_providers.append(f"OpenAI/DeepSeek ({model})")
-        if not openrouter_key:
-            active = f"OpenAI ({model})"
-    if gemini_key:
-        model = _clean_str(settings.GEMINI_MODEL) or "gemini-2.5-flash"
-        configured_providers.append(f"Google Gemini ({model})")
-        if not openrouter_key and not openai_key:
-            active = f"Google Gemini ({model})"
-
-    configured_providers.append(f"Neural Gateway ({settings.FALLBACK_AI_MODEL})")
+    openai_model = _clean_str(settings.OPENAI_MODEL) or "gpt-4o-mini"
 
     key_preview = "не задан"
-    if openrouter_key:
-        key_preview = f"{openrouter_key[:6]}...{openrouter_key[-4:]}" if len(openrouter_key) > 10 else "задан"
+    if openai_key:
+        key_preview = f"{openai_key[:6]}...{openai_key[-4:]}" if len(openai_key) > 10 else "задан"
 
     return {
-        "is_configured": bool(openrouter_key or openai_key or gemini_key),
-        "active_provider": active,
+        "is_configured": bool(openai_key),
+        "active_provider": f"OpenAI ({openai_model})",
         "key_preview": key_preview,
-        "available_providers": configured_providers,
+        "available_providers": [f"OpenAI ({openai_model})"],
         "mock_data_enabled": False,
-        "status": "online",
+        "status": "online" if openai_key else "needs_key",
     }

@@ -67,7 +67,7 @@ export interface AppliedTzData {
   budget: string
   deadline: string
   description: string
-  stages?: { step?: number; title: string; amount?: number; duration?: string }[]
+  stages?: { step?: number; title: string; amount?: number }[]
 }
 
 interface AiTaskAssistantModalProps {
@@ -254,12 +254,11 @@ export function AiTaskAssistantModal({
             step: idx + 1,
             title: s.replace(/^Этап\s*\d+[:.]?\s*/i, "").trim() || `Этап ${idx + 1}`,
             amount: Math.round(totalBudget / rawStages.length),
-            duration: result.suggested_deadline ? `~${Math.max(1, Math.round(6 / rawStages.length))} мес.` : "2 мес.",
           }))
         : [
-            { step: 1, title: "Аналитическое исследование и эскизное проектирование", amount: Math.round(totalBudget * 0.3), duration: "2 мес." },
-            { step: 2, title: "Разработка лабораторного образца и стендовые испытания", amount: Math.round(totalBudget * 0.4), duration: "3 мес." },
-            { step: 3, title: "Приёмочные испытания и регистрация РИД", amount: Math.round(totalBudget * 0.3), duration: "1 мес." },
+            { step: 1, title: "Аналитическое исследование и эскизное проектирование", amount: Math.round(totalBudget * 0.3) },
+            { step: 2, title: "Разработка лабораторного образца и стендовые испытания", amount: Math.round(totalBudget * 0.4) },
+            { step: 3, title: "Приёмочные испытания и регистрация РИД", amount: Math.round(totalBudget * 0.3) },
           ]
 
     onApplyTz({
@@ -295,7 +294,7 @@ export function AiTaskAssistantModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl p-6 border-[#E2E5EB] shadow-2xl">
+      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto bg-white rounded-2xl p-6 border-[#E2E5EB] shadow-2xl">
         <DialogHeader className="border-b border-[#E2E5EB] pb-4">
           <div className="flex items-center gap-2.5">
             <span className="p-2 rounded-xl bg-[#F81B00]/10 text-[#F81B00] shrink-0">
@@ -303,114 +302,34 @@ export function AiTaskAssistantModal({
             </span>
             <div>
               <DialogTitle className="text-base sm:text-lg font-bold text-[#111111] tracking-tight">
-                {modalTitle || "План реализации НИОКР и генератор ТЗ"}
+                {modalTitle || "План реализации НИОКР"}
               </DialogTitle>
               <DialogDescription className="text-xs text-[#6B7280]">
-                {modalDescription || "Формирование календарного плана, этапов сметы и требований по ГОСТ 15.016-2016"}
+                {modalDescription || "Календарный график, этапы разработки и смета по ГОСТ 15.016-2016"}
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="space-y-4 pt-2">
-          {/* Input Form with Suggestion Chips */}
-          <div className="space-y-3 bg-[#F8FAFC] p-4 sm:p-5 rounded-2xl border border-[#E2E5EB]">
-            {/* shadcn AI Suggestion Chips */}
-            <Suggestions label="Подсказки:">
-              {QUICK_SUGGESTIONS.map((ex, idx) => (
-                <Suggestion
-                  key={idx}
-                  onClick={() => setUserQuery(ex)}
-                  className="bg-white hover:border-[#111111]"
-                >
-                  {ex}
-                </Suggestion>
-              ))}
-            </Suggestions>
-
-            {/* Input Textarea Area */}
-            <div>
-              <label className="text-xs font-bold text-[#111111] block mb-1.5">
-                Опишите техническую задачу:
-              </label>
-              <textarea
-                value={userQuery}
-                onChange={(e) => setUserQuery(e.target.value)}
-                placeholder="Например: Нужен ударопрочный морозостойкий композит для корпусов приборов в условиях крайнего севера (до -60°C)..."
-                className="w-full h-24 border border-[#E2E5EB] rounded-xl p-3 text-xs bg-white text-[#111111] focus:border-[#111111] focus:ring-1 focus:ring-[#111111]/20 outline-hidden resize-none leading-relaxed transition-all shadow-2xs"
-              />
-            </div>
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-[#6B7280] font-medium">Отрасль:</span>
-                <select
-                  value={selectedIndustry}
-                  onChange={(e) => setSelectedIndustry(e.target.value)}
-                  className="h-9 border border-[#E2E5EB] rounded-xl px-2.5 text-xs bg-white text-[#111111] focus:border-[#111111] outline-hidden shadow-2xs cursor-pointer"
-                >
-                  {INDUSTRY_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
+        <div className="pt-2">
+          {/* shadcn AI: PLAN COMPONENT IS THE CORE WINDOW CONTAINER */}
+          <Plan className="border border-[#E2E5EB] rounded-2xl bg-white shadow-xs overflow-hidden">
+            <PlanHeader>
+              <div className="min-w-0">
+                <PlanTitle>
+                  <HiOutlineDocumentCheck className="size-4 text-[#F81B00]" />
+                  <span>План реализации и генератор ТЗ</span>
+                </PlanTitle>
+                <PlanDescription>
+                  Интеллектуальное планирование календарного графика и нормативов
+                </PlanDescription>
               </div>
-
-              {/* Action Button с чистым маркером вместо крутящегося спиннера */}
-              <Button
-                size="sm"
-                onClick={() => handleGenerate()}
-                disabled={loading || !userQuery.trim()}
-                className="gap-2 text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs cursor-pointer px-4 h-9"
-              >
-                {loading ? (
-                  <AiMarker variant="primary" size="sm" active />
-                ) : (
-                  <HiOutlineSparkles className="size-4 text-[#F81B00]" />
-                )}
-                <span>{loading ? "Формирование плана по ГОСТ..." : "Сформировать план и ТЗ"}</span>
-              </Button>
-            </div>
-          </div>
-
-          {/* shadcn AI: CHAIN OF THOUGHT */}
-          {loading && (
-            <div className="animate-in fade-in duration-200">
-              <ChainOfThought
-                steps={chainSteps}
-                currentStepIndex={currentStageIdx}
-                running={true}
-                defaultOpen={true}
-              />
-            </div>
-          )}
-
-          {/* Generated Result: shadcn AI PLAN */}
-          {result && !loading && (
-            <div className="space-y-4 animate-in fade-in duration-200">
-              {/* Collapsed Chain of Thought */}
-              <ChainOfThought
-                steps={chainSteps}
-                currentStepIndex={chainSteps.length - 1}
-                running={false}
-                defaultOpen={false}
-                title="Цепочка рассуждений модели (Chain of Thought)"
-              />
-
-              {/* shadcn AI: PLAN COMPONENT */}
-              <Plan>
-                <PlanHeader>
-                  <div className="min-w-0">
-                    <PlanTitle>
-                      <HiOutlineDocumentCheck className="size-4 text-[#F81B00]" />
-                      <span>План реализации НИОКР (ГОСТ 15.016-2016)</span>
-                    </PlanTitle>
-                    <PlanDescription>
-                      Календарный график, этапы разработки и контрольные нормативы
-                    </PlanDescription>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <Badge variant="outline" className="border-sky-200 bg-sky-50 text-[10px] text-sky-800 font-bold">
+                  OpenAI gpt-4o-mini
+                </Badge>
+                {result && (
+                  <>
                     <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-[10px] text-emerald-800 font-bold">
                       TRL {result.target_trl_start || 3} → {result.target_trl_end || 6}
                     </Badge>
@@ -429,10 +348,97 @@ export function AiTaskAssistantModal({
                       <HiOutlinePencilSquare className="size-3.5" />
                       <span>{isEditingResult ? "Просмотр" : "Правка"}</span>
                     </button>
-                  </div>
-                </PlanHeader>
+                  </>
+                )}
+              </div>
+            </PlanHeader>
 
-                <PlanContent>
+            <PlanContent className="p-4 sm:p-5 space-y-4">
+              {/* Input Form with Suggestion Chips */}
+              <div className="space-y-3 bg-[#F8FAFC] p-4 rounded-xl border border-[#E2E5EB]">
+                {/* shadcn AI Suggestion Chips */}
+                <Suggestions label="Подсказки:">
+                  {QUICK_SUGGESTIONS.map((ex, idx) => (
+                    <Suggestion
+                      key={idx}
+                      onClick={() => setUserQuery(ex)}
+                      className="bg-white hover:border-[#111111]"
+                    >
+                      {ex}
+                    </Suggestion>
+                  ))}
+                </Suggestions>
+
+                {/* Input Textarea Area */}
+                <div>
+                  <label className="text-xs font-bold text-[#111111] block mb-1.5">
+                    Техническая задача разработки:
+                  </label>
+                  <textarea
+                    value={userQuery}
+                    onChange={(e) => setUserQuery(e.target.value)}
+                    placeholder="Например: Нужен ударопрочный морозостойкий композит для корпусов приборов в условиях крайнего севера (до -60°C)..."
+                    className="w-full h-20 border border-[#E2E5EB] rounded-xl p-3 text-xs bg-white text-[#111111] focus:border-[#111111] focus:ring-1 focus:ring-[#111111]/20 outline-hidden resize-none leading-relaxed transition-all shadow-2xs"
+                  />
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-[#6B7280] font-medium">Отрасль:</span>
+                    <select
+                      value={selectedIndustry}
+                      onChange={(e) => setSelectedIndustry(e.target.value)}
+                      className="h-9 border border-[#E2E5EB] rounded-xl px-2.5 text-xs bg-white text-[#111111] focus:border-[#111111] outline-hidden shadow-2xs cursor-pointer"
+                    >
+                      {INDUSTRY_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Action Button с чистым маркером */}
+                  <Button
+                    size="sm"
+                    onClick={() => handleGenerate()}
+                    disabled={loading || !userQuery.trim()}
+                    className="gap-2 text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs cursor-pointer px-4 h-9"
+                  >
+                    {loading ? (
+                      <AiMarker variant="primary" size="sm" active />
+                    ) : (
+                      <HiOutlineSparkles className="size-4 text-[#F81B00]" />
+                    )}
+                    <span>{loading ? "Формирование плана..." : "Сформировать план и ТЗ"}</span>
+                  </Button>
+                </div>
+              </div>
+
+              {/* shadcn AI: CHAIN OF THOUGHT WHILE LOADING */}
+              {loading && (
+                <div className="animate-in fade-in duration-200">
+                  <ChainOfThought
+                    steps={chainSteps}
+                    currentStepIndex={currentStageIdx}
+                    running={true}
+                    defaultOpen={true}
+                  />
+                </div>
+              )}
+
+              {/* Generated Result inside Plan */}
+              {result && !loading && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  {/* Collapsed Chain of Thought */}
+                  <ChainOfThought
+                    steps={chainSteps}
+                    currentStepIndex={chainSteps.length - 1}
+                    running={false}
+                    defaultOpen={false}
+                    title="Цепочка рассуждений модели (Chain of Thought)"
+                  />
+
                   {/* Topic & Scientific Summary */}
                   {isEditingResult ? (
                     <div className="space-y-3 p-3.5 bg-[#F8FAFC] border border-[#E2E5EB] rounded-xl">
@@ -584,13 +590,59 @@ export function AiTaskAssistantModal({
                       </p>
                     </div>
                   )}
-                </PlanContent>
-              </Plan>
-            </div>
-          )}
+                </div>
+              )}
+
+              {/* Initial Blueprint Plan Steps when !result && !loading */}
+              {!result && !loading && (
+                <div className="space-y-3 pt-1 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#111111] flex items-center gap-1.5">
+                      <HiOutlineCube className="size-3.5 text-[#F81B00]" />
+                      <span>Структура плана реализации (ГОСТ 15.016-2016):</span>
+                    </span>
+                    <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-600 border-slate-200">
+                      Предварительный шаблон
+                    </Badge>
+                  </div>
+
+                  <PlanSteps>
+                    <PlanStepItem
+                      stepNumber={1}
+                      title="Этап 1. Аналитический обзор и техническое задание"
+                      description="Патентный поиск по базам ФИПС, анализ научно-технической литературы, разработка технического задания по ГОСТ 15.016-2016."
+                      budget="~30% бюджета"
+                      duration="1-2 мес."
+                    />
+                    <PlanStepItem
+                      stepNumber={2}
+                      title="Этап 2. Опытно-конструкторские работы и стендовые испытания"
+                      description="Синтез лабораторных образцов, компьютерное моделирование физико-химических свойств, первичные стендовые испытания."
+                      budget="~40% бюджета"
+                      duration="2-3 мес."
+                    />
+                    <PlanStepItem
+                      stepNumber={3}
+                      title="Этап 3. Изготовление прототипа и оформление РИД"
+                      description="Приёмочные испытания по согласованным методикам, оформление комплекта РИД (патентование / ноу-хау) и сдача заказчику."
+                      budget="~30% бюджета"
+                      duration="1-2 мес."
+                    />
+                  </PlanSteps>
+
+                  <div className="p-3 bg-amber-50/60 border border-amber-200/80 rounded-xl text-[11px] text-amber-900 flex items-center gap-2">
+                    <HiOutlineSparkles className="size-4 text-amber-600 shrink-0" />
+                    <span>
+                      Опишите задачу выше и нажмите <strong>«Сформировать план и ТЗ»</strong>. Нейросеть OpenAI рассчитает индивидуальный график, смету и этапы под ваш проект.
+                    </span>
+                  </div>
+                </div>
+              )}
+            </PlanContent>
+          </Plan>
         </div>
 
-        {/* Modal Footer: только целевые действия */}
+        {/* Modal Footer: целевые действия */}
         {result && (
           <DialogFooter className="gap-2.5 pt-4 border-t border-[#E2E5EB] mt-4 flex flex-col sm:flex-row sm:justify-end items-stretch sm:items-center">
             <Button
