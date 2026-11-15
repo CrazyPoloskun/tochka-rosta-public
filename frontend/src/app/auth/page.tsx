@@ -279,7 +279,7 @@ function AuthForm() {
 
   const getInputClass = (fieldName: string, extraPadding = "") => {
     const isInvalid = touched[fieldName] && errors[fieldName]
-    return `h-10 text-xs transition-all ${extraPadding} ${
+    return `h-9 sm:h-10 text-xs transition-all ${extraPadding} ${
       isInvalid
         ? "!border-red-500 !bg-red-50/20 text-[#111111] focus-visible:!border-red-500 focus-visible:!ring-red-500/20"
         : ""
@@ -289,13 +289,13 @@ function AuthForm() {
   return (
     <div className="min-h-screen bg-[#F5F6F8] flex flex-col font-sans selection:bg-[#F81B00] selection:text-white">
       {/* Шапка страницы авторизации */}
-      <header className="w-full bg-white border-b border-[#E2E5EB] py-3 px-4 sm:px-8 shrink-0">
+      <header className="w-full bg-white border-b border-[#E2E5EB] py-2 sm:py-2.5 px-3 sm:px-8 shrink-0">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 group">
             <img
               src="/logo.png"
               alt="Точка Роста"
-              className="h-7 w-auto object-contain"
+              className="h-6 sm:h-7 w-auto object-contain"
             />
           </Link>
 
@@ -310,70 +310,71 @@ function AuthForm() {
       </header>
 
       {/* Центральный контейнер формы */}
-      <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 w-full max-w-lg mx-auto">
-        <div className="mb-5 flex flex-col items-center text-center animate-slide-down">
+      <main className="flex-1 flex flex-col items-center justify-center p-3 sm:p-6 w-full max-w-md sm:max-w-lg mx-auto">
+        <div className="mb-3 sm:mb-4 flex flex-col items-center text-center animate-slide-down">
           <Link href="/" className="inline-block group" aria-label="На главную «Точка Роста»">
             <img
               src="/logo.png"
               alt="Логотип платформы «Точка Роста»"
-              className="h-10 sm:h-12 w-auto object-contain transition-transform group-hover:scale-105"
+              className="h-8 sm:h-10 w-auto object-contain transition-transform group-hover:scale-105"
             />
           </Link>
         </div>
 
         {/* Shadcn Tabs для переключения режимов */}
-        <div className="w-full mb-3 animate-slide-down">
+        <div className="w-full mb-2.5 sm:mb-3 animate-slide-down">
           <Tabs
             value={mode}
             onValueChange={(val) => switchMode(val as Mode)}
             className="w-full"
           >
-            <TabsList className="grid grid-cols-3 w-full h-11 p-1 bg-white border border-[#E2E5EB] rounded-xl shadow-xs gap-1">
+            <TabsList className="grid grid-cols-3 w-full h-9 sm:h-10 p-1 bg-white border border-[#E2E5EB] rounded-xl shadow-xs gap-1">
               <TabsTrigger
                 value="login"
-                className="rounded-lg text-xs font-bold transition-all data-active:bg-[#111111] data-active:text-white cursor-pointer"
+                className="rounded-lg text-[11px] sm:text-xs font-bold transition-all data-active:bg-[#111111] data-active:text-white cursor-pointer py-1 sm:py-1.5"
               >
                 Вход
               </TabsTrigger>
               <TabsTrigger
                 value="investor"
-                className="rounded-lg text-xs font-bold transition-all data-active:bg-[#111111] data-active:text-white cursor-pointer"
+                className="rounded-lg text-[11px] sm:text-xs font-bold transition-all data-active:bg-[#111111] data-active:text-white cursor-pointer py-1 sm:py-1.5"
               >
                 Инвестор
               </TabsTrigger>
               <TabsTrigger
                 value="lab"
-                className="rounded-lg text-xs font-bold transition-all data-active:bg-[#111111] data-active:text-white cursor-pointer"
+                className="rounded-lg text-[11px] sm:text-xs font-bold transition-all data-active:bg-[#111111] data-active:text-white cursor-pointer py-1 sm:py-1.5"
               >
-                НИИ / Лаборатория
+                <span className="sm:hidden">НИИ / Лаб.</span>
+                <span className="hidden sm:inline">НИИ / Лаборатория</span>
               </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
 
         {/* Shadcn Card с формой */}
-        <Card className="w-full bg-white border border-[#E2E5EB] rounded-2xl shadow-sm p-6 sm:p-7 animate-slide-down gap-0">
-          <CardHeader className="p-0 pb-4">
-            <CardTitle className="text-xl font-black text-[#111111] tracking-tight">
+        <Card className="w-full bg-white border border-[#E2E5EB] rounded-2xl shadow-sm p-4 sm:p-6 animate-slide-down gap-0">
+          <CardHeader className="p-0 pb-3 sm:pb-4">
+            <CardTitle className="text-lg sm:text-xl font-black text-[#111111] tracking-tight">
               {mode === "login"
                 ? "Вход в личный кабинет"
                 : mode === "investor"
                 ? "Регистрация инвестора"
                 : "Регистрация научной организации"}
             </CardTitle>
-            <CardDescription className="text-xs text-[#6B7280] mt-1">
+            <CardDescription className="text-[11px] sm:text-xs text-[#6B7280] mt-0.5 sm:mt-1">
               {mode === "login"
-                ? "Единый доступ для инвесторов, научных сотрудников и кураторов платформы"
+                ? "Вход для инвесторов, научных сотрудников и кураторов"
                 : mode === "investor"
-                ? "Для бизнеса, заказчиков исследований и частных инвесторов"
-                : "Для институтов РАН, лабораторий и исследовательских центров"}
+                ? "Для бизнеса, заказчиков исследований и инвесторов"
+                : "Для институтов РАН, лабораторий и НИИ"}
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="p-0 space-y-4">
+          <CardContent className="p-0 space-y-3 sm:space-y-3.5">
             {/* Shadcn Alert при ошибке */}
             {serverError && (
-              <Alert variant="destructive" className="rounded-xl border-red-200 bg-red-50/70 p-3">
+              <Alert variant="destructive" className="rounded-xl border-red-200 bg-red-50/70 p-2.5 sm:p-3">
                 <HiOutlineExclamationCircle className="size-4 text-red-600" />
                 <AlertTitle className="text-xs font-bold text-red-900">Ошибка</AlertTitle>
                 <AlertDescription className="text-xs text-red-700">
@@ -386,10 +387,10 @@ function AuthForm() {
                ФОРМА 1: ВХОД
                ============================================================= */}
             {mode === "login" && (
-              <form onSubmit={handleLogin} noValidate autoComplete="off" className="space-y-3.5">
-                <div className="space-y-1.5">
-                  <Label htmlFor="login-email" className="text-[11px] font-bold uppercase text-[#374151]">
-                    Электронная почта <span className="text-[#F81B00] font-bold ml-0.5">*</span>
+              <form onSubmit={handleLogin} noValidate autoComplete="off" className="space-y-3 sm:space-y-3.5">
+                <div className="space-y-1">
+                  <Label htmlFor="login-email" className="text-[10px] sm:text-[11px] font-bold uppercase text-[#374151]">
+                    Email <span className="text-[#F81B00] font-bold ml-0.5">*</span>
                   </Label>
                   <div className="relative">
                     <Input
@@ -400,19 +401,19 @@ function AuthForm() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       onBlur={() => markTouched("email")}
-                      className={getInputClass("email", "pl-9")}
+                      className={getInputClass("email", "pl-8 sm:pl-9")}
                     />
-                    <HiOutlineEnvelope className="size-4 text-[#6B7280] absolute left-3 top-3 pointer-events-none" />
+                    <HiOutlineEnvelope className="size-3.5 sm:size-4 text-[#6B7280] absolute left-2.5 sm:left-3 top-2.5 sm:top-3 pointer-events-none" />
                   </div>
                   {touched.email && errors.email && (
-                    <span className="text-[11px] font-medium text-red-600 block animate-slide-down">
+                    <span className="text-[10px] sm:text-[11px] font-medium text-red-600 block animate-slide-down">
                       {errors.email}
                     </span>
                   )}
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="login-password" className="text-[11px] font-bold uppercase text-[#374151]">
+                <div className="space-y-1">
+                  <Label htmlFor="login-password" className="text-[10px] sm:text-[11px] font-bold uppercase text-[#374151]">
                     Пароль <span className="text-[#F81B00] font-bold ml-0.5">*</span>
                   </Label>
                   <div className="relative">
@@ -424,20 +425,20 @@ function AuthForm() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       onBlur={() => markTouched("password")}
-                      className={getInputClass("password", "pl-9 pr-9")}
+                      className={getInputClass("password", "pl-8 sm:pl-9 pr-8 sm:pr-9")}
                     />
-                    <HiOutlineLockClosed className="size-4 text-[#6B7280] absolute left-3 top-3 pointer-events-none" />
+                    <HiOutlineLockClosed className="size-3.5 sm:size-4 text-[#6B7280] absolute left-2.5 sm:left-3 top-2.5 sm:top-3 pointer-events-none" />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-3 text-[#6B7280] hover:text-[#111111] transition-colors"
+                      className="absolute right-2.5 sm:right-3 top-2.5 sm:top-3 text-[#6B7280] hover:text-[#111111] transition-colors"
                       tabIndex={-1}
                     >
-                      {showPassword ? <HiOutlineEyeSlash className="size-4" /> : <HiOutlineEye className="size-4" />}
+                      {showPassword ? <HiOutlineEyeSlash className="size-3.5 sm:size-4" /> : <HiOutlineEye className="size-3.5 sm:size-4" />}
                     </button>
                   </div>
                   {touched.password && errors.password && (
-                    <span className="text-[11px] font-medium text-red-600 block animate-slide-down">
+                    <span className="text-[10px] sm:text-[11px] font-medium text-red-600 block animate-slide-down">
                       {errors.password}
                     </span>
                   )}
@@ -446,14 +447,14 @@ function AuthForm() {
                 <Button
                   type="submit"
                   disabled={!isLoginFormValid}
-                  className="w-full mt-2 h-10 text-xs font-bold justify-center gap-2 cursor-pointer bg-[#111111] hover:bg-[#333333] text-white disabled:cursor-not-allowed"
+                  className="w-full mt-2 h-9 sm:h-10 text-xs font-bold justify-center gap-2 cursor-pointer bg-[#111111] hover:bg-[#333333] text-white disabled:cursor-not-allowed"
                 >
-                  <span>{loading ? "Выполняется вход..." : "Войти в личный кабинет"}</span>
-                  <HiOutlineArrowRight className="size-4" />
+                  <span>{loading ? "Выполняется вход..." : "Войти"}</span>
+                  <HiOutlineArrowRight className="size-3.5 sm:size-4" />
                 </Button>
 
-                <div className="pt-3 border-t border-[#E2E5EB] text-center text-xs text-[#6B7280]">
-                  Ещё нет аккаунта?{" "}
+                <div className="pt-2.5 border-t border-[#E2E5EB] text-center text-xs text-[#6B7280]">
+                  Нет аккаунта?{" "}
                   <button
                     type="button"
                     onClick={() => switchMode("investor")}
@@ -469,67 +470,70 @@ function AuthForm() {
                ФОРМА 2: РЕГИСТРАЦИЯ ИНВЕСТОРА
                ============================================================= */}
             {mode === "investor" && (
-              <form onSubmit={handleInvestorSubmit} noValidate autoComplete="off" className="space-y-3.5">
-                <div className="flex flex-wrap items-center justify-between gap-2 py-1">
-                  <span className="text-xs text-[#6B7280]">Тестовые данные:</span>
+              <form onSubmit={handleInvestorSubmit} noValidate autoComplete="off" className="space-y-2.5 sm:space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-1.5 py-0.5">
+                  <span className="text-[11px] sm:text-xs text-[#6B7280]">Тестовые данные:</span>
                   <InnViewExample
                     currentRole="investor"
                     onSelect={(ex) => {
                       setFullName(ex.name)
+                      if (ex.email) setEmail(ex.email)
+                      setPassword("TestPass123!")
+                      setAcceptedTerms(true)
                       toastSuccess(`Данные «${ex.name}» подставлены в форму!`, "Пример применён")
                     }}
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="investor-name" className="text-[11px] font-bold uppercase text-[#374151]">
-                    Имя инвестора или наименование компании <span className="text-[#F81B00] font-bold ml-0.5">*</span>
+                <div className="space-y-1">
+                  <Label htmlFor="investor-name" className="text-[10px] sm:text-[11px] font-bold uppercase text-[#374151]">
+                    Имя или компания <span className="text-[#F81B00] font-bold ml-0.5">*</span>
                   </Label>
                   <div className="relative">
                     <Input
                       id="investor-name"
                       type="text"
-                      placeholder="Константин Васильев / ООО «ТехноПром»"
+                      placeholder="Константин / ООО «Вектор»"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       onBlur={() => markTouched("fullName")}
-                      className={getInputClass("fullName", "pl-9")}
+                      className={getInputClass("fullName", "pl-8 sm:pl-9")}
                     />
-                    <HiOutlineUser className="size-4 text-[#6B7280] absolute left-3 top-3 pointer-events-none" />
+                    <HiOutlineUser className="size-3.5 sm:size-4 text-[#6B7280] absolute left-2.5 sm:left-3 top-2.5 sm:top-3 pointer-events-none" />
                   </div>
                   {touched.fullName && errors.fullName && (
-                    <span className="text-[11px] font-medium text-red-600 block animate-slide-down">
+                    <span className="text-[10px] sm:text-[11px] font-medium text-red-600 block animate-slide-down">
                       {errors.fullName}
                     </span>
                   )}
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="investor-email" className="text-[11px] font-bold uppercase text-[#374151]">
-                    Электронная почта <span className="text-[#F81B00] font-bold ml-0.5">*</span>
+                <div className="space-y-1">
+                  <Label htmlFor="investor-email" className="text-[10px] sm:text-[11px] font-bold uppercase text-[#374151]">
+                    Email <span className="text-[#F81B00] font-bold ml-0.5">*</span>
                   </Label>
                   <div className="relative">
                     <Input
                       id="investor-email"
                       type="email"
-                      placeholder="investor@domain.ru"
+                      placeholder="investor@mail.ru"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       onBlur={() => markTouched("email")}
-                      className={getInputClass("email", "pl-9")}
+                      className={getInputClass("email", "pl-8 sm:pl-9")}
                     />
-                    <HiOutlineEnvelope className="size-4 text-[#6B7280] absolute left-3 top-3 pointer-events-none" />
+                    <HiOutlineEnvelope className="size-3.5 sm:size-4 text-[#6B7280] absolute left-2.5 sm:left-3 top-2.5 sm:top-3 pointer-events-none" />
                   </div>
                   {touched.email && errors.email && (
-                    <span className="text-[11px] font-medium text-red-600 block animate-slide-down">
+                    <span className="text-[10px] sm:text-[11px] font-medium text-red-600 block animate-slide-down">
                       {errors.email}
                     </span>
                   )}
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="investor-password" className="text-[11px] font-bold uppercase text-[#374151]">
-                    Пароль <span className="text-[#F81B00] font-bold ml-0.5">*</span>
+                <div className="space-y-1">
+                  <Label htmlFor="investor-password" className="text-[10px] sm:text-[11px] font-bold uppercase text-[#374151]">
+                    Пароль (от 6 знаков) <span className="text-[#F81B00] font-bold ml-0.5">*</span>
                   </Label>
                   <div className="relative">
                     <Input
@@ -539,34 +543,34 @@ function AuthForm() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       onBlur={() => markTouched("password")}
-                      className={getInputClass("password", "pl-9 pr-9")}
+                      className={getInputClass("password", "pl-8 sm:pl-9 pr-8 sm:pr-9")}
                     />
-                    <HiOutlineLockClosed className="size-4 text-[#6B7280] absolute left-3 top-3 pointer-events-none" />
+                    <HiOutlineLockClosed className="size-3.5 sm:size-4 text-[#6B7280] absolute left-2.5 sm:left-3 top-2.5 sm:top-3 pointer-events-none" />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-3 text-[#6B7280] hover:text-[#111111] transition-colors"
+                      className="absolute right-2.5 sm:right-3 top-2.5 sm:top-3 text-[#6B7280] hover:text-[#111111] transition-colors"
                       tabIndex={-1}
                     >
-                      {showPassword ? <HiOutlineEyeSlash className="size-4" /> : <HiOutlineEye className="size-4" />}
+                      {showPassword ? <HiOutlineEyeSlash className="size-3.5 sm:size-4" /> : <HiOutlineEye className="size-3.5 sm:size-4" />}
                     </button>
                   </div>
 
                   {touched.password && errors.password && (
-                    <span className="text-[11px] font-medium text-red-600 block animate-slide-down">
+                    <span className="text-[10px] sm:text-[11px] font-medium text-red-600 block animate-slide-down">
                       {errors.password}
                     </span>
                   )}
 
                   {password.length > 0 && (
-                    <div className="pt-1.5 space-y-1.5">
-                      <div className="flex items-center justify-between text-[11px]">
+                    <div className="pt-1 space-y-1">
+                      <div className="flex items-center justify-between text-[10px]">
                         <span className="text-[#6B7280]">Сложность пароля:</span>
-                        <Badge variant={passwordStrength.badgeVariant} className="text-[10px] px-2 py-0">
+                        <Badge variant={passwordStrength.badgeVariant} className="text-[9px] px-1.5 py-0">
                           {passwordStrength.label}
                         </Badge>
                       </div>
-                      <div className="grid grid-cols-4 gap-1.5 h-1">
+                      <div className="grid grid-cols-4 gap-1 h-1">
                         <div className={`rounded-full transition-all duration-200 ${passwordStrength.score >= 1 ? passwordStrength.color : "bg-[#E2E5EB]"}`} />
                         <div className={`rounded-full transition-all duration-200 ${passwordStrength.score >= 2 ? passwordStrength.color : "bg-[#E2E5EB]"}`} />
                         <div className={`rounded-full transition-all duration-200 ${passwordStrength.score >= 3 ? passwordStrength.color : "bg-[#E2E5EB]"}`} />
@@ -577,8 +581,8 @@ function AuthForm() {
                 </div>
 
                 {/* Shadcn Checkbox */}
-                <div className="pt-2">
-                  <div className="flex items-start gap-2.5">
+                <div className="pt-1.5">
+                  <div className="flex items-start gap-2">
                     <Checkbox
                       id="investor-terms"
                       checked={acceptedTerms}
@@ -586,7 +590,7 @@ function AuthForm() {
                     />
                     <Label
                       htmlFor="investor-terms"
-                      className="text-[11px] font-normal text-[#4B5563] leading-snug cursor-pointer select-none"
+                      className="text-[10px] sm:text-[11px] font-normal text-[#4B5563] leading-snug cursor-pointer select-none"
                     >
                       Я принимаю{" "}
                       <Link
@@ -594,7 +598,7 @@ function AuthForm() {
                         target="_blank"
                         className="text-[#111111] font-semibold underline underline-offset-2 hover:text-[#F81B00] transition-colors"
                       >
-                        условия использования платформы
+                        условия сервиса
                       </Link>{" "}
                       и согласен с{" "}
                       <Link
@@ -611,14 +615,14 @@ function AuthForm() {
                 <Button
                   type="submit"
                   disabled={!isInvestorFormValid}
-                  className="w-full mt-2 h-10 text-xs font-bold justify-center gap-2 cursor-pointer bg-[#111111] hover:bg-[#333333] text-white disabled:cursor-not-allowed"
+                  className="w-full mt-1.5 h-9 sm:h-10 text-xs font-bold justify-center gap-1.5 cursor-pointer bg-[#111111] hover:bg-[#333333] text-white disabled:cursor-not-allowed"
                 >
-                  <span>{loading ? "Создание аккаунта..." : "Зарегистрироваться как Инвестор"}</span>
-                  <HiOutlineArrowRight className="size-4" />
+                  <span>{loading ? "Создание..." : "Зарегистрироваться"}</span>
+                  <HiOutlineArrowRight className="size-3.5 sm:size-4" />
                 </Button>
 
-                <div className="pt-3 border-t border-[#E2E5EB] text-center text-xs text-[#6B7280]">
-                  Уже есть аккаунт?{" "}
+                <div className="pt-2.5 border-t border-[#E2E5EB] text-center text-xs text-[#6B7280]">
+                  Есть аккаунт?{" "}
                   <button
                     type="button"
                     onClick={() => switchMode("login")}
@@ -634,9 +638,9 @@ function AuthForm() {
                ФОРМА 3: РЕГИСТРАЦИЯ НИИ
                ============================================================= */}
             {mode === "lab" && (
-              <form onSubmit={handleLabSubmit} noValidate autoComplete="off" className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2 py-1">
-                  <span className="text-xs text-[#6B7280]">Тестовые данные:</span>
+              <form onSubmit={handleLabSubmit} noValidate autoComplete="off" className="space-y-2.5 sm:space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-1.5 py-0.5">
+                  <span className="text-[11px] sm:text-xs text-[#6B7280]">Тестовые данные:</span>
                   <InnViewExample
                     currentRole="lab"
                     onSelect={(ex) => {
@@ -644,37 +648,40 @@ function AuthForm() {
                       setInn(ex.inn)
                       setOgrn(ex.ogrn)
                       setRepName(ex.representative)
+                      if (ex.email) setEmail(ex.email)
+                      setPassword("TestPass123!")
+                      setAcceptedTerms(true)
                       toastSuccess(`Реквизиты «${ex.name}» подставлены в форму!`, "Пример применён")
                     }}
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="lab-org" className="text-[11px] font-bold uppercase text-[#374151]">
-                    Название научной организации (НИИ / НИЦ / ВУЗ) <span className="text-[#F81B00] font-bold ml-0.5">*</span>
+                <div className="space-y-1">
+                  <Label htmlFor="lab-org" className="text-[10px] sm:text-[11px] font-bold uppercase text-[#374151]">
+                    Название НИИ или организации <span className="text-[#F81B00] font-bold ml-0.5">*</span>
                   </Label>
                   <div className="relative">
                     <Input
                       id="lab-org"
                       type="text"
-                      placeholder="ФГБУН Институт биоорганической химии РАН"
+                      placeholder="Институт биофизики СО РАН"
                       value={orgName}
                       onChange={(e) => setOrgName(e.target.value)}
                       onBlur={() => markTouched("orgName")}
-                      className={getInputClass("orgName", "pl-9")}
+                      className={getInputClass("orgName", "pl-8 sm:pl-9")}
                     />
-                    <HiOutlineBuildingLibrary className="size-4 text-[#6B7280] absolute left-3 top-3 pointer-events-none" />
+                    <HiOutlineBuildingLibrary className="size-3.5 sm:size-4 text-[#6B7280] absolute left-2.5 sm:left-3 top-2.5 sm:top-3 pointer-events-none" />
                   </div>
                   {touched.orgName && errors.orgName && (
-                    <span className="text-[11px] font-medium text-red-600 block animate-slide-down">
+                    <span className="text-[10px] sm:text-[11px] font-medium text-red-600 block animate-slide-down">
                       {errors.orgName}
                     </span>
                   )}
                 </div>
 
                 {/* ИНН и ОГРН */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="lab-inn" className="text-[11px] font-bold uppercase text-[#374151]">
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="lab-inn" className="text-[10px] sm:text-[11px] font-bold uppercase text-[#374151]">
                       ИНН <span className="text-[#F81B00] font-bold ml-0.5">*</span>
                     </Label>
                     <div className="relative">
@@ -686,19 +693,19 @@ function AuthForm() {
                         value={inn}
                         onChange={(e) => setInn(e.target.value)}
                         onBlur={() => markTouched("inn")}
-                        className={getInputClass("inn", "pl-9")}
+                        className={getInputClass("inn", "pl-8 sm:pl-9")}
                       />
-                      <HiOutlineIdentification className="size-4 text-[#6B7280] absolute left-3 top-3 pointer-events-none" />
+                      <HiOutlineIdentification className="size-3.5 sm:size-4 text-[#6B7280] absolute left-2.5 sm:left-3 top-2.5 sm:top-3 pointer-events-none" />
                     </div>
                     {touched.inn && errors.inn && (
-                      <span className="text-[11px] font-medium text-red-600 block animate-slide-down">
+                      <span className="text-[10px] sm:text-[11px] font-medium text-red-600 block animate-slide-down">
                         {errors.inn}
                       </span>
                     )}
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label htmlFor="lab-ogrn" className="text-[11px] font-bold uppercase text-[#374151]">
+                  <div className="space-y-1">
+                    <Label htmlFor="lab-ogrn" className="text-[10px] sm:text-[11px] font-bold uppercase text-[#374151]">
                       ОГРН <span className="text-[#F81B00] font-bold ml-0.5">*</span>
                     </Label>
                     <div className="relative">
@@ -710,12 +717,12 @@ function AuthForm() {
                         value={ogrn}
                         onChange={(e) => setOgrn(e.target.value)}
                         onBlur={() => markTouched("ogrn")}
-                        className={getInputClass("ogrn", "pl-9")}
+                        className={getInputClass("ogrn", "pl-8 sm:pl-9")}
                       />
-                      <HiOutlineIdentification className="size-4 text-[#6B7280] absolute left-3 top-3 pointer-events-none" />
+                      <HiOutlineIdentification className="size-3.5 sm:size-4 text-[#6B7280] absolute left-2.5 sm:left-3 top-2.5 sm:top-3 pointer-events-none" />
                     </div>
                     {touched.ogrn && errors.ogrn && (
-                      <span className="text-[11px] font-medium text-red-600 block animate-slide-down">
+                      <span className="text-[10px] sm:text-[11px] font-medium text-red-600 block animate-slide-down">
                         {errors.ogrn}
                       </span>
                     )}
@@ -723,33 +730,33 @@ function AuthForm() {
                 </div>
 
                 {/* Представитель и почта */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="lab-rep" className="text-[11px] font-bold uppercase text-[#374151]">
-                      ФИО связующего лица <span className="text-[#F81B00] font-bold ml-0.5">*</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="lab-rep" className="text-[10px] sm:text-[11px] font-bold uppercase text-[#374151]">
+                      Контактное лицо (ФИО) <span className="text-[#F81B00] font-bold ml-0.5">*</span>
                     </Label>
                     <div className="relative">
                       <Input
                         id="lab-rep"
                         type="text"
-                        placeholder="Смирнов Алексей Викторович"
+                        placeholder="Смирнов Алексей"
                         value={repName}
                         onChange={(e) => setRepName(e.target.value)}
                         onBlur={() => markTouched("repName")}
-                        className={getInputClass("repName", "pl-9")}
+                        className={getInputClass("repName", "pl-8 sm:pl-9")}
                       />
-                      <HiOutlineUser className="size-4 text-[#6B7280] absolute left-3 top-3 pointer-events-none" />
+                      <HiOutlineUser className="size-3.5 sm:size-4 text-[#6B7280] absolute left-2.5 sm:left-3 top-2.5 sm:top-3 pointer-events-none" />
                     </div>
                     {touched.repName && errors.repName && (
-                      <span className="text-[11px] font-medium text-red-600 block animate-slide-down">
+                      <span className="text-[10px] sm:text-[11px] font-medium text-red-600 block animate-slide-down">
                         {errors.repName}
                       </span>
                     )}
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label htmlFor="lab-email" className="text-[11px] font-bold uppercase text-[#374151]">
-                      Рабочая почта <span className="text-[#F81B00] font-bold ml-0.5">*</span>
+                  <div className="space-y-1">
+                    <Label htmlFor="lab-email" className="text-[10px] sm:text-[11px] font-bold uppercase text-[#374151]">
+                      Рабочий Email <span className="text-[#F81B00] font-bold ml-0.5">*</span>
                     </Label>
                     <div className="relative">
                       <Input
@@ -759,12 +766,12 @@ function AuthForm() {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         onBlur={() => markTouched("email")}
-                        className={getInputClass("email", "pl-9")}
+                        className={getInputClass("email", "pl-8 sm:pl-9")}
                       />
-                      <HiOutlineEnvelope className="size-4 text-[#6B7280] absolute left-3 top-3 pointer-events-none" />
+                      <HiOutlineEnvelope className="size-3.5 sm:size-4 text-[#6B7280] absolute left-2.5 sm:left-3 top-2.5 sm:top-3 pointer-events-none" />
                     </div>
                     {touched.email && errors.email && (
-                      <span className="text-[11px] font-medium text-red-600 block animate-slide-down">
+                      <span className="text-[10px] sm:text-[11px] font-medium text-red-600 block animate-slide-down">
                         {errors.email}
                       </span>
                     )}
@@ -772,9 +779,9 @@ function AuthForm() {
                 </div>
 
                 {/* Пароль */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="lab-password" className="text-[11px] font-bold uppercase text-[#374151]">
-                    Пароль <span className="text-[#F81B00] font-bold ml-0.5">*</span>
+                <div className="space-y-1">
+                  <Label htmlFor="lab-password" className="text-[10px] sm:text-[11px] font-bold uppercase text-[#374151]">
+                    Пароль (от 6 знаков) <span className="text-[#F81B00] font-bold ml-0.5">*</span>
                   </Label>
                   <div className="relative">
                     <Input
@@ -784,34 +791,34 @@ function AuthForm() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       onBlur={() => markTouched("password")}
-                      className={getInputClass("password", "pl-9 pr-9")}
+                      className={getInputClass("password", "pl-8 sm:pl-9 pr-8 sm:pr-9")}
                     />
-                    <HiOutlineLockClosed className="size-4 text-[#6B7280] absolute left-3 top-3 pointer-events-none" />
+                    <HiOutlineLockClosed className="size-3.5 sm:size-4 text-[#6B7280] absolute left-2.5 sm:left-3 top-2.5 sm:top-3 pointer-events-none" />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-3 text-[#6B7280] hover:text-[#111111] transition-colors"
+                      className="absolute right-2.5 sm:right-3 top-2.5 sm:top-3 text-[#6B7280] hover:text-[#111111] transition-colors"
                       tabIndex={-1}
                     >
-                      {showPassword ? <HiOutlineEyeSlash className="size-4" /> : <HiOutlineEye className="size-4" />}
+                      {showPassword ? <HiOutlineEyeSlash className="size-3.5 sm:size-4" /> : <HiOutlineEye className="size-3.5 sm:size-4" />}
                     </button>
                   </div>
 
                   {touched.password && errors.password && (
-                    <span className="text-[11px] font-medium text-red-600 block animate-slide-down">
+                    <span className="text-[10px] sm:text-[11px] font-medium text-red-600 block animate-slide-down">
                       {errors.password}
                     </span>
                   )}
 
                   {password.length > 0 && (
-                    <div className="pt-1.5 space-y-1.5">
-                      <div className="flex items-center justify-between text-[11px]">
+                    <div className="pt-1 space-y-1">
+                      <div className="flex items-center justify-between text-[10px]">
                         <span className="text-[#6B7280]">Сложность пароля:</span>
-                        <Badge variant={passwordStrength.badgeVariant} className="text-[10px] px-2 py-0">
+                        <Badge variant={passwordStrength.badgeVariant} className="text-[9px] px-1.5 py-0">
                           {passwordStrength.label}
                         </Badge>
                       </div>
-                      <div className="grid grid-cols-4 gap-1.5 h-1">
+                      <div className="grid grid-cols-4 gap-1 h-1">
                         <div className={`rounded-full transition-all duration-200 ${passwordStrength.score >= 1 ? passwordStrength.color : "bg-[#E2E5EB]"}`} />
                         <div className={`rounded-full transition-all duration-200 ${passwordStrength.score >= 2 ? passwordStrength.color : "bg-[#E2E5EB]"}`} />
                         <div className={`rounded-full transition-all duration-200 ${passwordStrength.score >= 3 ? passwordStrength.color : "bg-[#E2E5EB]"}`} />
@@ -822,8 +829,8 @@ function AuthForm() {
                 </div>
 
                 {/* Shadcn Checkbox */}
-                <div className="pt-2">
-                  <div className="flex items-start gap-2.5">
+                <div className="pt-1.5">
+                  <div className="flex items-start gap-2">
                     <Checkbox
                       id="lab-terms"
                       checked={acceptedTerms}
@@ -831,7 +838,7 @@ function AuthForm() {
                     />
                     <Label
                       htmlFor="lab-terms"
-                      className="text-[11px] font-normal text-[#4B5563] leading-snug cursor-pointer select-none"
+                      className="text-[10px] sm:text-[11px] font-normal text-[#4B5563] leading-snug cursor-pointer select-none"
                     >
                       Я принимаю{" "}
                       <Link
@@ -839,7 +846,7 @@ function AuthForm() {
                         target="_blank"
                         className="text-[#111111] font-semibold underline underline-offset-2 hover:text-[#F81B00] transition-colors"
                       >
-                        условия использования платформы
+                        условия сервиса
                       </Link>{" "}
                       и согласен с{" "}
                       <Link
@@ -856,14 +863,14 @@ function AuthForm() {
                 <Button
                   type="submit"
                   disabled={!isLabFormValid}
-                  className="w-full mt-2 h-10 text-xs font-bold justify-center gap-2 cursor-pointer bg-[#111111] hover:bg-[#333333] text-white disabled:cursor-not-allowed"
+                  className="w-full mt-1.5 h-9 sm:h-10 text-xs font-bold justify-center gap-1.5 cursor-pointer bg-[#111111] hover:bg-[#333333] text-white disabled:cursor-not-allowed"
                 >
-                  <span>{loading ? "Отправка заявки..." : "Зарегистрировать НИИ в системе"}</span>
-                  <HiOutlineArrowRight className="size-4" />
+                  <span>{loading ? "Отправка..." : "Зарегистрировать НИИ"}</span>
+                  <HiOutlineArrowRight className="size-3.5 sm:size-4" />
                 </Button>
 
                 <div className="pt-2.5 border-t border-[#E2E5EB] text-center text-xs text-[#6B7280]">
-                  Организация уже зарегистрирована?{" "}
+                  Есть аккаунт?{" "}
                   <button
                     type="button"
                     onClick={() => switchMode("login")}
@@ -874,6 +881,9 @@ function AuthForm() {
                 </div>
               </form>
             )}
+          </CardContent>
+        </Card>
+      </main>
           </CardContent>
         </Card>
       </main>

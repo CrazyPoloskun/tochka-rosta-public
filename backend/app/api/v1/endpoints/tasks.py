@@ -25,7 +25,7 @@ async def list_tasks(
     current_user: User | None = Depends(get_current_user),
 ):
     query = (
-        select(Task, User.full_name)
+        select(Task, User.full_name, User.organization_name, User.role)
         .join(User, Task.investor_id == User.id)
         .order_by(Task.id.desc())
     )
@@ -33,7 +33,7 @@ async def list_tasks(
     tasks_with_users = result.all()
 
     response = []
-    for task, investor_name in tasks_with_users:
+    for task, investor_name, org_name, user_role in tasks_with_users:
         # Получаем отклики
         bids_res = await db.execute(
             select(TaskBid, User.full_name, User.organization_name)
@@ -44,14 +44,17 @@ async def list_tasks(
         bids_rows = bids_res.all()
 
         bids_list = []
-        for bid, lab_name, org_name in bids_rows:
+        for bid, lab_name, bid_org_name in bids_rows:
             bid_dto = TaskBidResponse.model_validate(bid)
             bid_dto.lab_name = lab_name
-            bid_dto.organization_name = org_name
+            bid_dto.organization_name = bid_org_name
             bids_list.append(bid_dto)
 
         t_res = TaskResponse.model_validate(task)
-        t_res.investor_name = investor_name
+        t_res.creator_id = task.investor_id
+        t_res.creator_role = user_role
+        t_res.creator_name = org_name or investor_name
+        t_res.investor_name = org_name or investor_name
         t_res.milestones = task.milestones or []
         t_res.bids_count = len(bids_list)
         t_res.bids = bids_list
@@ -73,7 +76,7 @@ async def create_task(
         budget=data.budget,
         deadline=data.deadline.strip(),
         milestones=data.milestones,
-        moderation_status="pending",
+        moderation_status="approved",
         status="open",
     )
     db.add(task)
@@ -85,8 +88,8 @@ async def create_task(
         notif = Notification(
             recipient_id=current_user.id,
             type="task_created",
-            title="R&D-задача отправлена на модерацию",
-            body=f"Задача «{task.title}» успешно размещена и отправлена на проверку модератору.",
+            title="R&D-задача опубликована",
+            body=f"Задача «{task.title}» успешно размещена и открыта для откликов лабораторий.",
             link_url="/dashboard?tab=tasks",
             severity="info",
         )
@@ -108,7 +111,10 @@ async def create_task(
         print(f"[TASK CREATE] Matchmaking warning: {e}")
 
     res = TaskResponse.model_validate(task)
-    res.investor_name = current_user.full_name
+    res.creator_id = current_user.id
+    res.creator_role = current_user.role
+    res.creator_name = current_user.organization_name or current_user.full_name
+    res.investor_name = current_user.organization_name or current_user.full_name
     res.bids_count = 0
     res.bids = []
     return res
@@ -159,12 +165,16 @@ async def get_task(
     current_user: User | None = Depends(get_current_user),
 ):
     """Получение детальной информации о задаче/тендере по ее ID."""
-    res = await db.execute(select(Task, User.full_name).join(User, Task.investor_id == User.id).where(Task.id == task_id))
+    res = await db.execute(
+        select(Task, User.full_name, User.organization_name, User.role)
+        .join(User, Task.investor_id == User.id)
+        .where(Task.id == task_id)
+    )
     row = res.first()
     if not row:
         raise HTTPException(status_code=404, detail="Задача не найдена")
 
-    task, investor_name = row
+    task, investor_name, org_name, user_role = row
 
     bids_res = await db.execute(
         select(TaskBid, User.full_name, User.organization_name)
@@ -175,14 +185,17 @@ async def get_task(
     bids_rows = bids_res.all()
 
     bids_list = []
-    for bid, lab_name, org_name in bids_rows:
+    for bid, lab_name, bid_org_name in bids_rows:
         bid_dto = TaskBidResponse.model_validate(bid)
         bid_dto.lab_name = lab_name
-        bid_dto.organization_name = org_name
+        bid_dto.organization_name = bid_org_name
         bids_list.append(bid_dto)
 
     t_res = TaskResponse.model_validate(task)
-    t_res.investor_name = investor_name
+    t_res.creator_id = task.investor_id
+    t_res.creator_role = user_role
+    t_res.creator_name = org_name or investor_name
+    t_res.investor_name = org_name or investor_name
     t_res.bids_count = len(bids_list)
     t_res.bids = bids_list
     return t_res
@@ -275,18 +288,25 @@ async def create_task_bid(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # Проверка существования задачи
+    res = await db.execute(select(Task).where(Task.id == task_id))
+    task = res.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="Задача не найдена")
+
+    # НИИ не может откликаться на собственную опубликованную задачу
+    if task.investor_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Вы не можете подавать отклик на собственную задачу.",
+        )
+
     # Проверка верификации НИИ
     if current_user.role == "lab" and current_user.verification_status != "verified":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Откликаться на задачи инвесторов могут только верифицированные НИИ.",
         )
-
-    # Проверка существования задачи
-    res = await db.execute(select(Task).where(Task.id == task_id))
-    task = res.scalar_one_or_none()
-    if not task:
-        raise HTTPException(status_code=404, detail="Задача не найдена")
 
     if task.status != "open":
         raise HTTPException(status_code=400, detail="Задача уже закрыта или находится в работе")
@@ -298,10 +318,11 @@ async def create_task_bid(
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Вы уже отправили отклик на эту задачу")
 
+    proposal = (data.proposal_text or data.work_plan or "Предложение от научной лаборатории").strip()
     bid = TaskBid(
         task_id=task_id,
         lab_id=current_user.id,
-        proposal_text=data.proposal_text.strip(),
+        proposal_text=proposal,
         proposed_budget=data.proposed_budget,
         status="pending",
     )

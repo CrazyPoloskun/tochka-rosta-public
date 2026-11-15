@@ -1,0 +1,40 @@
+{
+  "name": "atest",
+  "publisher": "wql0t",
+  "displayName": "ATest",
+  "description": "Генератор тестов с помощью ии",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "atest.openDashboard",
+        "title": "ATest: Open dashboard"
+      },
+      {
+        "command": "atest.generateTests",
+        "title": "ATest: Generate test"
+      },
+      {
+        "command": "atest.Init",
+        "title": "ATest: Init"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.10"
+  }
+}

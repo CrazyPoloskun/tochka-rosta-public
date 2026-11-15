@@ -1,0 +1,9 @@
+.vscode/**
+.gitignore
+.env
+src/**/*.ts
+tsconfig.json
+**/*.map
+node_modules/typescript/**
+node_modules/@types/**
+node_modules/undici-types/**

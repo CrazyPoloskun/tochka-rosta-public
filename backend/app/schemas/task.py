@@ -21,8 +21,11 @@ class TaskUpdateRequest(BaseModel):
 
 
 class TaskBidCreateRequest(BaseModel):
-    proposal_text: str = Field(..., min_length=1)
+    proposal_text: str | None = None
+    work_plan: str | None = None
     proposed_budget: Decimal = Field(..., ge=0)
+    proposed_deadline: str | None = None
+    attached_patents: list[Any] = Field(default_factory=list)
 
 
 class TaskBidResponse(BaseModel):
@@ -44,6 +47,9 @@ class TaskBidResponse(BaseModel):
 class TaskResponse(BaseModel):
     id: int
     investor_id: int
+    creator_id: int | None = None
+    creator_name: str | None = None
+    creator_role: str | None = None
     title: str
     description: str
     budget: Decimal

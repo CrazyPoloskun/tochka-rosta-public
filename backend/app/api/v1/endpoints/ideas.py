@@ -87,7 +87,7 @@ async def create_idea(
         budget_total=data.budget_total,
         milestones=data.milestones,
         file_hash=file_hash,
-        moderation_status="approved" if current_user.is_admin else "pending",
+        moderation_status="approved",
     )
     db.add(idea)
     await db.commit()

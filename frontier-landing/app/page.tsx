@@ -59,7 +59,7 @@ type AuthRole = "all" | "investor" | "lab";
 const authRoles: { id: AuthRole; label: string; icon: typeof Sparkles }[] = [
   { id: "all", label: "Вход", icon: Sparkles },
   { id: "investor", label: "Инвестор", icon: Building2 },
-  { id: "lab", label: "НИИ / Лаборатория", icon: FlaskConical },
+  { id: "lab", label: "НИИ", icon: FlaskConical },
 ];
 
 function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
@@ -121,15 +121,15 @@ function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
 
   const getSubtitle = () => {
     if (mode === "register") {
-      return "Создайте аккаунт для доступа к проектам, грантам и технологическому партнёрству";
+      return "Создайте аккаунт для доступа к платформе";
     }
     switch (role) {
       case "investor":
-        return "Вход в инвестиционный кабинет: сделки, аналитика и венчурные проекты";
+        return "Вход для инвесторов и партнёров";
       case "lab":
-        return "Кабинет научной организации: управление заявками на гранты и исследования";
+        return "Вход для институтов и лабораторий";
       default:
-        return "Единый доступ для инвесторов, научных сотрудников и кураторов платформы";
+        return "Единый доступ к платформе «Точка Роста»";
     }
   };
 
@@ -146,7 +146,7 @@ function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-5 overflow-y-auto"
       onClick={onClose}
     >
       {/* Затемнение и стеклянный фон с деликатным красным свечением */}
@@ -161,22 +161,22 @@ function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
       {/* Окно авторизации */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative z-10 w-full max-w-[440px] my-auto transition-all animate-in fade-in zoom-in-95 duration-250"
+        className="relative z-10 w-full max-w-[440px] my-auto transition-all animate-in fade-in zoom-in-95 duration-250 max-h-[92vh] flex flex-col"
       >
         {/* Верхний логотип */}
-        <div className="flex items-center justify-center gap-2.5 mb-4">
-          <svg width="34" height="34" viewBox="0 0 30 30" fill="none" aria-hidden="true">
+        <div className="flex items-center justify-center gap-2 mb-2.5 sm:mb-4 shrink-0">
+          <svg width="28" height="28" viewBox="0 0 30 30" fill="none" aria-hidden="true" className="sm:w-[32px] sm:h-[32px]">
             <path d="M4 12 18 4v8L4 20z" fill={RED} />
             <path d="M12 26 26 18v-8L12 18z" fill="#111" />
             <path d="M4 22 12 18v8l-8 4z" fill={RED} />
           </svg>
-          <span className="text-[17px] font-extrabold leading-[1.05] tracking-tight text-black">
+          <span className="text-[15px] sm:text-[17px] font-extrabold leading-[1.05] tracking-tight text-black">
             Точка<br />Роста
           </span>
         </div>
 
         {/* Переключатель ролей (Вход / Инвестор / НИИ) */}
-        <div className="relative mb-3.5 flex items-center rounded-full bg-white/95 p-1.5 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)] border border-black/[0.06] backdrop-blur-md">
+        <div className="relative mb-2.5 sm:mb-3.5 flex items-center rounded-full bg-white/95 p-1 sm:p-1.5 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)] border border-black/[0.06] backdrop-blur-md shrink-0">
           {authRoles.map((r) => {
             const Icon = r.icon;
             const active = role === r.id;
@@ -185,7 +185,7 @@ function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
                 key={r.id}
                 type="button"
                 onClick={() => setRole(r.id)}
-                className={`relative z-10 flex flex-1 items-center justify-center gap-1.5 py-2 px-2 text-center text-[12px] sm:text-[13px] font-semibold transition-all duration-200 cursor-pointer rounded-full ${
+                className={`relative z-10 flex flex-1 items-center justify-center gap-1 sm:gap-1.5 py-1.5 sm:py-2 px-1.5 sm:px-2 text-center text-[11px] sm:text-[13px] font-semibold transition-all duration-200 cursor-pointer rounded-full ${
                   active
                     ? "bg-[#111] text-white shadow-sm"
                     : "text-black/65 hover:text-black hover:bg-black/[0.03]"
@@ -199,7 +199,7 @@ function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
         </div>
 
         {/* Главная карточка с формой */}
-        <div className="relative overflow-hidden rounded-[28px] sm:rounded-[32px] bg-white/95 p-6 sm:p-8 shadow-[0_25px_70px_-15px_rgba(0,0,0,0.22),0_0_40px_rgba(227,6,19,0.06)] border border-white backdrop-blur-2xl">
+        <div className="relative overflow-y-auto rounded-[24px] sm:rounded-[32px] bg-white/95 p-4 sm:p-7 shadow-[0_25px_70px_-15px_rgba(0,0,0,0.22),0_0_40px_rgba(227,6,19,0.06)] border border-white backdrop-blur-2xl">
           
           {/* Деликатный дизайнерский градиентный блик в углу карточки */}
           <div
@@ -212,38 +212,38 @@ function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
             type="button"
             onClick={onClose}
             aria-label="Закрыть"
-            className="absolute right-4 top-4 sm:right-5 sm:top-5 flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.04] text-black/55 transition-all hover:bg-black/[0.08] hover:text-black hover:rotate-90 active:scale-95 cursor-pointer"
+            className="absolute right-3.5 top-3.5 sm:right-5 sm:top-5 flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-black/[0.04] text-black/55 transition-all hover:bg-black/[0.08] hover:text-black hover:rotate-90 active:scale-95 cursor-pointer"
           >
             <X size={15} />
           </button>
 
           {/* Заголовок карточки */}
           <div className="pr-6">
-            <h2 className="text-[22px] sm:text-[24px] font-extrabold tracking-tight text-[#111]">
+            <h2 className="text-[18px] sm:text-[22px] font-extrabold tracking-tight text-[#111]">
               {mode === "login" ? "Вход в личный кабинет" : "Регистрация аккаунта"}
             </h2>
-            <p className="mt-2 text-[12px] sm:text-[13px] leading-snug text-black/55 min-h-[34px]">
+            <p className="mt-1 text-[11px] sm:text-[13px] leading-snug text-black/55">
               {getSubtitle()}
             </p>
           </div>
 
           {/* Форма */}
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <form onSubmit={handleSubmit} className="mt-4 sm:mt-5 space-y-2.5 sm:space-y-3.5">
             
             {/* Дополнительное поле при регистрации */}
             {mode === "register" && (
-              <div className="space-y-1.5 animate-in fade-in duration-200">
-                <label className="block text-[10px] font-bold tracking-wider text-black/70">
+              <div className="space-y-1 animate-in fade-in duration-200">
+                <label className="block text-[9px] sm:text-[10px] font-bold tracking-wider text-black/70">
                   {role === "lab"
-                    ? "НАЗВАНИЕ ЛАБОРАТОРИИ / НИИ"
+                    ? "НАЗВАНИЕ НИИ / ЛАБОРАТОРИИ"
                     : role === "investor"
-                    ? "НАЗВАНИЕ ФОНДА ИЛИ ВАШЕ ИМЯ"
+                    ? "НАЗВАНИЕ ФОНДА ИЛИ ИМЯ"
                     : "ИМЯ ИЛИ ОРГАНИЗАЦИЯ"}{" "}
                   <span style={{ color: RED }}>*</span>
                 </label>
-                <div className="group relative flex items-center rounded-2xl bg-[#f4f5f7] border border-black/[0.06] transition-all focus-within:border-[#E30613] focus-within:bg-white focus-within:ring-4 focus-within:ring-red-500/10">
-                  <span className="pl-4 text-black/40 group-focus-within:text-[#E30613] transition-colors">
-                    <Building2 size={16} />
+                <div className="group relative flex items-center rounded-xl sm:rounded-2xl bg-[#f4f5f7] border border-black/[0.06] transition-all focus-within:border-[#E30613] focus-within:bg-white focus-within:ring-2 focus-within:ring-red-500/10">
+                  <span className="pl-3 sm:pl-4 text-black/40 group-focus-within:text-[#E30613] transition-colors">
+                    <Building2 size={15} />
                   </span>
                   <input
                     type="text"
@@ -252,23 +252,23 @@ function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
                     onChange={(e) => setName(e.target.value)}
                     placeholder={
                       role === "lab"
-                        ? "Лаборатория квантовых материалов"
-                        : "ООО «Венчурные инвестиции»"
+                        ? "Институт биофизики СО РАН"
+                        : "ООО «Вектор»"
                     }
-                    className="w-full bg-transparent py-3.5 pl-3 pr-4 text-[13px] font-medium text-[#111] placeholder:text-black/35 focus:outline-none"
+                    className="w-full bg-transparent py-2.5 sm:py-3 pl-2.5 sm:pl-3 pr-3 sm:pr-4 text-[12px] sm:text-[13px] font-medium text-[#111] placeholder:text-black/35 focus:outline-none"
                   />
                 </div>
               </div>
             )}
 
             {/* Электронная почта */}
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-bold tracking-wider text-black/70">
-                ЭЛЕКТРОННАЯ ПОЧТА <span style={{ color: RED }}>*</span>
+            <div className="space-y-1">
+              <label className="block text-[9px] sm:text-[10px] font-bold tracking-wider text-black/70">
+                EMAIL <span style={{ color: RED }}>*</span>
               </label>
-              <div className="group relative flex items-center rounded-2xl bg-[#f4f5f7] border border-black/[0.06] transition-all focus-within:border-[#E30613] focus-within:bg-white focus-within:ring-4 focus-within:ring-red-500/10">
-                <span className="pl-4 text-black/40 group-focus-within:text-[#E30613] transition-colors">
-                  <Mail size={16} />
+              <div className="group relative flex items-center rounded-xl sm:rounded-2xl bg-[#f4f5f7] border border-black/[0.06] transition-all focus-within:border-[#E30613] focus-within:bg-white focus-within:ring-2 focus-within:ring-red-500/10">
+                <span className="pl-3 sm:pl-4 text-black/40 group-focus-within:text-[#E30613] transition-colors">
+                  <Mail size={15} />
                 </span>
                 <input
                   type="email"
@@ -276,15 +276,15 @@ function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={getEmailPlaceholder()}
-                  className="w-full bg-transparent py-3.5 pl-3 pr-4 text-[13px] font-medium text-[#111] placeholder:text-black/35 focus:outline-none"
+                  className="w-full bg-transparent py-2.5 sm:py-3 pl-2.5 sm:pl-3 pr-3 sm:pr-4 text-[12px] sm:text-[13px] font-medium text-[#111] placeholder:text-black/35 focus:outline-none"
                 />
               </div>
             </div>
 
             {/* Пароль */}
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <label className="block text-[10px] font-bold tracking-wider text-black/70">
+                <label className="block text-[9px] sm:text-[10px] font-bold tracking-wider text-black/70">
                   ПАРОЛЬ <span style={{ color: RED }}>*</span>
                 </label>
                 {mode === "login" && (
@@ -297,9 +297,9 @@ function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
                   </button>
                 )}
               </div>
-              <div className="group relative flex items-center rounded-2xl bg-[#f4f5f7] border border-black/[0.06] transition-all focus-within:border-[#E30613] focus-within:bg-white focus-within:ring-4 focus-within:ring-red-500/10">
-                <span className="pl-4 text-black/40 group-focus-within:text-[#E30613] transition-colors">
-                  <Lock size={16} />
+              <div className="group relative flex items-center rounded-xl sm:rounded-2xl bg-[#f4f5f7] border border-black/[0.06] transition-all focus-within:border-[#E30613] focus-within:bg-white focus-within:ring-2 focus-within:ring-red-500/10">
+                <span className="pl-3 sm:pl-4 text-black/40 group-focus-within:text-[#E30613] transition-colors">
+                  <Lock size={15} />
                 </span>
                 <input
                   type={showPassword ? "text" : "password"}
@@ -307,45 +307,45 @@ function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-transparent py-3.5 pl-3 pr-11 text-[13px] font-medium text-[#111] placeholder:text-black/35 focus:outline-none"
+                  className="w-full bg-transparent py-2.5 sm:py-3 pl-2.5 sm:pl-3 pr-10 text-[12px] sm:text-[13px] font-medium text-[#111] placeholder:text-black/35 focus:outline-none"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
-                  className="absolute right-3.5 flex h-7 w-7 items-center justify-center rounded-full text-black/40 hover:text-black hover:bg-black/5 transition-colors cursor-pointer"
+                  className="absolute right-3 flex h-6 w-6 items-center justify-center rounded-full text-black/40 hover:text-black hover:bg-black/5 transition-colors cursor-pointer"
                 >
-                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
               </div>
             </div>
 
             {/* Запомнить меня */}
             {mode === "login" && (
-              <label className="flex items-center gap-2.5 pt-0.5 cursor-pointer select-none">
+              <label className="flex items-center gap-2 pt-0.5 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="h-4 w-4 rounded border-black/20 accent-[#E30613] cursor-pointer"
+                  className="h-3.5 w-3.5 rounded border-black/20 accent-[#E30613] cursor-pointer"
                 />
-                <span className="text-[11px] font-medium text-black/60">
-                  Запомнить меня на этом устройстве
+                <span className="text-[10px] sm:text-[11px] font-medium text-black/60">
+                  Запомнить меня
                 </span>
               </label>
             )}
 
             {/* Кнопка отправки формы */}
-            <div className="pt-2">
+            <div className="pt-1.5">
               <button
                 type="submit"
                 disabled={isSubmitting || isSuccess}
-                className="group relative flex h-[46px] sm:h-[48px] w-full items-center justify-center gap-3 rounded-full bg-[#111] px-6 text-[13px] font-semibold text-white shadow-[0_10px_24px_-6px_rgba(0,0,0,0.3)] transition-all duration-300 hover:bg-[#E30613] hover:shadow-[0_12px_28px_-6px_rgba(227,6,19,0.55)] hover:-translate-y-0.5 active:translate-y-0 cursor-pointer disabled:opacity-75"
+                className="group relative flex h-[40px] sm:h-[46px] w-full items-center justify-center gap-2 rounded-xl sm:rounded-full bg-[#111] px-5 text-[12px] sm:text-[13px] font-semibold text-white shadow-[0_10px_24px_-6px_rgba(0,0,0,0.3)] transition-all duration-300 hover:bg-[#E30613] hover:shadow-[0_12px_28px_-6px_rgba(227,6,19,0.55)] active:scale-[0.99] cursor-pointer disabled:opacity-75"
               >
                 {isSuccess ? (
                   <span className="flex items-center gap-2 text-white animate-in zoom-in-90 duration-200">
-                    <CheckCircle2 size={16} />{" "}
-                    {isAdminRedirect ? "Вход администратора! Переход..." : "Успешно!"}
+                    <CheckCircle2 size={15} />{" "}
+                    {isAdminRedirect ? "Переход..." : "Успешно!"}
                   </span>
                 ) : isSubmitting ? (
                   <span className="flex items-center gap-2">
@@ -353,15 +353,15 @@ function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                     </svg>
-                    {isAdminRedirect ? "Авторизация администратора..." : "Вход в систему..."}
+                    {isAdminRedirect ? "Авторизация..." : "Вход..."}
                   </span>
                 ) : (
                   <>
                     <span>
-                      {mode === "login" ? "Войти в личный кабинет" : "Создать аккаунт"}
+                      {mode === "login" ? "Войти" : "Зарегистрироваться"}
                     </span>
                     <ArrowRight
-                      size={14}
+                      size={13}
                       className="transition-transform group-hover:translate-x-1"
                     />
                   </>
@@ -371,10 +371,10 @@ function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
           </form>
 
           {/* Разделитель и переключение Вход / Регистрация */}
-          <div className="mt-6 pt-5 border-t border-black/[0.08] text-center">
+          <div className="mt-4 pt-3.5 border-t border-black/[0.08] text-center">
             {mode === "login" ? (
-              <p className="text-[12px] text-black/60">
-                Ещё нет аккаунта?{" "}
+              <p className="text-[11px] sm:text-[12px] text-black/60">
+                Нет аккаунта?{" "}
                 <button
                   type="button"
                   onClick={() => setMode("register")}
@@ -384,14 +384,14 @@ function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
                 </button>
               </p>
             ) : (
-              <p className="text-[12px] text-black/60">
-                Уже зарегистрированы?{" "}
+              <p className="text-[11px] sm:text-[12px] text-black/60">
+                Есть аккаунт?{" "}
                 <button
                   type="button"
                   onClick={() => setMode("login")}
                   className="font-bold text-[#E30613] hover:underline cursor-pointer"
                 >
-                  Войти в кабинет
+                  Войти
                 </button>
               </p>
             )}

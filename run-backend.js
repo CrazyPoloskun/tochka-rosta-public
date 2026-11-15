@@ -74,11 +74,14 @@ async function tryStartPostgres() {
 
 function runMigrations() {
   console.log("\x1b[36m[БД] Проверка и применение миграций базы данных...\x1b[0m");
+  const venvPythonWin = path.join(backendDir, "venv", "python.exe");
   const venvAlembicWin = path.join(backendDir, "venv", "Scripts", "alembic.exe");
   const venvAlembicUnix = path.join(backendDir, "venv", "bin", "alembic");
 
   let alembicCmd = "alembic";
-  if (isWin && fs.existsSync(venvAlembicWin)) {
+  if (isWin && fs.existsSync(venvPythonWin)) {
+    alembicCmd = `"${venvPythonWin}" -m alembic`;
+  } else if (isWin && fs.existsSync(venvAlembicWin)) {
     alembicCmd = `"${venvAlembicWin}"`;
   } else if (!isWin && fs.existsSync(venvAlembicUnix)) {
     alembicCmd = `"${venvAlembicUnix}"`;
@@ -101,13 +104,17 @@ async function start() {
   runMigrations();
 
   // Запуск Uvicorn (FastAPI)
+  const venvPythonWin = path.join(backendDir, "venv", "python.exe");
   const venvUvicornWin = path.join(backendDir, "venv", "Scripts", "uvicorn.exe");
   const venvUvicornUnix = path.join(backendDir, "venv", "bin", "uvicorn");
 
   let cmd = "uvicorn";
   let args = ["app.main:app", "--reload", "--host", "127.0.0.1", "--port", "8000"];
 
-  if (isWin && fs.existsSync(venvUvicornWin)) {
+  if (isWin && fs.existsSync(venvPythonWin)) {
+    cmd = venvPythonWin;
+    args = ["-m", "uvicorn", "app.main:app", "--reload", "--host", "127.0.0.1", "--port", "8000"];
+  } else if (isWin && fs.existsSync(venvUvicornWin)) {
     cmd = venvUvicornWin;
   } else if (!isWin && fs.existsSync(venvUvicornUnix)) {
     cmd = venvUvicornUnix;

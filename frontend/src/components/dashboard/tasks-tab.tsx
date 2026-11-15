@@ -387,9 +387,10 @@ export function TasksTab({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          proposal_text: bidPlan.trim() || `Предложение по выполнению R&D-задачи от ${user?.organization_name || user?.full_name}`,
+          work_plan: bidPlan.trim(),
           proposed_budget: Number(bidBudget) || bidModalTask.budget,
           proposed_deadline: bidDeadline.trim(),
-          work_plan: bidPlan.trim(),
           attached_patents: selectedPatents,
         }),
       })
@@ -453,26 +454,24 @@ export function TasksTab({
           </p>
         </div>
 
-        {!isLab && (
-          <div className="flex flex-wrap items-center gap-2.5">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsAiAssistantOpen(true)}
-              className="text-xs font-bold border-[#F81B00]/30 hover:border-[#F81B00] bg-[#FFF5F5] hover:bg-[#FFEBEB] text-[#F81B00] rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 h-9 px-3.5"
-            >
-              <HiOutlineSparkles className="size-4 text-[#F81B00]" />
-              <span>План реализации (ИИ)</span>
-            </Button>
-            <Button
-              onClick={() => setIsNewTaskOpen(true)}
-              className="h-9 px-4 text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
-            >
-              <HiOutlinePlusCircle className="size-4" />
-              <span>+ Разместить R&D-задачу</span>
-            </Button>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setIsAiAssistantOpen(true)}
+            className="text-xs font-bold border-[#F81B00]/30 hover:border-[#F81B00] bg-[#FFF5F5] hover:bg-[#FFEBEB] text-[#F81B00] rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 h-9 px-3.5"
+          >
+            <HiOutlineSparkles className="size-4 text-[#F81B00]" />
+            <span>План реализации (ИИ)</span>
+          </Button>
+          <Button
+            onClick={() => setIsNewTaskOpen(true)}
+            className="h-9 px-4 text-xs font-bold bg-[#111111] hover:bg-black text-white rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
+          >
+            <HiOutlinePlusCircle className="size-4" />
+            <span>+ Разместить R&D-задачу</span>
+          </Button>
+        </div>
       </div>
 
       {/* Sub-tabs for Lab */}
@@ -800,7 +799,7 @@ export function TasksTab({
                 </div>
 
                 {/* Lab Action */}
-                {isLab && task.status === "open" && (
+                {isLab && task.status === "open" && !isCreator && (
                   <div className="pt-3 border-t border-[#F1F3F5] flex items-center justify-between">
                     <span className="text-xs text-[#6B7280]">
                       Подано откликов от лабораторий: <strong>{bidsCount}</strong>
