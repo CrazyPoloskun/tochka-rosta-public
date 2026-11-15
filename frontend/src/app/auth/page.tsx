@@ -884,9 +884,6 @@ function AuthForm() {
           </CardContent>
         </Card>
       </main>
-          </CardContent>
-        </Card>
-      </main>
     </div>
   )
 }
