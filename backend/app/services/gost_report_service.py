@@ -209,50 +209,18 @@ def build_gost_docx(
     p_meta.add_run("Научный руководитель: ").bold = True
     p_meta.add_run(f"{lab_rep_name or 'Ведущий научный сотрудник'}\n")
 
-    # Город и год
+    # Город и год (низ 1-й страницы)
     add_p("Москва — 2026", align=WD_ALIGN_PARAGRAPH.CENTER, space_after=0, indent=False)
     doc.add_page_break()
 
-    # ================== СПИСОК ИСПОЛНИТЕЛЕЙ ==================
-    add_heading_gost("СПИСОК ИСПОЛНИТЕЛЕЙ")
-    if executors:
-        for ex in executors:
-            name = ex.get("name", "Исполнитель")
-            role = ex.get("role", "Научный сотрудник")
-            degree = ex.get("degree", "")
-            deg_str = f", {degree}" if degree else ""
-            add_p(f"• {name} — {role}{deg_str}", indent=True, space_after=4)
-    else:
-        add_p(f"• {lab_rep_name or 'Руководитель лаборатории'} — руководитель работ, сбор и анализ результатов.", indent=True)
-        add_p("• Коллектив научного подразделения организации-исполнителя.", indent=True)
+    # ================== СТРАНИЦА 2 И ДАЛЕЕ: ТЕКСТ ОТЧЕТА, НАПИСАННЫЙ АВТОРОМ ==================
+    author_text = (main_research_text or intro_text or abstract_text or "").strip()
+    if not author_text:
+        author_text = "Текст отчета не предоставлен."
 
-    # ================== РЕФЕРАТ ==================
-    add_heading_gost("РЕФЕРАТ")
-    add_p(abstract_text if abstract_text else f"Отчет содержит результаты выполнения этапа №{milestone_step} «{milestone_title}» по проекту «{project_title}». Проведен комплекс теоретических и прикладных исследований, получены экспериментальные данные, подтверждающие заявленные технические параметры.", indent=True)
-
-    # ================== ВВЕДЕНИЕ ==================
-    add_heading_gost("ВВЕДЕНИЕ")
-    add_p(intro_text if intro_text else f"Целью этапа является разработка и валидация научно-технических решений в соответствии с требованиями технического задания на проведение НИОКР «{project_title}». Актуальность работы обусловлена необходимостью импортозамещения и технологического суверенитета в заявленной отрасли.", indent=True)
-
-    # ================== 1. ОСНОВНАЯ ЧАСТЬ ==================
-    add_heading_gost("1. ОСНОВНЫЕ РЕЗУЛЬТАТЫ И НАУЧНО-ТЕХНИЧЕСКАЯ ЧАСТЬ")
-    paragraphs = main_research_text.split("\n\n") if "\n\n" in main_research_text else [main_research_text]
+    paragraphs = [p.strip() for p in author_text.split("\n") if p.strip()]
     for p_text in paragraphs:
-        if p_text.strip():
-            add_p(p_text.strip(), indent=True)
-
-    # ================== ЗАКЛЮЧЕНИЕ ==================
-    add_heading_gost("ЗАКЛЮЧЕНИЕ")
-    add_p(conclusion_text if conclusion_text else f"В ходе выполнения этапа №{milestone_step} научно-технические задачи решены в полном объеме. Полученные параметры соответствуют Техническому заданию. Рекомендуется переход к следующему этапу реализации проекта.", indent=True)
-
-    # ================== СПИСОК ИСПОЛЬЗОВАННЫХ ИСТОЧНИКОВ ==================
-    add_heading_gost("СПИСОК ИСПОЛЬЗОВАННЫХ ИСТОЧНИКОВ")
-    if references:
-        for idx, ref in enumerate(references, 1):
-            add_p(f"{idx}. {ref}", indent=True, space_after=4)
-    else:
-        add_p("1. ГОСТ 7.32-2017. Система стандартов по информации, библиотечному и издательскому делу. Отчет о научно-исследовательской работе. Структура и правила оформления.", indent=True, space_after=4)
-        add_p("2. Гражданский кодекс Российской Федерации. Часть 4. Права на результаты интеллектуальной деятельности и средства индивидуализации.", indent=True, space_after=4)
+        add_p(p_text, align=WD_ALIGN_PARAGRAPH.JUSTIFY, space_after=6, line_spacing=1.5, indent=True)
 
     doc.save(output_path)
     return output_path
@@ -360,75 +328,52 @@ def build_gost_pdf(
     y -= 20
     draw_meta_row("Научный руководитель:", lab_rep_name or "Ведущий научный сотрудник", y)
 
-    # Внизу титульного листа
+    # Внизу титульного листа (1-я страница)
     c.setFont(font_reg, 10)
     c.drawCentredString(width / 2, 57, "Москва — 2026")
     c.showPage()
 
-    # Сквозная пагинация разделов
+    # ================== СТРАНИЦА 2 И ДАЛЕЕ: ТЕКСТ ОТЧЕТА, НАПИСАННЫЙ АВТОРОМ ==================
     cur_page = 2
+    cur_y = height - 57
+    c.setFont(font_reg, 10.5)
+    line_height = 15
 
-    def render_section(heading: str, body: str):
-        nonlocal cur_page
-        cur_y = height - 57
+    author_text = (main_research_text or intro_text or abstract_text or "").strip()
+    if not author_text:
+        author_text = "Текст отчета не предоставлен."
 
-        # Заголовок секции
-        c.setFont(font_bold, 12)
-        c.setFillColor(colors.black)
-        c.drawCentredString(width / 2, cur_y, heading.upper())
-        cur_y -= 28
+    paragraphs = [p.strip() for p in author_text.split("\n") if p.strip()]
 
-        c.setFont(font_reg, 10.5)
-        line_height = 15
+    for p in paragraphs:
+        words = p.split()
+        first_line = True
+        cur_line = ""
+        indent_prefix = "        "  # ~1.25 см красная строка
 
-        paragraphs = [p.strip() for p in body.split("\n") if p.strip()]
-        if not paragraphs:
-            paragraphs = ["—"]
+        w_idx = 0
+        while w_idx < len(words):
+            w = words[w_idx]
+            prefix = (indent_prefix if first_line else "")
+            test_line = (cur_line + " " + w) if cur_line else (prefix + w)
 
-        for p in paragraphs:
-            words = p.split()
-            first_line = True
-            cur_line = ""
-            indent_prefix = "        "  # ~1.25 см красная строка
+            if c.stringWidth(test_line, font_reg, 10.5) <= content_width:
+                cur_line = test_line
+                w_idx += 1
+            else:
+                if not cur_line:
+                    part = ""
+                    for ch in w:
+                        if c.stringWidth(prefix + part + ch, font_reg, 10.5) <= content_width:
+                            part += ch
+                        else:
+                            break
+                    if not part:
+                        part = w[:20]
+                    cur_line = prefix + part
+                    words[w_idx] = w[len(part):]
 
-            w_idx = 0
-            while w_idx < len(words):
-                w = words[w_idx]
-                prefix = (indent_prefix if first_line else "")
-                test_line = (cur_line + " " + w) if cur_line else (prefix + w)
-
-                if c.stringWidth(test_line, font_reg, 10.5) <= content_width:
-                    cur_line = test_line
-                    w_idx += 1
-                else:
-                    if not cur_line:
-                        # Слово само по себе длиннее всей строки (обрезаем по частям)
-                        part = ""
-                        for ch in w:
-                            if c.stringWidth(prefix + part + ch, font_reg, 10.5) <= content_width:
-                                part += ch
-                            else:
-                                break
-                        if not part:
-                            part = w[:20]
-                        cur_line = prefix + part
-                        words[w_idx] = w[len(part):]
-
-                    # Проверка нижней границы листа перед печатью строки
-                    if cur_y < 65:
-                        c.setFont(font_reg, 9)
-                        c.drawCentredString(width / 2, 38, str(cur_page))
-                        c.showPage()
-                        cur_page += 1
-                        cur_y = height - 57
-                        c.setFont(font_reg, 10.5)
-
-                    c.drawString(margin_left, cur_y, cur_line)
-                    cur_y -= line_height
-                    first_line = False
-                    cur_line = ""
-
-            if cur_line:
+                # Проверка нижней границы листа
                 if cur_y < 65:
                     c.setFont(font_reg, 9)
                     c.drawCentredString(width / 2, 38, str(cur_page))
@@ -439,64 +384,28 @@ def build_gost_pdf(
 
                 c.drawString(margin_left, cur_y, cur_line)
                 cur_y -= line_height
+                first_line = False
+                cur_line = ""
 
-            # Межабзацный отступ
-            cur_y -= 8
+        if cur_line:
+            if cur_y < 65:
+                c.setFont(font_reg, 9)
+                c.drawCentredString(width / 2, 38, str(cur_page))
+                c.showPage()
+                cur_page += 1
+                cur_y = height - 57
+                c.setFont(font_reg, 10.5)
 
-        # Отрисовка номера страницы внизу и завершение раздела
-        c.setFont(font_reg, 9)
-        c.drawCentredString(width / 2, 38, str(cur_page))
-        c.showPage()
-        cur_page += 1
+            c.drawString(margin_left, cur_y, cur_line)
+            cur_y -= line_height
 
-    # Подготовка текстов разделов
-    executors_text = ""
-    if executors:
-        for ex in executors:
-            name = ex.get("name", "Исполнитель")
-            role = ex.get("role", "Научный сотрудник")
-            degree = ex.get("degree", "")
-            deg_str = f", {degree}" if degree else ""
-            executors_text += f"• {name} — {role}{deg_str}\n"
-    else:
-        executors_text = f"• {lab_rep_name or 'Руководитель лаборатории'} — руководитель работ, сбор и анализ результатов.\n• Коллектив научного подразделения организации-исполнителя."
+        # Межабзацный отступ
+        cur_y -= 8
 
-    references_text = ""
-    if references:
-        for idx, ref in enumerate(references, 1):
-            references_text += f"{idx}. {ref}\n"
-    else:
-        references_text = (
-            "1. ГОСТ 7.32-2017. Система стандартов по информации, библиотечному и издательскому делу. Отчет о научно-исследовательской работе. Структура и правила оформления.\n"
-            "2. Гражданский кодекс Российской Федерации. Часть 4. Права на результаты интеллектуальной деятельности и средства индивидуализации."
-        )
-
-    # 1. СПИСОК ИСПОЛНИТЕЛЕЙ
-    render_section("СПИСОК ИСПОЛНИТЕЛЕЙ", executors_text)
-
-    # 2. РЕФЕРАТ
-    render_section(
-        "РЕФЕРАТ",
-        abstract_text or f"Отчет содержит результаты выполнения этапа №{milestone_step} «{milestone_title}» по проекту «{project_title}». Проведен комплекс теоретических и прикладных исследований, получены экспериментальные данные, подтверждающие заявленные технические параметры.",
-    )
-
-    # 3. ВВЕДЕНИЕ
-    render_section(
-        "ВВЕДЕНИЕ",
-        intro_text or f"Целью этапа является разработка и валидация научно-технических решений в соответствии с требованиями технического задания на проведение НИОКР «{project_title}». Актуальность работы обусловлена необходимостью импортозамещения и технологического суверенитета в заявленной отрасли.",
-    )
-
-    # 4. ОСНОВНАЯ ЧАСТЬ
-    render_section("1. ОСНОВНЫЕ РЕЗУЛЬТАТЫ И НАУЧНО-ТЕХНИЧЕСКАЯ ЧАСТЬ", main_research_text or "Научно-исследовательские работы проведены в полном объеме.")
-
-    # 5. ЗАКЛЮЧЕНИЕ
-    render_section(
-        "ЗАКЛЮЧЕНИЕ",
-        conclusion_text or f"В ходе выполнения этапа №{milestone_step} научно-технические задачи решены в полном объеме. Полученные параметры соответствуют Техническому заданию. Рекомендуется переход к следующему этапу реализации проекта.",
-    )
-
-    # 6. СПИСОК ИСПОЛЬЗОВАННЫХ ИСТОЧНИКОВ
-    render_section("СПИСОК ИСПОЛЬЗОВАННЫХ ИСТОЧНИКОВ", references_text)
+    # Номер на последней странице
+    c.setFont(font_reg, 9)
+    c.drawCentredString(width / 2, 38, str(cur_page))
+    c.showPage()
 
     c.save()
     return output_path

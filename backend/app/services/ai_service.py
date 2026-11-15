@@ -81,7 +81,16 @@ async def _safe_http_post(
                 res = await client.post(url, headers=headers or {}, json=payload)
                 return _SafeHttpResponse(status_code=res.status_code, text=res.text)
         except Exception as e:
-            logger.warning(f"httpx call failed ({e}), attempting fallback...")
+            logger.warning(f"httpx call failed via proxy {proxy or 'direct'} ({e})")
+            if proxy:
+                # Если прокси (gluetun) недоступен или перезапускается, пробуем напрямую
+                try:
+                    logger.info("Attempting direct connection fallback to OpenRouter...")
+                    async with _create_httpx_client(timeout=timeout, proxy=None) as direct_client:
+                        res = await direct_client.post(url, headers=headers or {}, json=payload)
+                        return _SafeHttpResponse(status_code=res.status_code, text=res.text)
+                except Exception as direct_e:
+                    logger.warning(f"direct httpx also failed: {direct_e}")
 
     hdrs = dict(headers or {})
     if "Content-Type" not in hdrs:
@@ -209,6 +218,11 @@ async def call_real_llm(
 
     try:
         res = await _safe_http_post(openrouter_url, headers=headers, payload=payload, proxy=ai_proxy)
+
+        # Если прокси вернул 502/503/504 (сбой WireGuard/Gluetun), пробуем напрямую
+        if res.status_code in (502, 503, 504) and ai_proxy:
+            logger.warning(f"Proxy {ai_proxy} returned status {res.status_code}. Retrying direct connection...")
+            res = await _safe_http_post(openrouter_url, headers=headers, payload=payload, proxy=None)
 
         # Некоторые модели OpenRouter возвращают 400 при наличии response_format
         if res.status_code == 400 and response_format_json:

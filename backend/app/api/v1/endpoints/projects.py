@@ -196,6 +196,51 @@ async def submit_milestone_report(
     milestone.ai_summary = ai_summary
     milestone.status = "in_review"
 
+    # Автоматическое формирование файлов ГОСТ (DOCX и PDF) с титульным листом и текстом автора
+    try:
+        lab_res = await db.execute(select(User).where(User.id == project.lab_id))
+        lab_user = lab_res.scalar_one_or_none()
+        inv_res = await db.execute(select(User).where(User.id == project.investor_id))
+        inv_user = inv_res.scalar_one_or_none()
+
+        lab_org = (lab_user.organization_name or lab_user.full_name) if lab_user else "Научно-исследовательская организация"
+        lab_rep = (lab_user.representative_name or lab_user.full_name) if lab_user else "Руководитель НИИ"
+        inv_org = (inv_user.organization_name or inv_user.full_name) if inv_user else "Заказчик"
+        inv_rep = (inv_user.representative_name or inv_user.full_name) if inv_user else "Представитель заказчика"
+
+        folder = os.path.join(UPLOAD_DIR, "gost_reports", f"proj_{project_id}_ms_{milestone_id}")
+        os.makedirs(folder, exist_ok=True)
+
+        docx_path = os.path.join(folder, f"GOST_7.32_Report_Stage_{milestone.step_number}.docx")
+        pdf_path = os.path.join(folder, f"GOST_7.32_Report_Stage_{milestone.step_number}.pdf")
+
+        build_gost_docx(
+            output_path=docx_path,
+            project_title=project.title,
+            milestone_step=milestone.step_number,
+            milestone_title=milestone.title,
+            lab_org_name=lab_org,
+            lab_rep_name=lab_rep,
+            investor_org_name=inv_org,
+            investor_rep_name=inv_rep,
+            main_research_text=data.raw_report,
+        )
+        build_gost_pdf(
+            output_path=pdf_path,
+            project_title=project.title,
+            milestone_step=milestone.step_number,
+            milestone_title=milestone.title,
+            lab_org_name=lab_org,
+            lab_rep_name=lab_rep,
+            investor_org_name=inv_org,
+            investor_rep_name=inv_rep,
+            main_research_text=data.raw_report,
+        )
+        milestone.gost_docx_path = docx_path
+        milestone.gost_pdf_path = pdf_path
+    except Exception as e:
+        logger.error(f"Failed to auto-generate report files on submit: {e}")
+
     await db.commit()
     return {"message": "Отчёт успешно загружен и передан инвестору на согласование", "ai_summary": ai_summary}
 
@@ -930,6 +975,55 @@ async def download_gost_report(
         raise HTTPException(status_code=404, detail="Этап не найден")
 
     file_path = milestone.gost_docx_path if format.lower() == "docx" else milestone.gost_pdf_path
+    if not file_path or not os.path.exists(file_path):
+        # Если отчёт был сдан текстом (raw_report), генерируем файлы на лету
+        if milestone.raw_report:
+            try:
+                lab_res = await db.execute(select(User).where(User.id == project.lab_id))
+                lab_user = lab_res.scalar_one_or_none()
+                inv_res = await db.execute(select(User).where(User.id == project.investor_id))
+                inv_user = inv_res.scalar_one_or_none()
+
+                lab_org = (lab_user.organization_name or lab_user.full_name) if lab_user else "Научно-исследовательская организация"
+                lab_rep = (lab_user.representative_name or lab_user.full_name) if lab_user else "Руководитель НИИ"
+                inv_org = (inv_user.organization_name or inv_user.full_name) if inv_user else "Заказчик"
+                inv_rep = (inv_user.representative_name or inv_user.full_name) if inv_user else "Представитель заказчика"
+
+                folder = os.path.join(UPLOAD_DIR, "gost_reports", f"proj_{project_id}_ms_{milestone_id}")
+                os.makedirs(folder, exist_ok=True)
+
+                docx_path = os.path.join(folder, f"GOST_7.32_Report_Stage_{milestone.step_number}.docx")
+                pdf_path = os.path.join(folder, f"GOST_7.32_Report_Stage_{milestone.step_number}.pdf")
+
+                build_gost_docx(
+                    output_path=docx_path,
+                    project_title=project.title,
+                    milestone_step=milestone.step_number,
+                    milestone_title=milestone.title,
+                    lab_org_name=lab_org,
+                    lab_rep_name=lab_rep,
+                    investor_org_name=inv_org,
+                    investor_rep_name=inv_rep,
+                    main_research_text=milestone.raw_report,
+                )
+                build_gost_pdf(
+                    output_path=pdf_path,
+                    project_title=project.title,
+                    milestone_step=milestone.step_number,
+                    milestone_title=milestone.title,
+                    lab_org_name=lab_org,
+                    lab_rep_name=lab_rep,
+                    investor_org_name=inv_org,
+                    investor_rep_name=inv_rep,
+                    main_research_text=milestone.raw_report,
+                )
+                milestone.gost_docx_path = docx_path
+                milestone.gost_pdf_path = pdf_path
+                await db.commit()
+                file_path = docx_path if format.lower() == "docx" else pdf_path
+            except Exception as e:
+                logger.error(f"On-demand GOST report generation failed: {e}")
+
     if not file_path or not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail=f"Отчёт в формате {format.upper()} ещё не был сгенерирован")
 
