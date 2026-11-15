@@ -312,10 +312,6 @@ export function AuthModal() {
                 />
               </div>
 
-              <div className="p-3 bg-[#F5F6F8] rounded-xl text-xs text-[#4B5563] border border-[#E2E5EB]">
-                Регистрация для физических лиц, спонсоров науки и представителей коммерческих компаний, ищущих R&D разработки.
-              </div>
-
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-[#111111] uppercase tracking-wide">
                   Ваше имя или наименование инвестора *
@@ -410,10 +406,6 @@ export function AuthModal() {
                     setError(null)
                   }}
                 />
-              </div>
-
-              <div className="p-3 bg-amber-50/80 rounded-xl text-xs text-amber-900 border border-amber-200">
-                <span className="font-bold">Верификация научной организации:</span> аккаунт создаётся для НИИ, лабораторий и вузов. После регистрации реквизиты проверяются модерацией.
               </div>
 
               <div className="space-y-1.5">

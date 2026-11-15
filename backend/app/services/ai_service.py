@@ -1,6 +1,7 @@
 import io
 import json
 import logging
+import os
 import re
 import asyncio
 import urllib.request
@@ -29,11 +30,34 @@ class _SafeHttpResponse:
             return {}
 
 
-def _sync_urllib_post(url: str, headers: dict, payload: dict, timeout: float = 60.0) -> _SafeHttpResponse:
+def _create_httpx_client(timeout: float = 60.0, proxy: str | None = None) -> Any:
+    """Создаёт httpx.AsyncClient с поддержкой proxy для любых версий httpx (<=0.27 и >=0.28)."""
+    timeout_obj = httpx.Timeout(timeout, connect=15.0)
+    if not proxy:
+        return httpx.AsyncClient(timeout=timeout_obj)
+    try:
+        # httpx >= 0.28
+        return httpx.AsyncClient(timeout=timeout_obj, proxy=proxy)
+    except TypeError:
+        # httpx <= 0.27
+        return httpx.AsyncClient(timeout=timeout_obj, proxies=proxy)
+
+
+def _sync_urllib_post(
+    url: str,
+    headers: dict,
+    payload: dict,
+    proxy: str | None = None,
+    timeout: float = 60.0,
+) -> _SafeHttpResponse:
     data_bytes = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=data_bytes, headers=headers or {}, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        handlers = []
+        if proxy:
+            handlers.append(urllib.request.ProxyHandler({"http": proxy, "https": proxy}))
+        opener = urllib.request.build_opener(*handlers)
+        with opener.open(req, timeout=timeout) as resp:
             body = resp.read().decode("utf-8", errors="ignore")
             return _SafeHttpResponse(status_code=resp.status, text=body)
     except urllib.error.HTTPError as e:
@@ -53,10 +77,7 @@ async def _safe_http_post(
 ) -> _SafeHttpResponse:
     if httpx is not None:
         try:
-            client_kwargs = {"timeout": httpx.Timeout(timeout, connect=15.0)}
-            if proxy:
-                client_kwargs["proxy"] = proxy
-            async with httpx.AsyncClient(**client_kwargs) as client:
+            async with _create_httpx_client(timeout=timeout, proxy=proxy) as client:
                 res = await client.post(url, headers=headers or {}, json=payload)
                 return _SafeHttpResponse(status_code=res.status_code, text=res.text)
         except Exception as e:
@@ -65,7 +86,7 @@ async def _safe_http_post(
     hdrs = dict(headers or {})
     if "Content-Type" not in hdrs:
         hdrs["Content-Type"] = "application/json"
-    return await asyncio.to_thread(_sync_urllib_post, url, hdrs, payload or {}, timeout)
+    return await asyncio.to_thread(_sync_urllib_post, url, hdrs, payload or {}, proxy, timeout)
 
 
 def _clean_str(val: Any) -> str:
@@ -172,7 +193,19 @@ async def call_real_llm(
     if response_format_json:
         payload["response_format"] = {"type": "json_object"}
 
-    ai_proxy = _clean_str(settings.OPENROUTER_PROXY or settings.AI_PROXY) or None
+    ai_proxy = (
+        _clean_str(settings.OPENROUTER_PROXY)
+        or _clean_str(settings.AI_PROXY)
+        or _clean_str(os.environ.get("OPENROUTER_PROXY"))
+        or _clean_str(os.environ.get("AI_PROXY"))
+        or _clean_str(os.environ.get("HTTPS_PROXY"))
+        or _clean_str(os.environ.get("HTTP_PROXY"))
+        or _clean_str(os.environ.get("https_proxy"))
+        or _clean_str(os.environ.get("http_proxy"))
+        or None
+    )
+
+    logger.info(f"OpenRouter request: model={openrouter_model}, proxy={ai_proxy or 'direct'}")
 
     try:
         res = await _safe_http_post(openrouter_url, headers=headers, payload=payload, proxy=ai_proxy)
@@ -391,6 +424,15 @@ def get_ai_status() -> dict[str, Any]:
     """Возвращает информацию о текущей активной конфигурации нейросетевого шлюза OpenRouter."""
     openrouter_key = _clean_str(settings.OPENROUTER_API_KEY)
     openrouter_model = _clean_str(settings.OPENROUTER_MODEL) or "google/gemini-2.5-flash"
+    ai_proxy = (
+        _clean_str(settings.OPENROUTER_PROXY)
+        or _clean_str(settings.AI_PROXY)
+        or _clean_str(os.environ.get("OPENROUTER_PROXY"))
+        or _clean_str(os.environ.get("AI_PROXY"))
+        or _clean_str(os.environ.get("HTTPS_PROXY"))
+        or _clean_str(os.environ.get("HTTP_PROXY"))
+        or None
+    )
 
     key_preview = "не задан"
     if openrouter_key:
@@ -400,6 +442,8 @@ def get_ai_status() -> dict[str, Any]:
         "is_configured": bool(openrouter_key),
         "active_provider": f"OpenRouter ({openrouter_model})",
         "key_preview": key_preview,
+        "proxy_configured": bool(ai_proxy),
+        "proxy": ai_proxy or "direct",
         "available_providers": [f"OpenRouter ({openrouter_model})"],
         "mock_data_enabled": False,
         "status": "online" if openrouter_key else "needs_key",
